@@ -52,8 +52,10 @@ type Element struct {
 	Bold  bool    `json:"bold,omitempty"`
 
 	// sticker
-	StickerID string  `json:"stickerId,omitempty"`
-	Rotation  float64 `json:"rotation,omitempty"`
+	StickerID string `json:"stickerId,omitempty"`
+
+	// text, sticker: поворот вокруг центра, градусы по часовой стрелке
+	Rotation float64 `json:"rotation,omitempty"`
 }
 
 type Crop struct {
@@ -88,7 +90,7 @@ type Library struct {
 	Stickers Stickers
 }
 
-// Поворот стикера в градусах по часовой стрелке.
+// Поворот текста и стикера в градусах по часовой стрелке: −180…180.
 const MaxRotation = 180
 
 // Допуск на погрешность дробных процентов (например, 33.34 + 66.67).
@@ -123,8 +125,11 @@ func (p Page) Validate(lib Library) error {
 }
 
 func (e Element) validate(lib Library) error {
-	if e.X < 0 || e.Y < 0 || e.W <= 0 || e.H <= 0 || e.X+e.W > 100+eps || e.Y+e.H > 100+eps {
+	if e.W <= 0 || e.H <= 0 || e.W > 100+eps || e.H > 100+eps || !e.onPage() {
 		return fmt.Errorf("geometry x=%v y=%v w=%v h=%v is outside the page (0–100)", e.X, e.Y, e.W, e.H)
+	}
+	if e.Rotation < -MaxRotation || e.Rotation > MaxRotation {
+		return fmt.Errorf("rotation %v must be between -%d and %d", e.Rotation, MaxRotation, MaxRotation)
 	}
 	switch e.Type {
 	case PhotoSlot:
@@ -159,13 +164,20 @@ func (e Element) validate(lib Library) error {
 		if !lib.Stickers.Has(e.StickerID) {
 			return fmt.Errorf("sticker %q is not in the stickers config", e.StickerID)
 		}
-		if e.Rotation < -MaxRotation || e.Rotation > MaxRotation {
-			return fmt.Errorf("rotation %v must be between -%d and %d", e.Rotation, MaxRotation, MaxRotation)
-		}
 	default:
 		return fmt.Errorf("unknown type %q", e.Type)
 	}
 	return nil
+}
+
+// onPage — блок на странице. Текст клиент двигает свободно: он может частично
+// выходить за страницу (что за линией реза — обрежется, редактор предупреждает),
+// но хотя бы часть блока остаётся на ней. Фото-слоты и стикеры — целиком на странице.
+func (e Element) onPage() bool {
+	if e.Type == Text {
+		return e.X < 100 && e.Y < 100 && e.X+e.W > 0 && e.Y+e.H > 0
+	}
+	return e.X >= 0 && e.Y >= 0 && e.X+e.W <= 100+eps && e.Y+e.H <= 100+eps
 }
 
 // ValidateAll проверяет набор страниц (обложка + внутренние) и уникальность id страниц.

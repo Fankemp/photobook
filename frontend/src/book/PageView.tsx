@@ -142,6 +142,8 @@ function ElementView({ el, format, imageSrc, lazy, variant, onTextFit, marginMm 
 // MIN_TEXT_PT). Подбор идёт по настоящей вёрстке с настоящим шрифтом, поэтому
 // и в редакторе, и в превью, и в PDF он видит одно и то же. Пересчёт — при
 // изменении текста, размера блока на экране и когда догрузился шрифт.
+// Поворот — CSS transform вокруг центра блока: на вёрстку и подбор кегля
+// он не влияет, поэтому повёрнутый текст переносится так же, как прямой.
 function TextView({ el, format, onFit }: { el: TextElement; format: Format; onFit?: (id: string, fits: boolean) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLDivElement>(null)
@@ -192,6 +194,7 @@ function TextView({ el, format, onFit }: { el: TextElement; format: Format; onFi
         color: el.color ?? '#000000',
         textAlign: el.align,
         fontWeight: el.bold ? 700 : 400,
+        transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
       }}
     >
       <div ref={textRef} style={{ fontSize: fontSize(el.size, format) }}>
@@ -214,9 +217,12 @@ function Guides({ format }: { format: Format }) {
   )
 }
 
-// Кегль задан в пунктах на бумаге (1 pt = 25.4/72 мм). Переводим в долю ширины
-// страницы и задаём в cqw (1cqw = 1% ширины .pv-trim, см. container-type в CSS):
-// текст масштабируется вместе со страницей, как картинка, на любом экране.
+// Кегль задан в пунктах на бумаге (1 pt = 25.4/72 мм) — так он и хранится в JSON.
+// На экране нужно: мм × (ширина страницы на экране / ширина страницы в формате).
+// Ровно это делает cqw (1cqw = 1% ширины .pv-trim, см. container-type в CSS):
+// задаём долю ширины страницы, браузер умножает на её ширину на экране. Текст
+// масштабируется вместе со страницей — на телефоне, компьютере, в превью; в PDF
+// страница шириной format.widthMm, и кегль получается ровно заданным.
 function fontSize(pt: number, format: Format): string {
   const mm = (pt * 25.4) / 72
   return `${(mm / format.widthMm) * 100}cqw`

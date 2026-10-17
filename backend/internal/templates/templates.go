@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -122,20 +123,30 @@ func (t Template) validate(fmts map[string]formats.Format, lib pages.Library) er
 // Рез может сместиться на пару миллиметров — текст у края рискует быть срезанным.
 // (Фото у края — нормально: они специально уходят в вылет.)
 func textInsideSafeZone(all []pages.Page, f formats.Format) error {
-	sx := f.SafeMM / f.WidthMM * 100
-	sy := f.SafeMM / f.HeightMM * 100
-	const eps = 0.01
+	const eps = 0.01 // мм
 	for _, p := range all {
 		for _, e := range p.Elements {
 			if e.Type != pages.Text {
 				continue
 			}
-			if e.X < sx-eps || e.Y < sy-eps || e.X+e.W > 100-sx+eps || e.Y+e.H > 100-sy+eps {
-				return fmt.Errorf("page %s, text %s: outside the safe zone (keep %.1f%% from the edges)", p.ID, e.ID, sx)
+			minX, minY, maxX, maxY := boundsMM(e, f)
+			if minX < f.SafeMM-eps || minY < f.SafeMM-eps || maxX > f.WidthMM-f.SafeMM+eps || maxY > f.HeightMM-f.SafeMM+eps {
+				return fmt.Errorf("page %s, text %s: outside the safe zone (keep %.1f mm from the edges)", p.ID, e.ID, f.SafeMM)
 			}
 		}
 	}
 	return nil
+}
+
+// boundsMM — границы блока на странице в мм с учётом поворота вокруг центра
+// (та же формула, что у предупреждения в редакторе, frontend/src/editor/transform.ts).
+func boundsMM(e pages.Element, f formats.Format) (minX, minY, maxX, maxY float64) {
+	w, h := e.W/100*f.WidthMM, e.H/100*f.HeightMM
+	cx, cy := e.X/100*f.WidthMM+w/2, e.Y/100*f.HeightMM+h/2
+	rad := e.Rotation * math.Pi / 180
+	hx := (math.Abs(w*math.Cos(rad)) + math.Abs(h*math.Sin(rad))) / 2
+	hy := (math.Abs(w*math.Sin(rad)) + math.Abs(h*math.Cos(rad))) / 2
+	return cx - hx, cy - hy, cx + hx, cy + hy
 }
 
 // List возвращает шаблоны в порядке имён файлов.

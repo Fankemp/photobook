@@ -68,6 +68,9 @@ func TestLoadDirErrors(t *testing.T) {
 		{"unknown format", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "nope", ` + cover + `, ` + onePage + `}`, "formatId"},
 		{"wrong page count", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, "pages": []}`, "needs exactly 1"},
 		{"text inside safe zone", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(textAt(10)) + `}`, ""},
+		// Блок 100×20 мм у верхнего края (10 мм) прямо — внутри, повёрнутый на 30° — углом в зоне реза.
+		{"text near the top, straight", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), `"y": 40`, `"y": 5`, 1)) + `}`, ""},
+		{"text near the top, rotated", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), `"y": 40`, `"y": 5, "rotation": 30`, 1)) + `}`, "safe zone"},
 		{"text too close to the edge", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(textAt(1)) + `}`, "safe zone"},
 		{"unknown font", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), "lora", "comic-sans", 1)) + `}`, "fonts config"},
 	}

@@ -98,19 +98,18 @@ await page.locator('.ed-bold').click()
 const boldFonts = await renderedFonts(added)
 check(boldFonts.length === 1 && boldFonts[0].isCustomFont && /bold/i.test(boldFonts[0].postScriptName ?? ''), `bold uses the real Montserrat Bold file (got ${boldFonts.map((x) => x.postScriptName).join(', ')})`)
 
-// 4. Размер, выравнивание, цвет, положение.
+// 4. Размер, выравнивание, цвет (положение, размер блока и поворот — в text-move.mjs).
 await page.getByRole('button', { name: 'Больше' }).click()
 await page.getByRole('radio', { name: 'По левому краю' }).click()
 await page.getByRole('radio', { name: 'Тёмно-синий' }).click()
-await page.getByRole('radio', { name: 'Сверху' }).click()
 const style = await page.locator('.ed-page .pv-trim > .pv-text:last-of-type').evaluate((e) => [e.style.textAlign, getComputedStyle(e).color])
 check(style[0] === 'left' && style[1] === 'rgb(30, 58, 95)', `align and colour applied (got ${style})`)
 await waitSaved()
 let b = await api(token)
 const saved = b.pages[1].elements.at(-1)
 check(
-  saved.type === 'text' && saved.font === 'montserrat' && saved.bold === true && saved.size === 15 && saved.align === 'left' && saved.color === '#1e3a5f' && saved.y === 8 && saved.text === KAZAKH,
-  `settings saved on the server (got ${JSON.stringify({ font: saved.font, bold: saved.bold, size: saved.size, align: saved.align, color: saved.color, y: saved.y })})`,
+  saved.type === 'text' && saved.font === 'montserrat' && saved.bold === true && saved.size === 15 && saved.align === 'left' && saved.color === '#1e3a5f' && saved.text === KAZAKH,
+  `settings saved on the server (got ${JSON.stringify({ font: saved.font, bold: saved.bold, size: saved.size, align: saved.align, color: saved.color })})`,
 )
 await page.screenshot({ path: `${out}/tx-3-styled.png` })
 
@@ -130,7 +129,8 @@ check(b.pages[1].elements.every((e) => e.type !== 'text'), 'added text removed')
 //    если не влезает даже мелко — предупреждение «Не помещается».
 const longText = 'Мы ехали вдоль моря весь день, останавливались у каждой бухты и пили чай из термоса. '.repeat(6).slice(0, 500)
 await page.getByRole('button', { name: 'Следующая страница' }).click() // стр. 3: фото с подписью (блок 168×22 мм, 11 пт)
-await page.locator('.ed-text').first().click() // пустая подпись → сразу окно ввода
+await page.locator('.ed-text').first().click() // тап — выбрать подпись
+await page.locator('.ed-text').first().click() // повторный тап — окно ввода
 await dialog.waitFor()
 await dialog.locator('textarea').fill(longText)
 await dialog.getByRole('button', { name: 'Готово' }).click()

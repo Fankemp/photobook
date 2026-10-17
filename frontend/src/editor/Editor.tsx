@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link } from 'react-router'
 import { ApiError, assetImageUrl, toApiError } from '../api.ts'
 import { DEFAULT_CROP, MAX_ZOOM, zoomCrop } from '../book/crop.ts'
@@ -13,6 +13,8 @@ import { useBookDoc, type SaveStatus } from './autosave.ts'
 import {
   addElement,
   allPagesOf,
+  bringToFront,
+  duplicateText,
   elKey,
   findElement,
   MAX_ELEMENTS_PER_PAGE,
@@ -25,7 +27,7 @@ import {
   updateSlot,
   updateSticker,
   updateText,
-  USER_TEXT_PREFIX,
+  type Doc,
   type ElRef,
   type SlotRef,
 } from './doc.ts'
@@ -36,6 +38,7 @@ import { StickerPicker } from './StickerPicker.tsx'
 import { TextDialog } from './TextDialog.tsx'
 import { TextOverlay } from './TextOverlay.tsx'
 import { TextPanel } from './TextPanel.tsx'
+import { nearCutLine, type Guides } from './transform.ts'
 import { ACCEPT, checkFile, readImageSize, uploadPhoto, type Size } from './upload.ts'
 import './Editor.css'
 
@@ -43,17 +46,19 @@ type LocalImage = Size & { url: string }
 
 // Редактор: листаем страницы, тап по пустому слоту — выбор фото,
 // тап по фото — выделение, затем двигаем и масштабируем кадр;
-// тап по тексту — панель шрифта, размера, цвета и окно ввода текста;
+// тап по тексту — выделение: тянем, меняем размер и поворачиваем ручками,
+// панель шрифта, размера, цвета; повторный тап — окно ввода текста;
 // стикеры добавляются из окна выбора, их можно двигать, вращать и менять размер.
-// Все правки сохраняются автоматически (см. autosave.ts).
+// Все правки сохраняются автоматически (см. autosave.ts), их можно отменить.
 // initialPage — с какой страницы открыть (0 — обложка, последняя — задняя обложка),
 // например по ссылке из превью.
 export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: number }) {
-  const { doc, update, status } = useBookDoc(book)
+  const { doc, update, undo, redo, canUndo, canRedo, status } = useBookDoc(book)
   const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length + 1, initialPage)))
   const [selected, setSelected] = useState<ElRef | null>(null)
   const [editingText, setEditingText] = useState<ElRef | null>(null) // открыто окно ввода
   const [pickingSticker, setPickingSticker] = useState(false) // открыто окно выбора стикера
+  const [guides, setGuides] = useState<Guides | null>(null) // линии привязки, пока тянем текст
   const [overflow, setOverflow] = useState<Record<string, boolean>>({}) // текст не влезает
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [localImages, setLocalImages] = useState<Record<string, LocalImage>>({})
@@ -116,16 +121,36 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     [doc.pages.length],
   )
 
-  // Стрелки ← → на клавиатуре листают страницы (удобно на компьютере).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker) return
-      if (e.key === 'ArrowLeft') goTo(pageIndex - 1)
-      if (e.key === 'ArrowRight') goTo(pageIndex + 1)
+  // «Отменить» / «Повторить». Правка могла быть на другой странице — тогда
+  // переходим на неё, чтобы было видно, что изменилось.
+  function showRestored(before: Doc, restored: Doc | undefined) {
+    if (!restored) return
+    const was = allPagesOf(before)
+    const changed = allPagesOf(restored).findIndex((p, i) => p !== was[i])
+    if (changed >= 0 && changed !== pageIndex) goTo(changed)
+  }
+  const onUndo = () => showRestored(doc, undo())
+  const onRedo = () => showRestored(doc, redo())
+
+  // Клавиатура на компьютере: стрелки ← → листают страницы, Ctrl+Z — отменить,
+  // Ctrl+Shift+Z или Ctrl+Y — повторить (⌘ на Mac). Смотрим e.code — физическую
+  // клавишу: в русской раскладке e.key у Z — «я».
+  const onKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker) return
+    if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY')) {
+      e.preventDefault()
+      if (e.code === 'KeyY' || e.shiftKey) onRedo()
+      else onUndo()
+      return
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [goTo, pageIndex, editingText, pickingSticker])
+    if (e.key === 'ArrowLeft') goTo(pageIndex - 1)
+    if (e.key === 'ArrowRight') goTo(pageIndex + 1)
+  })
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKey(e)
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   function pickPhoto(target: SlotRef) {
     pickTarget.current = target
@@ -177,14 +202,9 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     }
   }
 
-  const setCrop = (target: SlotRef, crop: Crop) => update((d) => updateSlot(d, target, (el) => ({ ...el, crop })))
-
-  // Тап по тексту: выбрать; пустой — сразу открыть ввод.
-  function onTapText(el: TextElement) {
-    const target = { pageId: page.id, elId: el.id }
-    setSelected(target)
-    if (el.text.trim() === '') setEditingText(target)
-  }
+  // Подряд идущие сдвиги и масштаб кадра одного фото — один шаг «Отменить».
+  const setCrop = (target: SlotRef, crop: Crop) =>
+    update((d) => updateSlot(d, target, (el) => ({ ...el, crop })), `crop:${slotKey(target)}`)
 
   function addText() {
     const el = newTextElement(doc, page)
@@ -205,6 +225,13 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     const el = newStickerElement(page, sticker, book.format)
     update((d) => addElement(d, page.id, el))
     setSelected({ pageId: page.id, elId: el.id }) // сразу можно подвинуть
+  }
+
+  // Копия текста — поверх оригинала, со сдвигом; сразу выбрана.
+  function duplicate(el: TextElement) {
+    const copy = duplicateText(page, el, book.format)
+    update((d) => addElement(d, page.id, copy))
+    setSelected({ pageId: page.id, elId: copy.id })
   }
 
   // На полной странице новые элементы сервер не сохранит.
@@ -250,6 +277,14 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           <h1>{t.book.title}</h1>
           <SaveIndicator status={status} />
         </div>
+        <div className="ed-history">
+          <button className="btn ed-icon-btn" onClick={onUndo} disabled={!canUndo} aria-label={t.editor.undo} title={t.editor.undo}>
+            <UndoIcon />
+          </button>
+          <button className="btn ed-icon-btn" onClick={onRedo} disabled={!canRedo} aria-label={t.editor.redo} title={t.editor.redo}>
+            <UndoIcon redo />
+          </button>
+        </div>
         {/* Уход в превью — обычный переход: редактор при закрытии дохраняет правки. */}
         <Link to={`/b/${book.token}/preview`} className="btn ed-preview-link">
           {t.editor.preview}
@@ -294,7 +329,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
                   el={el}
                   selected={sameEl(selected, ref)}
                   onTap={() => setSelected(ref)}
-                  onMove={(x, y) => update((d) => updateSticker(d, ref, (s) => moveSticker(s, x, y)))}
+                  onMove={(x, y) => update((d) => updateSticker(d, ref, (s) => moveSticker(s, x, y)), `sticker-move:${elKey(ref)}`)}
                 />
               )
             }
@@ -303,9 +338,14 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
                 <TextOverlay
                   key={el.id}
                   el={el}
+                  format={book.format}
                   selected={sameEl(selected, ref)}
                   overflow={!!overflow[elKey(ref)]}
-                  onTap={() => onTapText(el)}
+                  nearCut={nearCutLine(el, book.format)}
+                  onSelect={() => setSelected(ref)}
+                  onEdit={() => setEditingText(ref)}
+                  onPlace={(p, gesture) => update((d) => updateText(d, ref, (e) => ({ ...e, ...p })), `gesture:${gesture}`)}
+                  onGuides={setGuides}
                 />
               )
             }
@@ -324,6 +364,9 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
               />
             )
           })}
+          {/* Линии привязки к центру и краям страницы, пока тянем текст. */}
+          {guides?.x != null && <div className="ed-guide ed-guide-v" style={{ left: `${(guides.x / book.format.widthMm) * 100}%` }} />}
+          {guides?.y != null && <div className="ed-guide ed-guide-h" style={{ top: `${(guides.y / book.format.heightMm) * 100}%` }} />}
         </div>
       </div>
 
@@ -361,10 +404,14 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           {active && activeEl?.type === 'text' ? (
             <TextPanel
               el={activeEl}
-              movable={activeEl.id.startsWith(USER_TEXT_PREFIX)}
               overflow={!!overflow[elKey(active)]}
-              onChange={(fn) => update((d) => updateText(d, active, fn))}
+              nearCut={nearCutLine(activeEl, book.format)}
+              onTop={page.elements.at(-1)?.id === activeEl.id}
+              canCopy={!pageFull}
+              onChange={(fn, tag) => update((d) => updateText(d, active, fn), tag && `${tag}:${elKey(active)}`)}
               onEdit={() => setEditingText(active)}
+              onDuplicate={() => duplicate(activeEl)}
+              onFront={() => update((d) => bringToFront(d, active))}
               onRemove={() => removeEl(active)}
               onDone={() => setSelected(null)}
             />
@@ -372,7 +419,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
             <StickerPanel
               el={activeEl}
               format={book.format}
-              onChange={(fn) => update((d) => updateSticker(d, active, fn))}
+              onChange={(fn, tag) => update((d) => updateSticker(d, active, fn), tag && `${tag}:${elKey(active)}`)}
               onRemove={() => removeEl(active)}
               onDone={() => setSelected(null)}
             />
@@ -430,11 +477,21 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           page={allPages.find((p) => p.id === editingText.pageId) ?? page}
           format={book.format}
           imageSrc={imageSrc}
-          onChange={(text) => update((d) => updateText(d, editingText, (e) => ({ ...e, text })))}
+          onChange={(text) => update((d) => updateText(d, editingText, (e) => ({ ...e, text })), `text:${elKey(editingText)}`)}
           onClose={() => setEditingText(null)}
         />
       )}
     </div>
+  )
+}
+
+// Изогнутая стрелка «отменить»; redo — она же, отражённая.
+function UndoIcon({ redo = false }: { redo?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={redo ? { transform: 'scaleX(-1)' } : undefined}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
   )
 }
 

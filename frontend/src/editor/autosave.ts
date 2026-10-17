@@ -109,22 +109,90 @@ class AutoSaver {
   }
 }
 
-// useBookDoc — состояние книги в редакторе + автосохранение.
-// update(fn) применяет правку: fn получает текущий Doc и возвращает новый.
+const HISTORY_LIMIT = 100
+
+// История правок для «Отменить» / «Повторить». Хранит снимки Doc целиком: правки
+// неизменяемые, поэтому снимок — просто ссылка, а неизменённые страницы общие
+// у всех снимков (памяти почти не тратит).
+//
+// Тег склеивает правки в один шаг: перетаскивание текста шлёт правку на каждое
+// движение пальца, но отменяется целиком. Правки с одинаковым тегом подряд —
+// один шаг; без тега каждая правка — отдельный шаг.
+class History {
+  private past: Doc[] = []
+  private future: Doc[] = []
+  private lastTag: string | undefined
+
+  record(prev: Doc, tag?: string) {
+    this.future = []
+    if (tag !== undefined && tag === this.lastTag) return
+    this.lastTag = tag
+    this.past.push(prev)
+    if (this.past.length > HISTORY_LIMIT) this.past.shift()
+  }
+
+  undo(current: Doc): Doc | undefined {
+    const prev = this.past.pop()
+    if (prev) this.future.push(current)
+    this.lastTag = undefined
+    return prev
+  }
+
+  redo(current: Doc): Doc | undefined {
+    const next = this.future.pop()
+    if (next) this.past.push(current)
+    this.lastTag = undefined
+    return next
+  }
+
+  state() {
+    return { canUndo: this.past.length > 0, canRedo: this.future.length > 0 }
+  }
+}
+
+// useBookDoc — состояние книги в редакторе + автосохранение + отмена правок.
+// update(fn, tag) применяет правку: fn получает текущий Doc и возвращает новый
+// (про tag — см. History). undo/redo возвращают восстановленный Doc или undefined.
+// Отмена — тоже правка: сохраняется автоматически, как и всё остальное.
 export function useBookDoc(book: Book) {
   const [saver] = useState(() => new AutoSaver(book))
+  const [history] = useState(() => new History())
   const [doc, setDoc] = useState(saver.doc)
   const [status, setStatus] = useState<SaveStatus>(saver.hasUnsaved() ? 'pending' : 'saved')
+  // Отдельным состоянием, чтобы не читать изменяемый объект истории во время отрисовки.
+  const [undoState, setUndoState] = useState(history.state())
 
-  const update = useCallback(
-    (fn: (d: Doc) => Doc) => {
-      const next = fn(saver.doc)
-      if (next === saver.doc) return
+  const apply = useCallback(
+    (next: Doc) => {
       saver.change(next)
       setDoc(next)
+      const s = history.state()
+      setUndoState((old) => (old.canUndo === s.canUndo && old.canRedo === s.canRedo ? old : s))
     },
-    [saver],
+    [saver, history],
   )
+
+  const update = useCallback(
+    (fn: (d: Doc) => Doc, tag?: string) => {
+      const next = fn(saver.doc)
+      if (next === saver.doc) return
+      history.record(saver.doc, tag)
+      apply(next)
+    },
+    [saver, history, apply],
+  )
+
+  const undo = useCallback(() => {
+    const prev = history.undo(saver.doc)
+    if (prev) apply(prev)
+    return prev
+  }, [saver, history, apply])
+
+  const redo = useCallback(() => {
+    const next = history.redo(saver.doc)
+    if (next) apply(next)
+    return next
+  }, [saver, history, apply])
 
   useEffect(() => {
     saver.listen(setStatus)
@@ -152,5 +220,5 @@ export function useBookDoc(book: Book) {
     }
   }, [saver])
 
-  return { doc, update, status }
+  return { doc, update, undo, redo, ...undoState, status }
 }

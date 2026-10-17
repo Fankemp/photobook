@@ -4,12 +4,16 @@
   max-width: 760px;
   margin: 0 auto;
   padding: 12px 16px calc(var(--toolbar-h, 180px) + 16px);
+  /* Текст можно утащить частично за страницу, и его рамка с ручками выйдет за край
+     экрана. Обрезаем по ширине, иначе на телефоне появится прокрутка вбок.
+     clip (не hidden) не создаёт прокрутку внутри; панель внизу fixed — её не режет. */
+  overflow-x: clip;
 }
 
 .ed-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -24,6 +28,22 @@
   margin: 0;
   font-size: 1.25rem;
   line-height: 1.25;
+  /* На узком телефоне рядом кнопки отмены и превью — название сокращается. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ed-history {
+  display: flex;
+  gap: 4px;
+}
+
+/* Узкий телефон: рядом с названием кнопки отмены и превью — шрифт чуть меньше. */
+@media (max-width: 420px) {
+  .ed-header h1 {
+    font-size: 1.0625rem;
+  }
 }
 
 .ed-preview-link {
@@ -301,21 +321,177 @@
 
 /* ---------- Текст ---------- */
 
-/* Слой над текстовым блоком: только рамка выбора и подсказки. */
+/* Слой над текстовым блоком. Внешний — по блоку без поворота, касания не ловит
+   (иначе перехватывал бы их у соседей в углах повёрнутого блока); внутри —
+   рамка, повёрнутая вместе с текстом: она и ловит касания, на ней ручки. */
 .ed-text {
   position: absolute;
+  pointer-events: none;
+}
+
+.ed-text-rot {
+  position: absolute;
+  inset: 0;
+}
+
+.ed-text-frame {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
   cursor: pointer;
   outline: 1px dashed rgb(0 0 0 / 0.18);
   outline-offset: -1px;
+  /* Пока блок не выбран, по нему прокручивается страница. */
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.ed-text.is-selected {
-  outline: 3px solid var(--accent);
-  outline-offset: -3px;
+/* Выбранный блок тянут пальцем: забираем жесты у браузера, иначе поедет страница. */
+.ed-text.is-selected .ed-text-frame {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  touch-action: none;
+  cursor: move;
+}
+
+/* Ручки: зона касания 44×44 (удобно пальцу), а видна только точка на краю блока.
+   Зона почти целиком снаружи блока, внутрь заходит лишь на 8px: строка текста
+   бывает ниже 44px, и ручки не должны закрывать её середину — по ней тянут
+   блок и повторным тапом открывают ввод. */
+.ed-handle,
+.ed-rotate {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.ed-handle::after,
+.ed-rotate::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+}
+
+/* Ручки на сторонах — вытянутые вдоль стороны: видно, что тянуть поперёк. */
+.ed-handle-n::after,
+.ed-handle-s::after {
+  width: 22px;
+  height: 10px;
+  border-radius: 5px;
+}
+
+.ed-handle-e::after,
+.ed-handle-w::after {
+  width: 10px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.ed-handle-n { left: calc(50% - 22px); top: -36px; cursor: ns-resize; }
+.ed-handle-n::after { left: 22px; top: 36px; }
+.ed-handle-s { left: calc(50% - 22px); top: calc(100% - 8px); cursor: ns-resize; }
+.ed-handle-s::after { left: 22px; top: 8px; }
+.ed-handle-w { left: -36px; top: calc(50% - 22px); cursor: ew-resize; }
+.ed-handle-w::after { left: 36px; top: 22px; }
+.ed-handle-e { left: calc(100% - 8px); top: calc(50% - 22px); cursor: ew-resize; }
+.ed-handle-e::after { left: 8px; top: 22px; }
+.ed-handle-se { left: calc(100% - 8px); top: calc(100% - 8px); cursor: nwse-resize; }
+.ed-handle-se::after { left: 8px; top: 8px; }
+
+/* Ручка поворота — над блоком, на «ножке»; её зона не пересекается с верхней ручкой. */
+.ed-rotate {
+  left: calc(50% - 22px);
+  top: -80px;
+  cursor: grab;
+}
+
+.ed-rotate::before {
+  content: '';
+  position: absolute;
+  left: 21px;
+  top: 31px;
+  width: 2px;
+  height: 49px;
+  background: var(--accent);
+}
+
+.ed-rotate::after {
+  left: 22px;
+  top: 22px;
+  width: 18px;
+  height: 18px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a4b2d' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+/* Угол во время поворота. */
+.ed-rotate-value {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Линии привязки к центру и краям страницы. */
+.ed-guide {
+  position: absolute;
+  z-index: 2;
+  background: #e11d74;
+  pointer-events: none;
+}
+
+.ed-guide-v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-0.5px);
+}
+
+.ed-guide-h {
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+
+/* Предупреждения на блоке (не повёрнуты): «Не помещается», «Близко к краю». */
+.ed-badges {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 12px);
+  pointer-events: none;
+}
+
+.ed-badges .ed-dpi-badge {
+  position: static;
+}
+
+/* Мягкое предупреждение (не ошибка): спокойнее, чем «фото маленькое». */
+.ed-badge-soft,
+.ed-warning-soft {
+  background: #eef2f7;
+  color: #3b4a5e;
 }
 
 .ed-text-placeholder {
@@ -440,10 +616,6 @@
   height: 100%;
   opacity: 0;
   cursor: pointer;
-}
-
-.ed-positions .btn {
-  flex: 1;
 }
 
 /* «Изменить текст» — главное действие, ему больше места (не переносится). */

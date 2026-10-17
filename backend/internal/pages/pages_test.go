@@ -50,6 +50,18 @@ func TestPageValidate(t *testing.T) {
 		{"outside page", Page{ID: "p1", Elements: []Element{
 			{Type: PhotoSlot, ID: "s1", X: 50, W: 60, H: 10},
 		}}, "outside the page"},
+		{"text partly off the page, rotated", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.X, e.Y, e.Rotation = -30, 95, 45; return e }(),
+		}}, ""},
+		{"text entirely off the page", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.X = 100; return e }(),
+		}}, "outside the page"},
+		{"text wider than the page", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.X, e.W = 0, 120; return e }(),
+		}}, "outside the page"},
+		{"text rotation out of range", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.Rotation = -181; return e }(),
+		}}, "rotation"},
 		{"zero size", Page{ID: "p1", Elements: []Element{
 			{Type: PhotoSlot, ID: "s1", W: 0, H: 10},
 		}}, "outside the page"},

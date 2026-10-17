@@ -1,7 +1,6 @@
 import { FONTS, fontFamily, fontHasBold } from '../book/fonts.ts'
 import { t } from '../i18n/index.ts'
 import type { TextElement } from '../types.ts'
-import { TEXT_POSITIONS, textPosition, type TextPosition } from './doc.ts'
 
 // Цвета текста. Первые — нейтральные, дальше — спокойные, хорошо печатаются.
 const TEXT_COLORS = ['#000000', '#ffffff', '#4a3426', '#8a1c1c', '#c2410c', '#1e3a5f', '#2f5d3a', '#6b7280']
@@ -11,33 +10,48 @@ const SIZE_MAX = 72
 
 type Props = {
   el: TextElement
-  movable: boolean // текст добавлен клиентом — можно выбрать место
   overflow: boolean
-  onChange: (fn: (el: TextElement) => TextElement) => void
+  nearCut: boolean // блок заходит в зону реза
+  onTop: boolean // блок уже поверх всех элементов страницы
+  canCopy: boolean // на странице есть место для ещё одного элемента
+  // tag склеивает подряд идущие правки в один шаг «Отменить» (см. autosave.ts).
+  onChange: (fn: (el: TextElement) => TextElement, tag?: string) => void
   onEdit: () => void
+  onDuplicate: () => void
+  onFront: () => void
   onRemove: () => void
   onDone: () => void
 }
 
 // Панель внизу экрана для выбранного текста. Все настройки применяются сразу
 // и видны на странице; сохраняются автоматически, как и остальные правки.
-export function TextPanel({ el, movable, overflow, onChange, onEdit, onRemove, onDone }: Props) {
-  const set = (patch: Partial<TextElement>) => onChange((e) => ({ ...e, ...patch }))
+// Положение, размер и поворот меняются на самой странице (TextOverlay).
+export function TextPanel({ el, overflow, nearCut, onTop, canCopy, onChange, onEdit, onDuplicate, onFront, onRemove, onDone }: Props) {
+  const set = (patch: Partial<TextElement>, tag?: string) => onChange((e) => ({ ...e, ...patch }), tag)
   const hasBold = fontHasBold(el.font)
 
   return (
     <div className="ed-text-panel">
       {overflow && <p className="ed-dpi-warning">{t.editor.textOverflow}</p>}
+      {nearCut && <p className="ed-dpi-warning ed-warning-soft">{t.editor.textNearCut}</p>}
 
       <div className="ed-toolbar-row ed-text-actions">
         <button className="btn" onClick={onEdit}>
           {t.editor.editText}
         </button>
-        <button className="btn" onClick={onRemove}>
-          {t.editor.deleteText}
-        </button>
         <button className="btn btn-accent" onClick={onDone}>
           {t.editor.done}
+        </button>
+      </div>
+      <div className="ed-toolbar-row">
+        <button className="btn" onClick={onDuplicate} disabled={!canCopy}>
+          {t.editor.duplicate}
+        </button>
+        <button className="btn" onClick={onFront} disabled={onTop} aria-label={t.editor.bringToFrontLong}>
+          {t.editor.bringToFront}
+        </button>
+        <button className="btn" onClick={onRemove}>
+          {t.editor.deleteText}
         </button>
       </div>
 
@@ -115,26 +129,12 @@ export function TextPanel({ el, movable, overflow, onChange, onEdit, onRemove, o
             type="color"
             value={el.color ?? '#000000'}
             aria-label={t.editor.customColor}
-            onChange={(e) => set({ color: e.target.value })}
+            onChange={(e) => set({ color: e.target.value }, 'color')}
           />
         </label>
       </div>
 
-      {movable && (
-        <div className="ed-group ed-positions" role="radiogroup" aria-label={t.editor.position}>
-          {(Object.keys(TEXT_POSITIONS) as TextPosition[]).map((p) => (
-            <button
-              key={p}
-              role="radio"
-              aria-checked={textPosition(el) === p}
-              className={textPosition(el) === p ? 'btn is-on' : 'btn'}
-              onClick={() => set({ y: TEXT_POSITIONS[p] })}
-            >
-              {t.editor.positionNames[p]}
-            </button>
-          ))}
-        </div>
-      )}
+      <p className="muted ed-hint">{t.editor.textHint}</p>
     </div>
   )
 }

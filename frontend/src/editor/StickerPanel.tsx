@@ -6,7 +6,8 @@ import { resizeSticker, rotateSticker, STICKER_WIDTH } from './doc.ts'
 type Props = {
   el: StickerElement
   format: Format
-  onChange: (fn: (el: StickerElement) => StickerElement) => void
+  // tag склеивает правки одного ползунка в один шаг «Отменить» (см. autosave.ts).
+  onChange: (fn: (el: StickerElement) => StickerElement, tag?: string) => void
   onRemove: () => void
   onDone: () => void
 }
@@ -28,7 +29,7 @@ export function StickerPanel({ el, format, onChange, onRemove, onDone }: Props) 
           max={STICKER_WIDTH.max}
           step={0.5}
           value={el.w}
-          onChange={(e) => onChange((s) => resizeSticker(s, Number(e.target.value), sticker, format))}
+          onChange={(e) => onChange((s) => resizeSticker(s, Number(e.target.value), sticker, format), 'size')}
         />
       </label>
       <label className="ed-range">
@@ -39,7 +40,7 @@ export function StickerPanel({ el, format, onChange, onRemove, onDone }: Props) 
           max={180}
           step={1}
           value={rotation}
-          onChange={(e) => onChange((s) => rotateSticker(s, Number(e.target.value)))}
+          onChange={(e) => onChange((s) => rotateSticker(s, Number(e.target.value)), 'rotate')}
         />
         <output className="ed-range-value">{t.editor.degrees(rotation)}</output>
       </label>

@@ -1,4 +1,5 @@
 import type { StickerInfo } from '../book/stickers.ts'
+import { frameOf, moveFrame, placementOf } from './transform.ts'
 import type { Format, Page, PageElement, PhotoSlotElement, StickerElement, TextElement } from '../types.ts'
 
 // Содержимое книги, которое правит редактор и сохраняет автосохранение:
@@ -18,8 +19,8 @@ export const slotKey = elKey
 export const sameEl = (a: ElRef | null, b: ElRef) => a?.pageId === b.pageId && a.elId === b.elId
 export const sameSlot = sameEl
 
-// Текст, добавленный клиентом (а не из шаблона): его можно двигать по предустановленным местам.
-export const USER_TEXT_PREFIX = 'ut-'
+// Текст, добавленный клиентом (а не из шаблона).
+const USER_TEXT_PREFIX = 'ut-'
 const STICKER_PREFIX = 'st-'
 
 // Не больше элементов на странице — как pages.MaxElementsPerPage на сервере
@@ -85,11 +86,24 @@ export function removeElement(doc: Doc, ref: ElRef): Doc {
   return updatePage(doc, ref.pageId, (p) => ({ ...p, elements: p.elements.filter((e) => e.id !== ref.elId) }))
 }
 
-// Места для добавленного текста (в процентах страницы, внутри безопасной зоны).
-// Свободного перетаскивания в MVP нет — только эти три положения.
-export const TEXT_POSITIONS = { top: 8, middle: 45, bottom: 82 } as const
-export type TextPosition = keyof typeof TEXT_POSITIONS
-const TEXT_BOX = { x: 8, w: 84, h: 10 }
+// На передний план: элементы рисуются по порядку, последний — поверх остальных.
+export function bringToFront(doc: Doc, ref: ElRef): Doc {
+  return updatePage(doc, ref.pageId, (p) => {
+    const el = p.elements.find((e) => e.id === ref.elId)
+    return el ? { ...p, elements: [...p.elements.filter((e) => e !== el), el] } : p
+  })
+}
+
+// Копия текстового блока чуть правее и ниже оригинала (поверх него).
+const COPY_OFFSET_MM = 6
+export function duplicateText(page: Page, el: TextElement, format: Format): TextElement {
+  const { frame } = moveFrame(frameOf(el, format), COPY_OFFSET_MM, COPY_OFFSET_MM, format, 0)
+  return { ...el, ...placementOf(frame, format), id: newElementId(page, USER_TEXT_PREFIX) }
+}
+
+// Новый текст ставим внизу страницы на всю ширину безопасной зоны; дальше
+// клиент двигает его, меняет размер и поворачивает сам (см. transform.ts).
+const TEXT_BOX = { x: 8, y: 82, w: 84, h: 10 }
 
 // Новый текстовый блок внизу страницы. Шрифт и цвет берём у текста,
 // который уже есть на странице или на обложке, — чтобы вписался в шаблон.
@@ -99,22 +113,12 @@ export function newTextElement(doc: Doc, page: Page): TextElement {
     type: 'text',
     id: newElementId(page, USER_TEXT_PREFIX),
     ...TEXT_BOX,
-    y: TEXT_POSITIONS.bottom,
     text: '',
     font: sample?.font ?? 'montserrat',
     size: 14,
     color: sample?.color ?? '#000000',
     align: 'center',
   }
-}
-
-// Какое из трёх мест ближе всего к текущему положению блока.
-export function textPosition(el: TextElement): TextPosition {
-  let best: TextPosition = 'bottom'
-  for (const pos of Object.keys(TEXT_POSITIONS) as TextPosition[]) {
-    if (Math.abs(el.y - TEXT_POSITIONS[pos]) < Math.abs(el.y - TEXT_POSITIONS[best])) best = pos
-  }
-  return best
 }
 
 // ---------- Стикеры ----------

@@ -3,7 +3,7 @@
 // один book.pdf: передняя обложка, страницы, задняя обложка) → проверка.
 // Запуск: make e2e (нужен ADMIN_PASSWORD в .env — PDF скачиваем через админку).
 import { chromium } from 'playwright'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173'
 const apiBase = process.env.API_URL ?? 'http://localhost:8080'
@@ -115,6 +115,9 @@ for (let i = 0; i < 4; i++) setSlot(book.pages[6], i, ids[i])
 // В PDF они должны остаться вектором, а не картинкой (проверка «0 разжато» ниже).
 book.pages[2].elements.push({ type: 'sticker', id: 'st-pdf1', x: 72, y: 6, w: 22, h: 22, stickerId: 'love-heart', rotation: 15 })
 book.backCover.elements.push({ type: 'sticker', id: 'st-pdf2', x: 40, y: 30, w: 20, h: 20, stickerId: 'nature-leaves', rotation: 0 })
+// Повёрнутый текст на стр. 5 — для сверки «редактор = PDF» (см. шаг 5б). Ярко-красный,
+// чтобы найти его по пикселям; фото на этой странице нет.
+book.pages[4].elements.push({ type: 'text', id: 'ut-rot', x: 18, y: 30, w: 64, h: 22, text: 'ПОВОРОТ', font: 'montserrat', bold: true, size: 40, color: '#e00000', align: 'center', rotation: -25 })
 // Свой текст на задней обложке (по умолчанию она пустая, с фоном обложки).
 book.backCover.elements.push({ type: 'text', id: 'ut-back1', x: 8, y: 82, w: 84, h: 10, text: 'Спасибо за путешествие!', font: 'lora', size: 14, color: '#000000', align: 'center' })
 const saved = await api(`/books/${token}`, {
@@ -122,6 +125,16 @@ const saved = await api(`/books/${token}`, {
   body: JSON.stringify({ version: book.version, cover: book.cover, pages: book.pages, backCover: book.backCover }),
 })
 check(saved.version === book.version + 1, 'book with photos and text saved')
+
+// Страница 5 в редакторе (компьютер) — снимок для сверки с PDF. Снимаем до заявки:
+// после неё книга закрыта и ссылка на редактор ведёт на статус заявки.
+const ed = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+await ed.goto(`${base}/b/${token}?page=5`)
+await ed.locator('.ed-page .pv-text', { hasText: 'ПОВОРОТ' }).waitFor()
+await ed.evaluate(() => document.fonts.ready)
+const editorShot = await ed.locator('.ed-page .pv').screenshot()
+writeFileSync(`${out}/pr-editor-p5.png`, editorShot)
+await ed.close()
 
 // 4. Заявка → PDF собирается в фоне.
 const info = await api(`/books/${token}/order`)
@@ -151,12 +164,88 @@ check(/фото: \d+ JPEG без пересжатия, 0 разжато/.test(pa
 check(/шрифты встроены:[^.]*Caveat/.test(page) && /шрифты встроены:[^.]*Montserrat-Bold/.test(page) && /шрифты встроены:[^.]*Lora/.test(page), 'fonts embedded: Caveat (caption), Montserrat-Bold (cover title), Lora (back cover)')
 
 // 5. Скачивание из админки: один файл, правильное имя.
+let pdfBytes
 {
   const r = await admin(`/orders/${order.number}/pdf/book`)
   const buf = Buffer.from(await r.arrayBuffer())
   writeFileSync(`${out}/pr-book.pdf`, buf)
+  pdfBytes = buf
   const cd = r.headers.get('content-disposition') ?? ''
   check(r.ok && buf.subarray(0, 5).toString() === '%PDF-' && cd.includes(`photobook-${order.number}.pdf`), `book.pdf downloads as photobook-${order.number}.pdf (${(buf.length / 1e6).toFixed(1)} MB)`)
+}
+
+// 5б. Редактор = PDF: страница 5 из PDF (pdf.js рисует её в браузере) и снимок
+//     редактора. По ярко-красным пикселям текста считаем центр, наклон главной
+//     оси и длину надписи в долях страницы по линии реза — должны совпасть.
+{
+  const f = book.format
+  const sheet = f.widthMm + 2 * f.bleedMm
+  const check5b = await browser.newPage()
+  const pdfjsDir = 'node_modules/pdfjs-dist/build'
+  await check5b.route('http://pdfcheck.local/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><body></body>' })
+    if (path === '/book.pdf') return route.fulfill({ contentType: 'application/pdf', body: pdfBytes })
+    if (!path.endsWith('.mjs')) return route.fulfill({ status: 404 })
+    return route.fulfill({ contentType: 'text/javascript', body: readFileSync(pdfjsDir + path) })
+  })
+  await check5b.goto('http://pdfcheck.local/')
+  const stats = await check5b.evaluate(async ({ png, pageNo, margin }) => {
+    // pdf.js без отдельного Web Worker: обработчик воркера — в основном потоке.
+    const pdfjs = await import('/pdf.min.mjs')
+    globalThis.pdfjsWorker = await import('/pdf.worker.min.mjs')
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+
+    // Красные пиксели внутри страницы по линии реза (margin — доля вылета от листа).
+    function redStats(canvas, margin) {
+      const { width: W, height: H } = canvas
+      const { data } = canvas.getContext('2d').getImageData(0, 0, W, H)
+      const x0 = margin * W, x1 = W - margin * W, y0 = margin * H, y1 = H - margin * H
+      let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0
+      for (let y = Math.ceil(y0); y < y1; y++) {
+        for (let x = Math.ceil(x0); x < x1; x++) {
+          const i = (y * W + x) * 4
+          if (data[i] > 150 && data[i + 1] < 70 && data[i + 2] < 70) {
+            const u = (x - x0) / (x1 - x0), v = (y - y0) / (y1 - y0)
+            n++; sx += u; sy += v; sxx += u * u; syy += v * v; sxy += u * v
+          }
+        }
+      }
+      const cx = sx / n, cy = sy / n
+      const vxx = sxx / n - cx * cx, vyy = syy / n - cy * cy, vxy = sxy / n - cx * cy
+      const angle = (0.5 * Math.atan2(2 * vxy, vxx - vyy) * 180) / Math.PI
+      const spread = Math.sqrt((vxx + vyy) / 2 + Math.sqrt(((vxx - vyy) / 2) ** 2 + vxy * vxy)) // вдоль главной оси
+      return { n, cx, cy, angle, spread }
+    }
+
+    const doc = await pdfjs.getDocument({ url: '/book.pdf' }).promise
+    const page = await doc.getPage(pageNo)
+    const vp = page.getViewport({ scale: 3 })
+    const pdfCanvas = document.createElement('canvas')
+    pdfCanvas.width = Math.round(vp.width)
+    pdfCanvas.height = Math.round(vp.height)
+    await page.render({ canvasContext: pdfCanvas.getContext('2d'), viewport: vp }).promise
+
+    const img = new Image()
+    img.src = 'data:image/png;base64,' + png
+    await img.decode()
+    const edCanvas = document.createElement('canvas')
+    edCanvas.width = img.naturalWidth
+    edCanvas.height = img.naturalHeight
+    edCanvas.getContext('2d').drawImage(img, 0, 0)
+
+    return { pdf: redStats(pdfCanvas, margin), editor: redStats(edCanvas, 0), pdfPng: pdfCanvas.toDataURL('image/png') }
+  }, { png: editorShot.toString('base64'), pageNo: 1 + 5, margin: f.bleedMm / sheet })
+  writeFileSync(`${out}/pr-pdf-p5.png`, Buffer.from(stats.pdfPng.split(',')[1], 'base64'))
+  await check5b.close()
+
+  const { pdf: p, editor: e } = stats
+  const fmt = (s) => `центр ${(s.cx * 100).toFixed(1)}%, ${(s.cy * 100).toFixed(1)}%; наклон ${s.angle.toFixed(1)}°; длина ${(s.spread * 100).toFixed(2)}`
+  log(`  редактор: ${fmt(e)}\n  PDF:      ${fmt(p)}`)
+  check(p.n > 500 && e.n > 500, `rotated text found in the editor (${e.n} px) and in the PDF (${p.n} px)`)
+  check(Math.abs(p.cx - e.cx) < 0.005 && Math.abs(p.cy - e.cy) < 0.005, 'PDF: rotated text in the same place as in the editor (±1 mm)')
+  check(Math.abs(p.angle - e.angle) < 1 && Math.abs(p.angle + 25) < 1.5, 'PDF: same tilt as in the editor (−25°)')
+  check(Math.abs(p.spread / e.spread - 1) < 0.03, 'PDF: same text size relative to the page as in the editor')
 }
 
 // 6. Печатная страница с оригиналами — только по подписи backend.

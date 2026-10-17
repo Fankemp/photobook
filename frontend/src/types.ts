@@ -17,7 +17,8 @@ export type Format = {
   pdfOrder: string // порядок частей PDF: front,pages,back
 }
 
-// Координаты — проценты от страницы по линии реза (0–100).
+// Координаты — проценты от страницы по линии реза (0–100). Текст клиент двигает
+// свободно, и его блок может частично выходить за страницу (x < 0 или x + w > 100).
 type ElementBase = {
   id: string
   x: number
@@ -43,6 +44,7 @@ export type TextElement = ElementBase & {
   color?: string
   align: 'left' | 'center' | 'right'
   bold?: boolean
+  rotation?: number // градусы по часовой стрелке вокруг центра блока, −180…180; нет — 0
 }
 
 export type StickerElement = ElementBase & {
