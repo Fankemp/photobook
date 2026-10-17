@@ -206,7 +206,7 @@ function Spec({ format }: { format: Format }) {
   const s = t.home.spec
   const rows: [string, string][] = [
     [s.format, s.formatValue(format.widthMm / 10, format.heightMm / 10)],
-    [s.pages, s.pagesValue(format.pages)],
+    [s.pages, s.pagesValue(format.minPages, format.maxPages)],
     ...(format.priceKzt > 0 ? ([[s.price, formatTenge(format.priceKzt)]] as [string, string][]) : []),
     [s.print, s.printValue],
     [s.delivery, s.deliveryValue],

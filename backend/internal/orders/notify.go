@@ -60,7 +60,7 @@ func (s *Service) notifyNext(ctx context.Context, cfg NotifyConfig) (bool, error
 	var wanted time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT o.id, o.number, o.name, o.phone, o.address, o.wanted_date, o.comment, o.price_kzt,
-		       b.token, b.template_id, f.name, f.pages
+		       b.token, b.template_id, f.name, jsonb_array_length(b.pages)
 		FROM orders o JOIN books b ON b.id = o.book_id JOIN formats f ON f.id = b.format_id
 		WHERE o.notified_at IS NULL AND o.notify_attempts < $1
 		ORDER BY o.notify_attempts, o.created_at

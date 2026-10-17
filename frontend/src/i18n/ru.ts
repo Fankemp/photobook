@@ -41,7 +41,7 @@ export const ru = {
       format: 'Формат',
       formatValue: (w: number, h: number) => `${w} × ${h} см`,
       pages: 'Страниц',
-      pagesValue: (n: number) => `${n} и обложка`,
+      pagesValue: (min: number, max: number) => (min === max ? `${max} и обложка` : `от ${min} до ${max} и обложка`),
       price: 'Цена',
       print: 'Печать',
       printValue: 'в типографии',
@@ -92,6 +92,25 @@ export const ru = {
     addText: 'Добавить текст',
     addSticker: 'Добавить стикер',
     pageFull: 'На странице уже слишком много элементов.',
+    // Страницы: удаляются и добавляются листами по pageStep (см. editor/pages.ts).
+    pagesCount: (n: number, max: number) => `Страниц: ${n} из ${max}`,
+    pagesHint: (down: number | null, up: number | null, step: number, min: number, max: number) => {
+      const by = step === 1 ? 'по одной' : `листами по ${step}`
+      if (down !== null && up !== null) return `Можно ${down} или ${up}: страницы удаляются и добавляются ${by}.`
+      if (up !== null) return `Минимум ${min} ${plural(min, ['страница', 'страницы', 'страниц'])}. Добавить можно: будет ${up}.`
+      if (down !== null) return `Максимум ${max} ${plural(max, ['страница', 'страницы', 'страниц'])}. Удалить можно: будет ${down}.`
+      return ''
+    },
+    deletePages: (a: number, b: number) => (a === b ? `Удалить страницу ${a}` : `Удалить страницы ${a}–${b}`),
+    addPages: (step: number) => `Добавить ${step} ${plural(step, ['страницу', 'страницы', 'страниц'])}`,
+    addPagesToEnd: (step: number) => `Добавить ${step} ${plural(step, ['страницу', 'страницы', 'страниц'])} в конец`,
+    minPagesReached: (min: number) => `Минимум ${min} ${plural(min, ['страница', 'страницы', 'страниц'])}`,
+    maxPagesReached: (max: number) => `Максимум ${max} ${plural(max, ['страница', 'страницы', 'страниц'])}`,
+    pagesDeleted: (a: number, b: number) => (a === b ? `Страница ${a} удалена` : `Страницы ${a}–${b} удалены`),
+    pagesAdded: (a: number, b: number) => (a === b ? `Добавлена страница ${a}` : `Добавлены страницы ${a}–${b}`),
+    confirmDeleteTitle: (a: number, b: number) => (a === b ? `Удалить страницу ${a}?` : `Удалить страницы ${a}–${b}?`),
+    confirmDeleteText: 'На них есть фото, текст или стикеры. Сразу после удаления их можно вернуть кнопкой «Отменить».',
+    confirmDelete: 'Удалить',
     stickersTitle: 'Стикеры',
     stickerSets: 'Наборы стикеров',
     sticker: 'Стикер: выбрать, чтобы подвинуть, повернуть или изменить размер',
@@ -181,6 +200,10 @@ export const ru = {
     ready: 'Все рамки заполнены, разрешения фото хватает для печати.',
     lowDpi: 'Фото маленькое и на печати будет нечётким:',
     emptySlots: 'Пустые рамки, на печати на их месте будет фон:',
+    emptyPageOne: (n: number) => `Страница ${n} пустая — удалить её? На печати там будет только фон.`,
+    deleteIt: 'Открыть в редакторе',
+    emptyPages: 'Пустые страницы, на печати там будет только фон:',
+    deleteInEditor: 'Удалить их можно в редакторе.',
     coverLink: 'обложка',
     backLink: 'задняя обложка',
     pageLink: (n: number) => `стр. ${n}`,
@@ -204,7 +227,8 @@ export const ru = {
     comment: 'Комментарий (необязательно)',
     commentShort: 'Комментарий',
     commentPlaceholder: 'Например: позвонить после 18:00',
-    price: (sum: string) => `Стоимость книги: ${sum}. Аванс и доставку обсудим по телефону.`,
+    price: (sum: string, pages: number) =>
+      `Стоимость книги (${pages} ${plural(pages, ['страница', 'страницы', 'страниц'])} и обложка): ${sum}. Аванс и доставку обсудим по телефону.`,
     priceLater: 'Стоимость, аванс и доставку обсудим по телефону.',
     syncing: 'Сохраняем книгу…',
     sending: 'Отправляем…',

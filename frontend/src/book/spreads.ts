@@ -25,10 +25,21 @@ export function bookSpreads(pageCount: number): Spread[] {
 
 // Что мешает напечатать книгу хорошо. Номера страниц: 0 — обложка, 1..N — страницы,
 // N+1 — задняя обложка (так же нумерует редактор: ?page=N).
-export type BookIssues = { lowDpi: number[]; emptySlots: number[] }
+// emptyPages — страницы блока, на которых ничего нет: на печати будет только фон
+// (их удобно удалить); в emptySlots они не повторяются.
+export type BookIssues = { lowDpi: number[]; emptySlots: number[]; emptyPages: number[] }
 
 export function hasIssues(issues: BookIssues) {
-  return issues.lowDpi.length > 0 || issues.emptySlots.length > 0
+  return issues.lowDpi.length > 0 || issues.emptySlots.length > 0 || issues.emptyPages.length > 0
+}
+
+// Есть ли на странице то, что выйдет на печать и что жалко потерять: фото,
+// текст или стикер. Пустые рамки и пустые подписи из шаблона — не в счёт.
+export function pageHasContent(p: Page): boolean {
+  return p.elements.some(
+    (el) =>
+      (el.type === 'photo_slot' && !!el.assetId) || (el.type === 'text' && el.text.trim() !== '') || el.type === 'sticker',
+  )
 }
 
 export function findIssues(
@@ -36,8 +47,13 @@ export function findIssues(
   format: Format,
   sizes: Map<string, ImageSize>,
 ): BookIssues {
-  const issues: BookIssues = { lowDpi: [], emptySlots: [] }
+  const issues: BookIssues = { lowDpi: [], emptySlots: [], emptyPages: [] }
+  const last = doc.pages.length + 1
   ;[doc.cover, ...doc.pages, doc.backCover].forEach((page, n) => {
+    if (n > 0 && n < last && !pageHasContent(page)) {
+      issues.emptyPages.push(n)
+      return
+    }
     let low = false
     let empty = false
     for (const el of page.elements) {

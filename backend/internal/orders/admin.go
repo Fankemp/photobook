@@ -38,6 +38,7 @@ type Row struct {
 	Order
 	BookToken  string
 	TemplateID string
+	Pages      int // страниц в книге (без обложек) — клиент мог удалить или добавить
 	// Печатные PDF (пусто — ещё не собраны). Режим single — один BookPDFKey,
 	// split — CoverPDFKey и BlockPDFKey (см. formats.pdf_mode).
 	BookPDFKey  string
@@ -67,14 +68,15 @@ type Detail struct {
 }
 
 const rowColumns = `o.id, o.number, o.book_id, o.book_version, o.name, o.phone, o.address, o.wanted_date,
-	o.comment, o.status, o.price_kzt, o.created_at, b.token, b.template_id,
+	o.comment, o.status, o.price_kzt, o.created_at, b.token, b.template_id, jsonb_array_length(b.pages),
 	coalesce(o.book_pdf_key, ''), coalesce(o.cover_pdf_key, ''), coalesce(o.block_pdf_key, '')`
 
 func scanRow(row pgx.Row, extra ...any) (Row, error) {
 	var r Row
 	var wanted time.Time
 	dest := append([]any{&r.ID, &r.Number, &r.BookID, &r.BookVersion, &r.Name, &r.Phone, &r.Address, &wanted,
-		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.BookPDFKey, &r.CoverPDFKey, &r.BlockPDFKey}, extra...)
+		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.Pages,
+		&r.BookPDFKey, &r.CoverPDFKey, &r.BlockPDFKey}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return Row{}, err
 	}

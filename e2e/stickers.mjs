@@ -152,7 +152,7 @@ await page.close()
   check(near(st.x, 30) && near(st.y, 40) && (await desk.locator('.ed-sticker.is-selected').count()) === 1,
     `mouse drags an unselected sticker right away and selects it (x 60→${st.x}, y 60→${st.y})`)
 
-  await desk.getByRole('button', { name: 'Удалить' }).click()
+  await desk.getByRole('button', { name: 'Удалить', exact: true }).click()
   await desk.waitForTimeout(300)
   await desk.locator('.ed-status', { hasText: 'Сохранено' }).waitFor({ timeout: 10000 })
   check((await desk.locator('.ed-page .pv-sticker').count()) === 0 && !(await stickerOf(token)), '"Удалить" removes the sticker from the page and the server')

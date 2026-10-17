@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Fragment, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link } from 'react-router'
 import { ApiError, assetImageUrl, toApiError } from '../api.ts'
 import { DEFAULT_CROP, MAX_ZOOM, zoomCrop } from '../book/crop.ts'
@@ -40,6 +40,8 @@ import { TextDialog } from './TextDialog.tsx'
 import { TextOverlay } from './TextOverlay.tsx'
 import { TextPanel } from './TextPanel.tsx'
 import { nearCutLine, type Guides } from './transform.ts'
+import { canAdd, canRemove, hasContent, insertLeaf, leafOf, removeLeaf, restoreLeaf, type Removed } from './pages.ts'
+import { ConfirmDialog, PagesBar, Toast } from './PagesBar.tsx'
 import { ACCEPT, checkFile, readImageSize, uploadPhoto, type Size } from './upload.ts'
 import './Editor.css'
 
@@ -50,16 +52,19 @@ type LocalImage = Size & { url: string }
 // тап по тексту — выделение: тянем, меняем размер и поворачиваем ручками,
 // панель шрифта, размера, цвета; повторный тап — окно ввода текста;
 // стикеры добавляются из окна выбора, их можно двигать, вращать и менять размер.
+// Страницы блока можно удалять и добавлять листами (см. pages.ts).
 // Все правки сохраняются автоматически (см. autosave.ts), их можно отменить.
 // initialPage — с какой страницы открыть (0 — обложка, последняя — задняя обложка),
 // например по ссылке из превью.
 export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: number }) {
   const { doc, update, undo, redo, canUndo, canRedo, status } = useBookDoc(book)
-  const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length + 1, initialPage)))
+  const [rawPageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length + 1, initialPage)))
   const [selected, setSelected] = useState<ElRef | null>(null)
   const [editingText, setEditingText] = useState<ElRef | null>(null) // открыто окно ввода
   const [pickingSticker, setPickingSticker] = useState(false) // открыто окно выбора стикера
   const [guides, setGuides] = useState<Guides | null>(null) // линии привязки, пока тянем текст
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null) // спрашиваем про удаление листа этой страницы
+  const [toast, setToast] = useState<{ id: number; text: string; removed?: Removed } | null>(null)
   const [overflow, setOverflow] = useState<Record<string, boolean>>({}) // текст не влезает
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [localImages, setLocalImages] = useState<Record<string, LocalImage>>({})
@@ -84,6 +89,8 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
 
   const allPages = allPagesOf(doc) // 0 — обложка, 1..N — страницы, N+1 — задняя обложка
   const lastIndex = allPages.length - 1
+  // Страниц могло стать меньше (удалили, отменили добавление) — номер не дальше последней.
+  const pageIndex = Math.min(rawPageIndex, lastIndex)
   const page = allPages[pageIndex]
 
   // PageView сообщает, влез ли текст в блок; храним для предупреждений.
@@ -137,7 +144,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   // Ctrl+Shift+Z или Ctrl+Y — повторить (⌘ на Mac). Смотрим e.code — физическую
   // клавишу: в русской раскладке e.key у Z — «я».
   const onKey = useEffectEvent((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker) return
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker || confirmDelete !== null) return
     if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY')) {
       e.preventDefault()
       if (e.code === 'KeyY' || e.shiftKey) onRedo()
@@ -228,6 +235,61 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     setSelected({ pageId: page.id, elId: el.id }) // сразу можно подвинуть
   }
 
+  // ---------- Страницы: удалить и добавить листом ----------
+  const fmt = book.format
+  const count = doc.pages.length
+  const blockIndex = pageIndex >= 1 && pageIndex <= count ? pageIndex - 1 : null // открыта страница блока, не обложка
+
+  // Пустой лист удаляем сразу; если на нём есть фото, текст или стикеры — спрашиваем.
+  function askDeletePages() {
+    if (blockIndex === null || !canRemove(count, fmt)) return
+    const { start, end } = leafOf(blockIndex, fmt.pageStep)
+    if (doc.pages.slice(start, end).some(hasContent)) setConfirmDelete(blockIndex)
+    else deletePages(blockIndex)
+  }
+
+  function deletePages(index: number) {
+    setConfirmDelete(null)
+    const out: { removed?: Removed } = {}
+    update((d) => {
+      if (!canRemove(d.pages.length, fmt)) return d // двойной тап: второй раз не удаляем
+      const r = removeLeaf(d, index, fmt.pageStep)
+      out.removed = r.removed
+      return r.doc
+    })
+    const r = out.removed
+    if (!r) return
+    setPageIndex(Math.min(r.at + 1, count - r.pages.length)) // встаёт следующая страница (или последняя)
+    setSelected(null)
+    setToast({ id: Date.now(), text: t.editor.pagesDeleted(r.at + 1, r.at + r.pages.length), removed: r })
+  }
+
+  // «Отменить» в сообщении: страницы — на то же место. Фото удалённых страниц
+  // остались в хранилище, поэтому вернутся вместе со страницами. Если их уже
+  // вернула общая «Отменить» (Ctrl+Z), второй раз не вставляем — иначе id
+  // страниц повторятся и сервер не примет книгу.
+  function undoDelete(r: Removed) {
+    update((d) => {
+      const back = d.pages.some((p) => r.pages.some((q) => q.id === p.id))
+      return !back && d.pages.length + r.pages.length <= fmt.maxPages ? restoreLeaf(d, r) : d
+    })
+    setPageIndex(r.at + 1)
+    setSelected(null)
+    setToast(null)
+  }
+
+  // Добавить лист: после листа открытой страницы; с передней обложки — в начало,
+  // с задней и из ленты — в конец. Новые страницы повторяют устройство соседнего листа.
+  function addPages(where: 'here' | 'end') {
+    const step = fmt.pageStep
+    const at = where === 'end' || pageIndex === lastIndex ? count : blockIndex === null ? 0 : Math.min(leafOf(blockIndex, step).end, count)
+    const samples = at === 0 ? doc.pages.slice(0, step) : doc.pages.slice(Math.max(0, at - step), at)
+    update((d) => (canAdd(d.pages.length, fmt) ? insertLeaf(d, at, step, samples.length > 0 ? samples : [d.cover]) : d))
+    setPageIndex(at + 1)
+    setSelected(null)
+    setToast({ id: Date.now(), text: t.editor.pagesAdded(at + 1, at + step) })
+  }
+
   // Копия текста — поверх оригинала, со сдвигом; сразу выбрана.
   function duplicate(el: TextElement) {
     const copy = duplicateText(page, el, book.format)
@@ -263,6 +325,23 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     })
     return () => cancelAnimationFrame(frame)
   }, [selectedId])
+
+  // Сообщение «Страницы 5–6 удалены — Отменить» стоит под кнопками страниц;
+  // на телефоне его может закрыть панель внизу — докручиваем, чтобы было видно.
+  const toastId = toast?.id
+  useEffect(() => {
+    if (!toastId) return
+    const frame = requestAnimationFrame(() => {
+      const node = rootRef.current?.querySelector('.ed-toast')
+      const bar = toolbarRef.current
+      if (!node || !bar) return
+      const r = node.getBoundingClientRect()
+      const barAtBottom = getComputedStyle(bar).position === 'fixed'
+      const visibleBottom = window.innerHeight - (barAtBottom ? bar.offsetHeight : 0) - 12
+      if (r.bottom > visibleBottom) window.scrollBy({ top: r.bottom - visibleBottom, behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [toastId])
 
   // Выбранный элемент на текущей странице — для него показываем панель внизу.
   const active = selected && selected.pageId === page.id ? selected : null
@@ -387,6 +466,18 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
         </button>
       </nav>
 
+      <PagesBar format={fmt} count={count} blockIndex={blockIndex} onDelete={askDeletePages} onAdd={() => addPages('here')}>
+        {toast && (
+          <Toast
+            key={toast.id}
+            text={toast.text}
+            onUndo={toast.removed ? () => undoDelete(toast.removed!) : undefined}
+            undoDisabled={!!toast.removed && count + toast.removed.pages.length > fmt.maxPages}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </PagesBar>
+
       <PageStrip
         pages={allPages}
         current={pageIndex}
@@ -394,6 +485,9 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
         imageSrc={imageSrc}
         warnings={allPages.map(pageHasLowDpi)}
         onSelect={goTo}
+        canAddEnd={canAdd(count, fmt)}
+        addEndLabel={canAdd(count, fmt) ? t.editor.addPagesToEnd(fmt.pageStep) : t.editor.maxPagesReached(fmt.maxPages)}
+        onAddEnd={() => addPages('end')}
       />
 
       {/* Чистая ссылка на книгу, без ?page= и прочего из адресной строки. */}
@@ -473,6 +567,20 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
 
       {pickingSticker && <StickerPicker onPick={addSticker} onClose={() => setPickingSticker(false)} />}
 
+      {confirmDelete !== null && (
+        <ConfirmDialog
+          title={t.editor.confirmDeleteTitle(
+            leafOf(confirmDelete, fmt.pageStep).start + 1,
+            Math.min(leafOf(confirmDelete, fmt.pageStep).end, count),
+          )}
+          text={t.editor.confirmDeleteText}
+          confirm={t.editor.confirmDelete}
+          onConfirm={() => deletePages(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+
       {editingText && editingEl?.type === 'text' && (
         <TextDialog
           el={editingEl}
@@ -521,10 +629,14 @@ type StripProps = {
   imageSrc: (id: string) => string
   warnings: boolean[] // на странице есть фото с низким разрешением
   onSelect: (i: number) => void
+  canAddEnd: boolean
+  addEndLabel: string // «Добавить 2 страницы в конец» или почему нельзя
+  onAddEnd: () => void
 }
 
-// Лента миниатюр всех страниц для быстрого перехода.
-function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: StripProps) {
+// Лента миниатюр всех страниц для быстрого перехода. Перед задней обложкой —
+// плитка «+»: добавить лист в конец книги.
+function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, canAddEnd, addEndLabel, onAddEnd }: StripProps) {
   const listRef = useRef<HTMLOListElement>(null)
 
   // Текущая миниатюра — по центру ленты. Крутим только саму ленту:
@@ -532,7 +644,7 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: Str
   // на телефоне и вертикальная колонка на широком экране.
   useEffect(() => {
     const list = listRef.current
-    const item = list?.children[current] as HTMLElement | undefined
+    const item = list?.querySelector<HTMLElement>(`[data-strip="${current}"]`)
     if (!list || !item) return
     if (list.scrollHeight > list.clientHeight + 1) {
       list.scrollTo({ top: item.offsetTop - list.clientHeight / 2 + item.clientHeight / 2, behavior: 'smooth' })
@@ -544,7 +656,18 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: Str
   return (
     <ol className="ed-strip" ref={listRef}>
       {pages.map((p, i) => (
-        <li key={p.id}>
+        <Fragment key={p.id}>
+          {i === pages.length - 1 && (
+            <li className="ed-strip-add">
+              <button onClick={onAddEnd} disabled={!canAddEnd} aria-label={addEndLabel} title={addEndLabel}>
+                <span className="ed-strip-plus" style={{ aspectRatio: `${format.widthMm} / ${format.heightMm}` }} aria-hidden="true">
+                  +
+                </span>
+                <span>+{format.pageStep}</span>
+              </button>
+            </li>
+          )}
+        <li data-strip={i}>
           <button
             className={i === current ? 'is-current' : undefined}
             aria-current={i === current ? 'page' : undefined}
@@ -558,6 +681,7 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: Str
             </span>
           </button>
         </li>
+        </Fragment>
       ))}
     </ol>
   )

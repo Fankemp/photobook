@@ -11,7 +11,7 @@ import (
 type orderInfoResponse struct {
 	Order         *orders.Order `json:"order"`         // null — заявки ещё нет
 	MinWantedDate string        `json:"minWantedDate"` // самая ранняя дата для формы
-	PriceKZT      int           `json:"priceKzt"`
+	PriceKZT      int           `json:"priceKzt"`      // цена книги с её числом страниц
 }
 
 // getOrder — для страницы заявки: либо заявка уже есть (показываем статус),
@@ -34,7 +34,7 @@ func (a *API) getOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orderInfoResponse{
 		Order:         o,
 		MinWantedDate: a.Orders.MinWantedDate(time.Now()).Format("2006-01-02"),
-		PriceKZT:      f.PriceKZT,
+		PriceKZT:      f.Price(len(b.Pages)),
 	})
 }
 
@@ -61,7 +61,9 @@ func (a *API) createOrder(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	o, err := a.Orders.Create(r.Context(), b.ID, f.PriceKZT, in)
+	// Цена — по числу страниц книги, которую заказывают (её версия совпадает
+	// с той, что видел клиент, — это проверяет Create).
+	o, err := a.Orders.Create(r.Context(), b.ID, f.Price(len(b.Pages)), in)
 	switch {
 	case errors.Is(err, orders.ErrAlreadyOrdered):
 		writeError(w, http.StatusConflict, "already_ordered")

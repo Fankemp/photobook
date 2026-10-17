@@ -36,6 +36,7 @@
   <h2>Книга</h2>
   <dl>
     <dt>Шаблон</dt><dd>{{.Template}}</dd>
+    <dt>Страниц</dt><dd>{{.O.Pages}} и обложки</dd>
     <dt>Цена</dt><dd>{{if .O.PriceKZT}}{{tenge .O.PriceKZT}}{{else}}не задана в формате{{end}}</dd>
     <dt>PDF</dt>
     <dd>

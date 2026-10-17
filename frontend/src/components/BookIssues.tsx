@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import { hasIssues, type BookIssues as Issues } from '../book/spreads.ts'
 import { t } from '../i18n/index.ts'
 
-// Что стоит поправить перед печатью: пустые рамки и маленькие фото.
+// Что стоит поправить перед печатью: маленькие фото, пустые рамки, пустые страницы.
 // Номера страниц — ссылки сразу на нужную страницу в редакторе.
 // Используется в превью и на странице заявки.
 // pageCount — страниц блока: номер pageCount+1 — задняя обложка.
@@ -18,6 +18,16 @@ export function BookIssues({ issues, token, pageCount }: { issues: Issues; token
       {issues.emptySlots.length > 0 && (
         <IssueLine text={t.preview.emptySlots} pages={issues.emptySlots} token={token} back={pageCount + 1} />
       )}
+      {/* Пустую страницу проще удалить: ссылка ведёт в редактор, на ней — «Удалить». */}
+      {issues.emptyPages.length === 1 && (
+        <p>
+          {t.preview.emptyPageOne(issues.emptyPages[0])}{' '}
+          <Link to={`/b/${token}?page=${issues.emptyPages[0]}`}>{t.preview.deleteIt}</Link>
+        </p>
+      )}
+      {issues.emptyPages.length > 1 && (
+        <IssueLine text={t.preview.emptyPages} pages={issues.emptyPages} token={token} back={pageCount + 1} after={t.preview.deleteInEditor} />
+      )}
     </section>
   )
 }
@@ -26,7 +36,9 @@ export function BookIssues({ issues, token, pageCount }: { issues: Issues; token
 // список занял бы пол-экрана.
 const MAX_LINKS = 6
 
-function IssueLine({ text, pages, token, back }: { text: string; pages: number[]; token: string; back: number }) {
+type LineProps = { text: string; pages: number[]; token: string; back: number; after?: string }
+
+function IssueLine({ text, pages, token, back, after }: LineProps) {
   const rest = pages.length - MAX_LINKS
   return (
     <p>
@@ -40,6 +52,7 @@ function IssueLine({ text, pages, token, back }: { text: string; pages: number[]
         </span>
       ))}
       {rest > 0 && ` ${t.preview.more(rest)}`}
+      {after && `. ${after}`}
     </p>
   )
 }

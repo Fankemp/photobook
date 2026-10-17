@@ -71,9 +71,9 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	// Настройка печатного PDF в формате (pdf_mode, pdf_order) — проверяем сразу.
+	// Настройка формата (печатный PDF, пределы числа страниц) — проверяем сразу.
 	for _, f := range fmts {
-		if _, err := f.Order(); err != nil {
+		if err := f.Validate(); err != nil {
 			return err
 		}
 	}

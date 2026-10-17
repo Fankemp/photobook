@@ -60,7 +60,7 @@ func TestTemplatesRender(t *testing.T) {
 		Row: orders.Row{Order: orders.Order{
 			Number: 1001, Name: "Айгерим <b>", Phone: "+77001234567", Address: "Алматы", WantedDate: "2026-10-20",
 			Comment: "после 18:00", Status: "new", CreatedAt: sent,
-		}, BookToken: "TOKEN", TemplateID: "travel-minimal"},
+		}, BookToken: "TOKEN", TemplateID: "travel-minimal", Pages: 18},
 		Events: []orders.Event{{Status: "new", Note: "заявка с сайта", CreatedAt: sent}},
 	}
 	notified := base
@@ -91,7 +91,7 @@ func TestTemplatesRender(t *testing.T) {
 			}
 			// Остальное — как увидит человек (html/template пишет «+» как &#43;).
 			text := html.UnescapeString(raw)
-			for _, want := range []string{"Заявка №1001", "+7 700 123 45 67", "20.10.2026", "Следующий шаг: Ждём аванс", tt.want} {
+			for _, want := range []string{"Заявка №1001", "+7 700 123 45 67", "20.10.2026", "Следующий шаг: Ждём аванс", "18 и обложки", tt.want} {
 				if !strings.Contains(text, want) {
 					t.Errorf("detail page lacks %q", want)
 				}
@@ -105,7 +105,7 @@ func TestTemplatesRender(t *testing.T) {
 		"Orders":  []orders.Row{base.Row},
 	})
 	listText := html.UnescapeString(sb.String())
-	if err != nil || !strings.Contains(listText, "№1001") || !strings.Contains(listText, "+7 700 123 45 67 · нужна к 20.10.2026") {
+	if err != nil || !strings.Contains(listText, "№1001") || !strings.Contains(listText, "+7 700 123 45 67 · 18 стр. · нужна к 20.10.2026") {
 		t.Fatalf("list page: err=%v\n%s", err, sb.String())
 	}
 }

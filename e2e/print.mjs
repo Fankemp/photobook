@@ -118,6 +118,8 @@ book.backCover.elements.push({ type: 'sticker', id: 'st-pdf2', x: 40, y: 30, w: 
 // Повёрнутый текст на стр. 5 — для сверки «редактор = PDF» (см. шаг 5б). Ярко-красный,
 // чтобы найти его по пикселям; фото на этой странице нет.
 book.pages[4].elements.push({ type: 'text', id: 'ut-rot', x: 18, y: 30, w: 64, h: 22, text: 'ПОВОРОТ', font: 'montserrat', bold: true, size: 40, color: '#e00000', align: 'center', rotation: -25 })
+// Клиент удалил последний лист (страницы 19–20): в PDF — фактическое число страниц.
+book.pages = book.pages.slice(0, 18)
 // Свой текст на задней обложке (по умолчанию она пустая, с фоном обложки).
 book.backCover.elements.push({ type: 'text', id: 'ut-back1', x: 8, y: 82, w: 84, h: 10, text: 'Спасибо за путешествие!', font: 'lora', size: 14, color: '#000000', align: 'center' })
 const saved = await api(`/books/${token}`, {
@@ -158,7 +160,8 @@ let page = await waitPdf(order.number)
 log(`  pdf built in ~${((Date.now() - started) / 1000).toFixed(0)} s`)
 const pdfInfo = /book\.pdf — [^<]*?(?=\s{2,}|$)/.exec(page)?.[0] ?? page.slice(0, 300)
 log('  ' + pdfInfo)
-check(page.includes('book.pdf — 22 стр.: передняя обложка, страницы 1–20, задняя обложка; 206×206 мм'), 'one book.pdf: front cover, pages 1–20, back cover, all 206×206 mm (200 + 2×3 bleed)')
+check(page.includes('book.pdf — 20 стр.: передняя обложка, страницы 1–18, задняя обложка; 206×206 мм'), 'one book.pdf with the actual page count: front cover, pages 1–18 (last leaf deleted), back cover, all 206×206 mm')
+check(/Страниц\s+18 и обложки/.test(page), 'admin shows the book page count (18)')
 check(page.includes('цвет фото: RGB'), 'photos are RGB (PDF_CMYK=false)')
 check(/фото: \d+ JPEG без пересжатия, 0 разжато/.test(page), 'every photo embedded as JPEG without recompression (rotated one via its upright print copy); stickers stay vector, no extra images')
 check(/шрифты встроены:[^.]*Caveat/.test(page) && /шрифты встроены:[^.]*Montserrat-Bold/.test(page) && /шрифты встроены:[^.]*Lora/.test(page), 'fonts embedded: Caveat (caption), Montserrat-Bold (cover title), Lora (back cover)')
@@ -258,7 +261,7 @@ check(badSig === 403, 'print data with a forged signature → 403')
 const re = await admin(`/orders/${order.number}/render`, { method: 'POST', redirect: 'manual' })
 check(re.status === 303, 're-render requested from admin')
 page = await waitPdf(order.number)
-check(page.includes('book.pdf — 22 стр.'), 'PDF rebuilt')
+check(page.includes('book.pdf — 20 стр.'), 'PDF rebuilt')
 
 await browser.close()
 log(problems.length ? '\nPROBLEMS:\n' + problems.join('\n') : '\nALL PRINT CHECKS PASSED')

@@ -7,10 +7,16 @@ export type Format = {
   heightMm: number
   bleedMm: number
   safeMm: number
-  pages: number // внутренние страницы, без обложки
+  // Страницы блока (без обложек): pages — у новой книги; клиент меняет число
+  // сам, листами по pageStep, от minPages до maxPages (см. editor/pages.ts).
+  pages: number
+  minPages: number
+  maxPages: number
+  pageStep: number
   minDpi: number
   targetDpi: number
-  priceKzt: number
+  priceKzt: number // цена книги с pages страниц
+  pricePerPageKzt: number // доплата за страницу сверх pages (меньше страниц — скидка)
   spineMm: number // корешок обложки (пока 0)
   wrapMm: number // загиб обложки на картон с каждой стороны (пока 0)
   pdfMode: 'single' | 'split' // печатный PDF: один файл или обложки и страницы отдельно

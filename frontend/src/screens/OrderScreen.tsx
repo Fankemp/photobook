@@ -8,7 +8,7 @@ import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
 import { clearDraft, restoreDoc } from '../editor/draft.ts'
 import { t } from '../i18n/index.ts'
-import { formatTenge } from '../lib/money.ts'
+import { bookPrice, formatTenge } from '../lib/money.ts'
 import { formatPhone, normalizePhone } from '../lib/phone.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import type { Book, Order, OrderInfo } from '../types.ts'
@@ -38,6 +38,9 @@ export function OrderScreen() {
 
 function OrderPage({ book, info }: { book: Book; info: OrderInfo }) {
   const [order, setOrder] = useState<Order | null>(info.order)
+  // Заказываем ровно то, что клиент видел в редакторе: книга с этого устройства
+  // (с несохранённым черновиком, если он есть — форма сначала его сохранит).
+  const [restored] = useState(() => restoreDoc(book))
   return (
     <main className="page order">
       <header className="pp-header">
@@ -46,18 +49,19 @@ function OrderPage({ book, info }: { book: Book; info: OrderInfo }) {
         </Link>
         <h1>{order ? t.order.placedTitle(order.number) : t.order.title}</h1>
       </header>
-      <BookSummary book={book} />
+      <BookSummary book={book} pageCount={restored.doc.pages.length} />
       {order ? (
         <OrderStatus order={order} token={book.token} />
       ) : (
-        <OrderForm book={book} info={info} onCreated={setOrder} />
+        <OrderForm book={book} info={info} restored={restored} onCreated={setOrder} />
       )}
     </main>
   )
 }
 
 // Что заказываем: обложка книги (тот же PageView) и формат.
-function BookSummary({ book }: { book: Book }) {
+// Страниц — по книге на этом устройстве (с черновиком): клиент мог только что удалить или добавить.
+function BookSummary({ book, pageCount }: { book: Book; pageCount: number }) {
   return (
     <div className="order-book">
       <span className="order-book-cover">
@@ -65,7 +69,7 @@ function BookSummary({ book }: { book: Book }) {
       </span>
       <div>
         <p className="order-book-title">{t.book.title}</p>
-        <p className="muted">{t.formatInfo(book.format.name, book.pages.length)}</p>
+        <p className="muted">{t.formatInfo(book.format.name, pageCount)}</p>
       </div>
     </div>
   )
@@ -85,10 +89,11 @@ const FIELD_BY_CODE: Record<string, keyof Fields> = {
 
 type Sync = { status: 'saving' } | { status: 'ready'; version: number } | { status: 'error'; error: ApiError }
 
-function OrderForm({ book, info, onCreated }: { book: Book; info: OrderInfo; onCreated: (o: Order) => void }) {
+type FormProps = { book: Book; info: OrderInfo; restored: ReturnType<typeof restoreDoc>; onCreated: (o: Order) => void }
+
+function OrderForm({ book, info, restored, onCreated }: FormProps) {
   // Заказываем ровно то, что клиент видел в редакторе: если на этом устройстве
   // остались несохранённые правки (черновик), сначала сохраняем их.
-  const [restored] = useState(() => restoreDoc(book))
   const [sync, setSync] = useState<Sync>(() =>
     restored.fromDraft ? { status: 'saving' } : { status: 'ready', version: book.version },
   )
@@ -105,6 +110,8 @@ function OrderForm({ book, info, onCreated }: { book: Book; info: OrderInfo; onC
     )
   }, [book, restored])
 
+  const pageCount = restored.doc.pages.length
+  const price = bookPrice(book.format, pageCount)
   const sizes = useMemo(() => new Map(book.assets.map((a) => [a.id, a])), [book.assets])
   const issues = useMemo(
     () => findIssues(restored.doc, book.format, sizes),
@@ -225,7 +232,8 @@ function OrderForm({ book, info, onCreated }: { book: Book; info: OrderInfo; onC
         />
       </Field>
 
-      <p className="order-price">{info.priceKzt > 0 ? t.order.price(formatTenge(info.priceKzt)) : t.order.priceLater}</p>
+      {/* Цена — по числу страниц книги (формат: цена + доплата за страницу); 0 — ещё не задана. */}
+      <p className="order-price">{price > 0 ? t.order.price(formatTenge(price), pageCount) : t.order.priceLater}</p>
 
       {sync.status === 'error' && <ErrorMessage error={sync.error} />}
       {formError && <ErrorMessage error={formError} />}

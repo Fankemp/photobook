@@ -146,7 +146,11 @@ func (a *API) saveBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	all := append(append([]pages.Page{req.Cover}, req.Pages...), *req.BackCover)
-	if len(req.Pages) != f.Pages || pages.ValidateAll(all, a.Library) != nil {
+	// Число страниц клиент меняет сам — листами по page_step, от min до max.
+	// Прежнее число страниц книги принимаем всегда: даже если формат с тех пор
+	// поменяли, уже собранная книга должна сохраняться.
+	n := len(req.Pages)
+	if (n != len(b.Pages) && !f.PageCountOK(n)) || pages.ValidateAll(all, a.Library) != nil {
 		writeError(w, http.StatusBadRequest, "invalid_pages")
 		return
 	}

@@ -47,6 +47,14 @@ class AutoSaver {
   change(next: Doc) {
     this.doc = next
     if (this.stopped) return
+    // Правки вернули книгу ровно к сохранённой (например, «Отменить») — отправлять
+    // нечего; черновик с устройства тоже не нужен.
+    if (!this.hasUnsaved() && !this.inFlight) {
+      window.clearTimeout(this.timer)
+      clearDraft(this.book.token)
+      this.onStatus('saved')
+      return
+    }
     this.onStatus('pending')
     this.schedule(SAVE_DELAY)
   }

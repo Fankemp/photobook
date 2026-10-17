@@ -205,7 +205,7 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 	// строки мешала бы остальным — уведомлению в Telegram и смене статуса в админке.
 	var j job
 	err := w.db.QueryRow(ctx, `
-		SELECT o.id, o.number, o.book_version, b.version, f.pages,
+		SELECT o.id, o.number, o.book_version, b.version, jsonb_array_length(b.pages),
 		       f.width_mm, f.height_mm, f.bleed_mm, f.wrap_mm, f.spine_mm, f.id, f.pdf_mode, f.pdf_order
 		FROM orders o JOIN books b ON b.id = o.book_id JOIN formats f ON f.id = b.format_id
 		WHERE o.status <> 'cancelled' AND o.rendered_at IS NULL AND o.render_attempts < $1

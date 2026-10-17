@@ -120,7 +120,7 @@ await dialog.getByRole('button', { name: 'Отмена' }).click()
 check((await page.locator(added).textContent()) === KAZAKH, 'cancel restores the previous text')
 
 // 6. Удалить добавленный текст.
-await page.getByRole('button', { name: 'Удалить' }).click()
+await page.getByRole('button', { name: 'Удалить', exact: true }).click()
 await waitSaved()
 b = await api(token)
 check(b.pages[1].elements.every((e) => e.type !== 'text'), 'added text removed')

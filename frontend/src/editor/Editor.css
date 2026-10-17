@@ -781,6 +781,80 @@
   background: var(--surface);
 }
 
+/* ---------- Страницы: удалить, добавить, счётчик ---------- */
+.ed-pages {
+  max-width: min(100%, calc(100dvh - 300px));
+  margin: 0 auto 16px;
+  text-align: center;
+}
+
+.ed-pages-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ed-pages-count {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+}
+
+/* Плитка «+» в ленте: того же размера, что миниатюра, пунктиром. */
+.ed-strip-add button {
+  color: var(--muted);
+}
+
+.ed-strip-plus {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  border: 2px dashed var(--mark);
+  border-radius: 4px;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.ed-strip-add button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-danger {
+  border-color: var(--ribbon);
+  background: var(--ribbon);
+  color: #ffffff;
+}
+
+.ed-confirm p {
+  margin: 0 0 16px;
+}
+
+/* Сообщение «Страницы 5–6 удалены — Отменить» — под кнопками страниц:
+   там, куда только что нажали, и ничего не закрывает. */
+.ed-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.ed-toast span {
+  white-space: nowrap;
+}
+
+.ed-toast .btn {
+  flex: none;
+  border-color: rgb(255 255 255 / 0.4);
+  background: transparent;
+  color: #ffffff;
+}
+
 /* ---------- Широкий экран: три колонки ----------
    Слева — лента страниц (вертикально), по центру — страница крупно,
    справа — панель настроек (не прибита к низу, а стоит колонкой).
@@ -794,8 +868,9 @@
       'banner banner banner'
       'strip  stage  tools'
       'strip  pager  tools'
+      'strip  pages  tools'
       'strip  share  tools';
-    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto auto 1fr;
     column-gap: 32px;
     max-width: 1440px;
     padding: 12px 24px 32px;
@@ -805,6 +880,7 @@
   .ed-banner { grid-area: banner; }
   .ed-stage { grid-area: stage; }
   .ed-pager { grid-area: pager; }
+  .ed-pages { grid-area: pages; }
   .editor > .share { grid-area: share; align-self: start; }
 
   .ed-page {
