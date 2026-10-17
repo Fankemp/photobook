@@ -28,9 +28,9 @@ migrate-up: ## Применить новые миграции (сервер де
 migrate-down: ## Откатить последнюю миграцию
 	docker compose exec backend /app/migrate down
 
-test: ## Тесты backend + проверка типов и сборка frontend
+test: ## Тесты backend и frontend, линтер, проверка типов и сборка
 	cd backend && go vet ./... && go test ./...
-	cd frontend && npm run lint && npm run build
+	cd frontend && npm run lint && npm test && npm run build
 
 # Браузер (Chromium) в Docker-образе Playwright; первый запуск скачает образ ~3.6 ГБ
 # (он же понадобится для печатного PDF). --network host — чтобы видеть localhost.

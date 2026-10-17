@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { Link } from 'react-router'
 import { ApiError, assetImageUrl, toApiError } from '../api.ts'
 import { DEFAULT_CROP, MAX_ZOOM, zoomCrop } from '../book/crop.ts'
+import { isLowDpi } from '../book/dpi.ts'
 import { PageView } from '../book/PageView.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
@@ -28,6 +29,20 @@ export function Editor({ book }: { book: Book }) {
   const fileInput = useRef<HTMLInputElement>(null)
   const pickTarget = useRef<SlotRef | null>(null)
   const objectUrls = useRef<string[]>([])
+  const rootRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+
+  // Нижняя панель фиксированная, а её высота меняется (подсказка, кнопки,
+  // предупреждение). Даём редактору снизу отступ ровно по её высоте,
+  // чтобы она не закрывала ленту страниц.
+  useEffect(() => {
+    const bar = toolbarRef.current
+    const root = rootRef.current
+    if (!bar || !root) return
+    const ro = new ResizeObserver(() => root.style.setProperty('--toolbar-h', `${bar.offsetHeight}px`))
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [])
 
   const allPages = [doc.cover, ...doc.pages]
   const page = allPages[pageIndex]
@@ -40,6 +55,13 @@ export function Editor({ book }: { book: Book }) {
   )
   const serverSizes = useMemo(() => new Map(book.assets.map((a) => [a.id, a])), [book.assets])
   const sizeOf = (id: string): Size | undefined => localImages[id] ?? serverSizes.get(id)
+
+  // Хватит ли пикселей фото для печати этого слота при текущем увеличении.
+  const lowDpi = (el: PhotoSlotElement) => {
+    const size = el.assetId ? sizeOf(el.assetId) : undefined
+    return !!size && isLowDpi(el, book.format, size)
+  }
+  const pageHasLowDpi = (p: Page) => p.elements.some((el) => el.type === 'photo_slot' && lowDpi(el))
 
   // Освобождаем память под локальные превью, когда редактор закрывается.
   useEffect(() => {
@@ -129,7 +151,7 @@ export function Editor({ book }: { book: Book }) {
   const pageLabel = pageIndex === 0 ? t.book.cover : t.editor.pageOf(pageIndex, doc.pages.length)
 
   return (
-    <div className="editor">
+    <div className="editor" ref={rootRef}>
       <header className="ed-header">
         <Link to="/" className="ed-back" aria-label={t.editor.back}>
           ←
@@ -169,6 +191,7 @@ export function Editor({ book }: { book: Book }) {
                 selected={sameSlot(selected, ref)}
                 imageSize={el.assetId ? sizeOf(el.assetId) : undefined}
                 upload={uploads[slotKey(ref)]}
+                lowDpi={lowDpi(el)}
                 label={el.assetId ? t.editor.slotFilled : t.editor.slotEmpty}
                 onTap={() => onTapSlot(el)}
                 onCrop={(crop) => setCrop(ref, crop)}
@@ -193,16 +216,24 @@ export function Editor({ book }: { book: Book }) {
         </button>
       </nav>
 
-      <PageStrip pages={allPages} current={pageIndex} format={book.format} imageSrc={imageSrc} onSelect={goTo} />
+      <PageStrip
+        pages={allPages}
+        current={pageIndex}
+        format={book.format}
+        imageSrc={imageSrc}
+        warnings={allPages.map(pageHasLowDpi)}
+        onSelect={goTo}
+      />
 
       <ShareLink />
 
       {/* Панель внизу экрана: подсказка или управление выбранным фото. */}
-      <div className="ed-toolbar">
+      <div className="ed-toolbar" ref={toolbarRef}>
         <div className="ed-toolbar-inner">
           {error && <ErrorMessage error={error} />}
           {active && activeEl?.assetId ? (
             <>
+              {lowDpi(activeEl) && <p className="ed-dpi-warning">{t.editor.lowDpi}</p>}
               <label className="ed-zoom">
                 <span>{t.editor.zoom}</span>
                 <input
@@ -259,11 +290,12 @@ type StripProps = {
   current: number
   format: Format
   imageSrc: (id: string) => string
+  warnings: boolean[] // на странице есть фото с низким разрешением
   onSelect: (i: number) => void
 }
 
 // Лента миниатюр всех страниц для быстрого перехода.
-function PageStrip({ pages, current, format, imageSrc, onSelect }: StripProps) {
+function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: StripProps) {
   const listRef = useRef<HTMLOListElement>(null)
 
   // Текущая миниатюра — по центру ленты. Крутим только саму ленту:
@@ -283,11 +315,14 @@ function PageStrip({ pages, current, format, imageSrc, onSelect }: StripProps) {
           <button
             className={i === current ? 'is-current' : undefined}
             aria-current={i === current ? 'page' : undefined}
-            aria-label={i === 0 ? t.book.cover : t.book.page(i)}
+            aria-label={(i === 0 ? t.book.cover : t.book.page(i)) + (warnings[i] ? `. ${t.editor.lowDpiShort}` : '')}
             onClick={() => onSelect(i)}
           >
-            <PageView page={p} format={format} imageSrc={imageSrc} />
-            <span>{i === 0 ? t.editor.coverShort : i}</span>
+            <PageView page={p} format={format} imageSrc={imageSrc} lazy />
+            <span>
+              {warnings[i] && <span className="ed-strip-warn" aria-hidden="true" />}
+              {i === 0 ? t.editor.coverShort : i}
+            </span>
           </button>
         </li>
       ))}

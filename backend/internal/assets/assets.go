@@ -52,6 +52,7 @@ type Asset struct {
 	BookID      string
 	Status      string
 	OriginalKey string
+	ThumbKey    string // пусто, пока миниатюра не готова
 	ContentType string
 	SizeBytes   int64
 	WidthPx     int
@@ -61,10 +62,14 @@ type Asset struct {
 type Service struct {
 	db      *pgxpool.Pool
 	storage *storage.Storage
+	// Сигнал обработчику миниатюр «в очереди новое фото» (см. RunThumbnails).
+	// Буфер 1: несколько сигналов подряд схлопываются в один — обработчик всё равно
+	// заберёт из базы всё, что накопилось.
+	thumbsQueued chan struct{}
 }
 
 func NewService(db *pgxpool.Pool, st *storage.Storage) *Service {
-	return &Service{db: db, storage: st}
+	return &Service{db: db, storage: st, thumbsQueued: make(chan struct{}, 1)}
 }
 
 // StartUpload создаёт запись pending и ссылку, по которой браузер загрузит файл.
@@ -144,6 +149,11 @@ func (s *Service) CompleteUpload(ctx context.Context, bookID, assetID string, wi
 		return Asset{}, fmt.Errorf("mark uploaded: %w", err)
 	}
 	a.Status, a.SizeBytes, a.WidthPx, a.HeightPx = "uploaded", info.Size, width, height
+
+	select {
+	case s.thumbsQueued <- struct{}{}:
+	default: // сигнал уже ждёт обработчика
+	}
 	return a, nil
 }
 
@@ -175,17 +185,21 @@ func (s *Service) Get(ctx context.Context, bookID, assetID string) (Asset, error
 		return Asset{}, ErrNotFound
 	}
 	var a Asset
+	var thumb *string
 	var size *int64
 	var w, h *int
 	err := s.db.QueryRow(ctx, `
-		SELECT id, book_id, status, original_key, content_type, size_bytes, width_px, height_px
+		SELECT id, book_id, status, original_key, thumb_key, content_type, size_bytes, width_px, height_px
 		FROM assets WHERE id = $1 AND book_id = $2`, assetID, bookID,
-	).Scan(&a.ID, &a.BookID, &a.Status, &a.OriginalKey, &a.ContentType, &size, &w, &h)
+	).Scan(&a.ID, &a.BookID, &a.Status, &a.OriginalKey, &thumb, &a.ContentType, &size, &w, &h)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Asset{}, ErrNotFound
 	}
 	if err != nil {
 		return Asset{}, fmt.Errorf("get asset: %w", err)
+	}
+	if thumb != nil {
+		a.ThumbKey = *thumb
 	}
 	if size != nil {
 		a.SizeBytes = *size
@@ -217,8 +231,14 @@ func (s *Service) ListUploaded(ctx context.Context, bookID string) (map[string]A
 	return out, rows.Err()
 }
 
-// ImageURL — временная ссылка на картинку для показа в браузере.
-// Пока это оригинал; на шаге 4 здесь будет миниатюра (клиент видит только их).
-func (s *Service) ImageURL(ctx context.Context, a Asset) (string, error) {
-	return s.storage.PresignGet(ctx, a.OriginalKey, time.Hour)
+// ImageURL — временная ссылка на картинку для показа в браузере: миниатюра,
+// а пока она не готова (первые секунды после загрузки) — оригинал.
+// final = false значит «это временная замена», и браузеру нельзя её запоминать.
+func (s *Service) ImageURL(ctx context.Context, a Asset) (url string, final bool, err error) {
+	if a.ThumbKey != "" {
+		url, err = s.storage.PresignGet(ctx, a.ThumbKey, time.Hour)
+		return url, true, err
+	}
+	url, err = s.storage.PresignGet(ctx, a.OriginalKey, time.Hour)
+	return url, false, err
 }

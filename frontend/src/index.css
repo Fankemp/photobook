@@ -8,6 +8,8 @@
   --accent-text: #ffffff;
   --border: #e3ded6;
   --error: #b42318;
+  --warning-bg: #fff4d6;
+  --warning-text: #8a5a00;
 
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;

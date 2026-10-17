@@ -40,7 +40,7 @@
 ## Модель данных
 - `formats` (id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, created_at). `id` — читаемый slug (`square-200`), на него ссылаются шаблоны; `price_kzt` — целое число в тенге
 - `books` (id, token, format_id, template_id, schema_version, version, cover JSONB, pages JSONB, created_at, updated_at). `version` растёт при каждом сохранении; автосохранение присылает версию, которую видело, и получает 409 при конфликте. `cover` — страница обложки, `pages` — массив внутренних страниц (см. «Формат страницы»), `schema_version` — версия этого формата JSON. `token` — 26 символов base32 (`crypto/rand.Text`)
-- `assets` (id, book_id, status pending|uploaded, original_key, thumb_key, content_type, width_px, height_px, size_bytes, created_at, uploaded_at). Размеры — с учётом поворота EXIF, как фото видит человек
+- `assets` (id, book_id, status pending|uploaded, original_key, thumb_key, content_type, width_px, height_px, size_bytes, created_at, uploaded_at, thumb_attempts, thumb_error). Размеры — с учётом поворота EXIF, как фото видит человек; после миниатюры их уточняет сервер
 - `orders` (id, book_id, name, phone, address, wanted_date, status, comment, pdf_key, created_at)
 - `order_events` (id, order_id, status, note, created_at)
 
@@ -110,7 +110,7 @@
 1. **Каркас:** репозиторий, Docker Compose (Go, Postgres, S3/RustFS, фронтенд), health-check, миграции.
 2. **Книга и шаблоны:** создать книгу по токену, загрузить 2–3 тестовых шаблона, отдать их на фронтенд.
 3. **Редактор v0:** выбор шаблона → тап по слоту → загрузка фото → подвинуть/масштабировать кадр внутри слота. Автосохранение. (Загрузка сразу сделана через presigned URL, чтобы не писать временный вариант.)
-4. **Загрузка и миниатюры:** миниатюры в фоне (libvips, с поворотом по EXIF), клиенту отдавать миниатюры вместо оригиналов, проверка DPI и предупреждение, уборка незавершённых загрузок.
+4. **Загрузка и миниатюры:** миниатюры в фоне (libvips, с поворотом по EXIF), клиенту отдавать миниатюры вместо оригиналов, проверка DPI и предупреждение, уборка незавершённых загрузок. libvips вызывается утилитой `vipsthumbnail` отдельным процессом (без CGO). DPI считает `frontend/src/book/dpi.ts`: `25.4 / (max(слот_мм_ш / фото_px_ш, слот_мм_в / фото_px_в) × zoom)`, предупреждение ниже `formats.min_dpi`.
 5. **Превью:** листание по разворотам, линия реза и безопасная зона.
 5а. **Текст и шрифты:** добавление и редактирование текстовых блоков, выбор шрифта, размера, цвета и выравнивания (см. раздел «Текст и шрифты»).
 6. **Заявка:** форма (имя, телефон, адрес, желаемая дата), создание заказа, сообщение в Telegram.

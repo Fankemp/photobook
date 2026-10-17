@@ -72,13 +72,18 @@ func (a *API) assetImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "asset_not_found")
 		return
 	}
-	url, err := a.Assets.ImageURL(r.Context(), as)
+	url, final, err := a.Assets.ImageURL(r.Context(), as)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
 	}
-	// Ссылка живёт час; браузеру разрешаем запомнить редирект на 10 минут.
-	w.Header().Set("Cache-Control", "private, max-age=600")
+	if final {
+		// Ссылка живёт час; браузеру разрешаем запомнить редирект на 10 минут.
+		w.Header().Set("Cache-Control", "private, max-age=600")
+	} else {
+		// Миниатюра ещё готовится: не запоминать, в следующий раз отдадим её.
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	http.Redirect(w, r, url, http.StatusFound)
 }
 

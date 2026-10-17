@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, type MouseEvent, type PointerEvent } from 'react'
 import { DEFAULT_CROP, panCrop, zoomCrop } from '../book/crop.ts'
 import { box } from '../book/geometry.ts'
+import { t } from '../i18n/index.ts'
 import type { Crop, PhotoSlotElement } from '../types.ts'
 import type { Size } from './upload.ts'
 
@@ -11,6 +12,7 @@ type Props = {
   selected: boolean
   imageSize?: Size // размеры фото в слоте (нужны, чтобы двигать его 1:1 за пальцем)
   upload?: UploadState
+  lowDpi: boolean // фото слишком маленькое для этого слота на печати
   label: string
   onTap: () => void
   onCrop: (crop: Crop) => void
@@ -25,7 +27,7 @@ type Point = { x: number; y: number }
 //  - тап — выбрать слот (или открыть выбор фото, если слот пустой);
 //  - в выбранном слоте: тянуть одним пальцем/мышью — сдвиг кадра,
 //    двумя пальцами — масштаб, колесо мыши — масштаб.
-export function SlotOverlay({ el, selected, imageSize, upload, label, onTap, onCrop }: Props) {
+export function SlotOverlay({ el, selected, imageSize, upload, lowDpi, label, onTap, onCrop }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
   // Начало текущего жеста. Пересчитывается, когда меняется число пальцев,
@@ -109,6 +111,12 @@ export function SlotOverlay({ el, selected, imageSize, upload, label, onTap, onC
       onPointerCancel={onPointerEnd}
       onClick={onClick}
     >
+      {lowDpi && !upload && (
+        <span className="ed-dpi-badge">
+          <WarningIcon />
+          {t.editor.lowDpiShort}
+        </span>
+      )}
       {upload && (
         <div className="ed-upload">
           <img src={upload.previewUrl} alt="" />
@@ -118,6 +126,14 @@ export function SlotOverlay({ el, selected, imageSize, upload, label, onTap, onC
         </div>
       )}
     </div>
+  )
+}
+
+function WarningIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <path d="M12 2 1 21h22L12 2zm1 15h-2v2h2v-2zm0-7h-2v5h2v-5z" />
+    </svg>
   )
 }
 

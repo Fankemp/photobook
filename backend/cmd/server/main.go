@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -68,6 +69,23 @@ func run(log *slog.Logger) error {
 	}
 	log.Info("templates loaded", "count", len(catalog.List()), "dir", cfg.TemplatesDir)
 
+	assetService := assets.NewService(pool, store)
+
+	// Фоновые задачи: миниатюры и уборка незавершённых загрузок.
+	// При выходе из run (остановка или ошибка) отменяем их и ждём завершения.
+	bgCtx, cancelBg := context.WithCancel(ctx)
+	var bg sync.WaitGroup
+	defer func() {
+		cancelBg()
+		bg.Wait()
+	}()
+	if assets.VipsAvailable() {
+		bg.Go(func() { assetService.RunThumbnails(bgCtx, assets.VipsThumbnailer{}, log) })
+	} else {
+		log.Warn("vipsthumbnail not found: thumbnails are disabled, originals will be shown")
+	}
+	bg.Go(func() { assetService.RunCleanup(bgCtx, log) })
+
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Deps{
@@ -76,7 +94,7 @@ func run(log *slog.Logger) error {
 			Formats:   formatStore,
 			Templates: catalog,
 			Books:     books.NewStore(pool),
-			Assets:    assets.NewService(pool, store),
+			Assets:    assetService,
 			Log:       log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

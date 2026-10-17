@@ -11,6 +11,9 @@ type Props = {
   // Откуда брать картинку по id фото. Нет функции — слоты рисуются пустыми
   // (например, в каталоге шаблонов).
   imageSrc?: (assetId: string) => string
+  // Картинки грузить, только когда страница видна на экране (лента миниатюр).
+  // Для печати не включать: в PDF всё должно загрузиться сразу.
+  lazy?: boolean
 }
 
 // Один компонент рисует страницу везде: в каталоге, в редакторе, дальше —
@@ -18,7 +21,7 @@ type Props = {
 //
 // memo: страница перерисовывается, только если изменились её данные. Пока
 // двигаешь фото на одной странице, остальные 20 в ленте не трогаются.
-export const PageView = memo(function PageView({ page, format, imageSrc }: Props) {
+export const PageView = memo(function PageView({ page, format, imageSrc, lazy }: Props) {
   return (
     <div
       className="pv"
@@ -28,19 +31,32 @@ export const PageView = memo(function PageView({ page, format, imageSrc }: Props
       }}
     >
       {page.elements.map((el) => (
-        <ElementView key={el.id} el={el} format={format} imageSrc={imageSrc} />
+        <ElementView key={el.id} el={el} format={format} imageSrc={imageSrc} lazy={lazy} />
       ))}
     </div>
   )
 })
 
-function ElementView({ el, format, imageSrc }: { el: PageElement; format: Format; imageSrc?: (id: string) => string }) {
+type ElementProps = Pick<Props, 'format' | 'imageSrc' | 'lazy'> & { el: PageElement }
+
+function ElementView({ el, format, imageSrc, lazy }: ElementProps) {
   switch (el.type) {
     case 'photo_slot': {
       const src = el.assetId && imageSrc ? imageSrc(el.assetId) : undefined
       return (
         <div className="pv-el pv-slot" style={box(el)}>
-          {src ? <img src={src} alt="" draggable={false} style={cropStyle(el.crop)} /> : <PhotoIcon />}
+          {src ? (
+            <img
+              src={src}
+              alt=""
+              draggable={false}
+              loading={lazy ? 'lazy' : undefined}
+              decoding="async"
+              style={cropStyle(el.crop)}
+            />
+          ) : (
+            <PhotoIcon />
+          )}
         </div>
       )
     }

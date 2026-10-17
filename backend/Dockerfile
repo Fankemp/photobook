@@ -10,9 +10,10 @@ COPY backend/ .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server \
  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
 
-# Запуск: маленький образ; wget из busybox нужен для healthcheck в compose.
+# Запуск: маленький образ; wget из busybox нужен для healthcheck в compose,
+# vips-tools (libvips) — для миниатюр фото.
 FROM alpine:3.24
-RUN adduser -D -H app
+RUN apk add --no-cache vips-tools && adduser -D -H app
 COPY --from=build /out/ /app/
 COPY templates/ /app/templates/
 ENV TEMPLATES_DIR=/app/templates

@@ -134,6 +134,23 @@ func (s *Storage) Open(ctx context.Context, key string) (io.ReadCloser, error) {
 	return obj, nil
 }
 
+// Download скачивает файл из хранилища в локальный файл path.
+func (s *Storage) Download(ctx context.Context, key, path string) error {
+	if err := s.client.FGetObject(ctx, s.bucket, key, path, minio.GetObjectOptions{}); err != nil {
+		return fmt.Errorf("download %s: %w", key, err)
+	}
+	return nil
+}
+
+// Upload кладёт локальный файл path в хранилище под ключом key.
+func (s *Storage) Upload(ctx context.Context, key, path, contentType string) error {
+	_, err := s.client.FPutObject(ctx, s.bucket, key, path, minio.PutObjectOptions{ContentType: contentType})
+	if err != nil {
+		return fmt.Errorf("upload %s: %w", key, err)
+	}
+	return nil
+}
+
 func (s *Storage) Remove(ctx context.Context, key string) error {
 	if err := s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{}); err != nil {
 		return fmt.Errorf("remove %s: %w", key, err)
