@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"photobook/internal/admin"
 	"photobook/internal/assets"
 	"photobook/internal/books"
 	"photobook/internal/config"
@@ -93,6 +94,13 @@ func run(log *slog.Logger) error {
 	}
 	bg.Go(func() { assetService.RunCleanup(bgCtx, log) })
 
+	// Название шаблона по id — для уведомлений и админки.
+	templateName := func(id string) string {
+		if t, ok := catalog.Get(id); ok {
+			return t.Name
+		}
+		return id
+	}
 	orderService := orders.NewService(pool, cfg.OrderMinLeadDays)
 	var sender notify.Sender = notify.LogSender{Log: log}
 	if cfg.Telegram.Token != "" {
@@ -102,17 +110,21 @@ func run(log *slog.Logger) error {
 	}
 	bg.Go(func() {
 		orderService.RunNotifications(bgCtx, orders.NotifyConfig{
-			Sender:  sender,
-			BaseURL: cfg.AppBaseURL,
-			TemplateName: func(id string) string {
-				if t, ok := catalog.Get(id); ok {
-					return t.Name
-				}
-				return id
-			},
-			Log: log,
+			Sender:       sender,
+			BaseURL:      cfg.AppBaseURL,
+			TemplateName: templateName,
+			Log:          log,
 		})
 	})
+
+	var adminHandler http.Handler
+	if cfg.AdminPassword != "" {
+		adminHandler = admin.New(admin.Config{User: cfg.AdminUser, Password: cfg.AdminPassword}, admin.Deps{
+			Orders: orderService, Storage: store, TemplateName: templateName, Log: log,
+		})
+	} else {
+		log.Warn("ADMIN_PASSWORD is not set: admin pages are disabled")
+	}
 
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
@@ -125,6 +137,7 @@ func run(log *slog.Logger) error {
 			Books:     books.NewStore(pool),
 			Assets:    assetService,
 			Orders:    orderService,
+			Admin:     adminHandler,
 			Log:       log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

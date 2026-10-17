@@ -30,6 +30,7 @@ type Deps struct {
 	Books     *books.Store
 	Assets    *assets.Service
 	Orders    *orders.Service
+	Admin     http.Handler // nil — админка выключена (не задан пароль)
 	Log       *slog.Logger
 }
 
@@ -52,6 +53,10 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/books/{token}/assets/{id}/image", a.assetImage)
 	mux.HandleFunc("GET /api/books/{token}/order", a.getOrder)
 	mux.HandleFunc("POST /api/books/{token}/order", a.createOrder)
+	if d.Admin != nil {
+		mux.Handle("/admin/", d.Admin)
+		mux.Handle("GET /admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently))
+	}
 	return mux
 }
 

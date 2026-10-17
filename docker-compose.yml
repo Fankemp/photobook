@@ -67,6 +67,8 @@ services:
       # Telegram-бот для заявок; без токена сообщения пишутся в лог backend.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # Админка /admin: логин admin и этот пароль. Без пароля админка выключена.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

@@ -1,0 +1,34 @@
+{{define "title"}}Заявки{{end}}
+{{define "styles"}}
+<style>
+  .filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
+  .filters a { flex: none; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); text-decoration: none; color: var(--text); font-size: 0.9375rem; white-space: nowrap; }
+  .filters a.on { background: #18181b; border-color: #18181b; color: #fff; }
+  .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .orders a { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 12px; align-items: baseline; text-decoration: none; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .orders .num { font-weight: 700; }
+  .orders .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orders .meta { grid-column: 1 / -1; color: var(--muted); font-size: 0.875rem; }
+</style>
+{{end}}
+{{define "content"}}
+<nav class="filters" aria-label="Фильтр по статусу">
+  {{range .Filters}}<a href="/admin/?status={{.Value}}"{{if .Active}} class="on" aria-current="page"{{end}}>{{.Label}} {{.Count}}</a>{{end}}
+</nav>
+{{if .Orders}}
+<ul class="orders">
+  {{range .Orders}}
+  <li>
+    <a href="/admin/orders/{{.Number}}">
+      <span class="num">№{{.Number}}</span>
+      <span class="who">{{.Name}}</span>
+      <span class="status s-{{.Status}}">{{statusName .Status}}</span>
+      <span class="meta">{{phone .Phone}} · нужна к {{date .WantedDate}} · заявка от {{datetime .CreatedAt}}{{if .PDFKey}} · PDF готов{{end}}</span>
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="muted">Заявок с таким статусом нет.</p>
+{{end}}
+{{end}}

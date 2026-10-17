@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// Запросы /api/* dev-сервер Vite пересылает на Go-бэкенд, поэтому фронт и API
+// Запросы /api/* и /admin/* dev-сервер Vite пересылает на Go-бэкенд, поэтому фронт и API
 // живут на одном адресе и CORS не нужен. В Docker бэкенд доступен по имени
 // сервиса (задаётся в docker-compose), при локальном запуске — на localhost.
 const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:8080'
@@ -15,6 +15,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': apiTarget,
+      '/admin': apiTarget, // админка — HTML-страницы, которые отдаёт сам Go-сервер
     },
   },
 })

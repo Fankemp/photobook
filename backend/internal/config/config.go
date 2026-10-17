@@ -21,7 +21,10 @@ type Config struct {
 	// За сколько дней минимум можно выбрать желаемую дату (время на печать).
 	OrderMinLeadDays int
 	Telegram         TelegramConfig
-	S3               S3Config
+	// Админка: вход по логину и паролю (HTTP Basic Auth). Пустой пароль — админка выключена.
+	AdminUser     string
+	AdminPassword string
+	S3            S3Config
 }
 
 // TelegramConfig — бот для уведомлений о заявках. Пустой токен — бот выключен,
@@ -62,10 +65,12 @@ func Load() (Config, error) {
 		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
 		DatabaseURL: required("DATABASE_URL"),
 		// По умолчанию — папка templates/ в корне репозитория (для go run из backend/).
-		TemplatesDir: getenv("TEMPLATES_DIR", "../templates"),
-		FontsConfig:  getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
-		AppOrigins:   strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
-		AppBaseURL:   getenv("APP_BASE_URL", "http://localhost:5173"),
+		TemplatesDir:  getenv("TEMPLATES_DIR", "../templates"),
+		FontsConfig:   getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
+		AppOrigins:    strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
+		AppBaseURL:    getenv("APP_BASE_URL", "http://localhost:5173"),
+		AdminUser:     getenv("ADMIN_USER", "admin"),
+		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		Telegram: TelegramConfig{
 			Token:  os.Getenv("TELEGRAM_BOT_TOKEN"),
 			ChatID: os.Getenv("TELEGRAM_CHAT_ID"),

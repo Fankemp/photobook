@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -105,6 +106,17 @@ func (s *Storage) PresignGet(ctx context.Context, key string, ttl time.Duration)
 	u, err := s.presign.PresignedGetObject(ctx, s.bucket, key, ttl, nil)
 	if err != nil {
 		return "", fmt.Errorf("presign get %s: %w", key, err)
+	}
+	return u.String(), nil
+}
+
+// PresignDownload — временная ссылка, по которой браузер скачает файл
+// под именем filename (а не откроет его во вкладке).
+func (s *Storage) PresignDownload(ctx context.Context, key, filename string, ttl time.Duration) (string, error) {
+	params := url.Values{"response-content-disposition": {fmt.Sprintf(`attachment; filename="%s"`, filename)}}
+	u, err := s.presign.PresignedGetObject(ctx, s.bucket, key, ttl, params)
+	if err != nil {
+		return "", fmt.Errorf("presign download %s: %w", key, err)
 	}
 	return u.String(), nil
 }

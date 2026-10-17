@@ -1,0 +1,79 @@
+{{define "title"}}Заявка №{{.O.Number}}{{end}}
+{{define "styles"}}
+<style>
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .actions { display: grid; gap: 10px; }
+  .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .row > label { flex: 1 1 200px; display: grid; gap: 4px; font-size: 0.9375rem; }
+  .links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+  td { padding: 6px 8px 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  @media (max-width: 520px) { dl { grid-template-columns: 1fr; gap: 0; } dd { margin-bottom: 8px; } }
+</style>
+{{end}}
+{{define "content"}}
+
+<h1>Заявка №{{.O.Number}} <span class="status s-{{.O.Status}}">{{statusName .O.Status}}</span></h1>
+{{if .Saved}}<p class="flash ok" role="status">Статус изменён.</p>{{end}}
+{{if .Error}}<p class="flash err" role="alert">{{.Error}}</p>{{end}}
+
+<section class="card">
+  <h2>Клиент</h2>
+  <dl>
+    <dt>Имя</dt><dd>{{.O.Name}}</dd>
+    <dt>Телефон</dt><dd><a href="tel:{{.O.Phone}}">{{phone .O.Phone}}</a> · <a href="{{.WhatsAppLink}}" target="_blank" rel="noopener">WhatsApp</a></dd>
+    <dt>Адрес</dt><dd>{{.O.Address}}</dd>
+    <dt>Нужна к</dt><dd>{{date .O.WantedDate}}</dd>
+    {{if .O.Comment}}<dt>Комментарий</dt><dd>{{.O.Comment}}</dd>{{end}}
+    <dt>Заявка от</dt><dd>{{datetime .O.CreatedAt}}</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Книга</h2>
+  <dl>
+    <dt>Шаблон</dt><dd>{{.Template}}</dd>
+    <dt>Цена</dt><dd>{{if .O.PriceKZT}}{{tenge .O.PriceKZT}}{{else}}не задана в формате{{end}}</dd>
+    <dt>PDF</dt><dd>{{if .O.PDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf">Скачать печатный PDF</a>{{else}}<span class="muted">ещё не собран</span>{{end}}</dd>
+    <dt>Telegram</dt><dd>{{if .O.NotifiedAt}}сообщение отправлено {{datetime .O.NotifiedAt}}{{else if .O.NotifyError}}<span style="color: var(--err)">не отправлено: {{.O.NotifyError}}</span>{{else}}<span class="muted">в очереди</span>{{end}}</dd>
+  </dl>
+  <div class="links">
+    <a href="/b/{{.O.BookToken}}/preview" target="_blank" rel="noopener">Открыть превью книги</a>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Статус</h2>
+  <div class="actions">
+    {{if .Next}}
+    <form method="post" action="/admin/orders/{{.O.Number}}/status" class="row">
+      <input type="hidden" name="status" value="{{.Next}}">
+      <label>Заметка (необязательно)<input type="text" name="note" maxlength="500" placeholder="например: аванс 50% получен на Kaspi"></label>
+      <button class="primary">Следующий шаг: {{statusName .Next}}</button>
+    </form>
+    {{end}}
+    <form method="post" action="/admin/orders/{{.O.Number}}/status" class="row">
+      <label>Другой статус
+        <select name="status" required>
+          <option value="">выберите</option>
+          {{range .Statuses}}{{if ne . $.O.Status}}<option value="{{.}}">{{statusName .}}</option>{{end}}{{end}}
+        </select>
+      </label>
+      <label>Заметка<input type="text" name="note" maxlength="500" placeholder="причина, если отмена"></label>
+      <button>Изменить</button>
+    </form>
+    <p class="muted" style="margin: 0">Отмена снова откроет книгу клиенту для изменений.</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>История</h2>
+  <table>
+    {{range .O.Events}}
+    <tr><td style="white-space: nowrap">{{datetime .CreatedAt}}</td><td><span class="status s-{{.Status}}">{{statusName .Status}}</span></td><td>{{.Note}}</td></tr>
+    {{end}}
+  </table>
+</section>
+{{end}}
