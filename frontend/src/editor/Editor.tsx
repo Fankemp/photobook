@@ -7,6 +7,7 @@ import { PageView } from '../book/PageView.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
 import { t } from '../i18n/index.ts'
+import type { StickerInfo } from '../book/stickers.ts'
 import type { Book, Crop, Format, Page, PhotoSlotElement, TextElement } from '../types.ts'
 import { useBookDoc, type SaveStatus } from './autosave.ts'
 import {
@@ -14,17 +15,24 @@ import {
   allPagesOf,
   elKey,
   findElement,
+  MAX_ELEMENTS_PER_PAGE,
+  moveSticker,
+  newStickerElement,
   newTextElement,
   removeElement,
   sameEl,
   slotKey,
   updateSlot,
+  updateSticker,
   updateText,
   USER_TEXT_PREFIX,
   type ElRef,
   type SlotRef,
 } from './doc.ts'
 import { SlotOverlay, type UploadState } from './SlotOverlay.tsx'
+import { StickerOverlay } from './StickerOverlay.tsx'
+import { StickerPanel } from './StickerPanel.tsx'
+import { StickerPicker } from './StickerPicker.tsx'
 import { TextDialog } from './TextDialog.tsx'
 import { TextOverlay } from './TextOverlay.tsx'
 import { TextPanel } from './TextPanel.tsx'
@@ -35,7 +43,8 @@ type LocalImage = Size & { url: string }
 
 // Редактор: листаем страницы, тап по пустому слоту — выбор фото,
 // тап по фото — выделение, затем двигаем и масштабируем кадр;
-// тап по тексту — панель шрифта, размера, цвета и окно ввода текста.
+// тап по тексту — панель шрифта, размера, цвета и окно ввода текста;
+// стикеры добавляются из окна выбора, их можно двигать, вращать и менять размер.
 // Все правки сохраняются автоматически (см. autosave.ts).
 // initialPage — с какой страницы открыть (0 — обложка, последняя — задняя обложка),
 // например по ссылке из превью.
@@ -44,6 +53,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length + 1, initialPage)))
   const [selected, setSelected] = useState<ElRef | null>(null)
   const [editingText, setEditingText] = useState<ElRef | null>(null) // открыто окно ввода
+  const [pickingSticker, setPickingSticker] = useState(false) // открыто окно выбора стикера
   const [overflow, setOverflow] = useState<Record<string, boolean>>({}) // текст не влезает
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [localImages, setLocalImages] = useState<Record<string, LocalImage>>({})
@@ -109,13 +119,13 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   // Стрелки ← → на клавиатуре листают страницы (удобно на компьютере).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker) return
       if (e.key === 'ArrowLeft') goTo(pageIndex - 1)
       if (e.key === 'ArrowRight') goTo(pageIndex + 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goTo, pageIndex, editingText])
+  }, [goTo, pageIndex, editingText, pickingSticker])
 
   function pickPhoto(target: SlotRef) {
     pickTarget.current = target
@@ -184,10 +194,21 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     setEditingText(target)
   }
 
-  function removeText(target: ElRef) {
+  // Удалить добавленный текст или стикер.
+  function removeEl(target: ElRef) {
     update((d) => removeElement(d, target))
     setSelected(null)
   }
+
+  function addSticker(sticker: StickerInfo) {
+    setPickingSticker(false)
+    const el = newStickerElement(page, sticker, book.format)
+    update((d) => addElement(d, page.id, el))
+    setSelected({ pageId: page.id, elId: el.id }) // сразу можно подвинуть
+  }
+
+  // На полной странице новые элементы сервер не сохранит.
+  const pageFull = page.elements.length >= MAX_ELEMENTS_PER_PAGE
 
   function removePhoto(target: SlotRef) {
     update((d) => updateSlot(d, target, (el) => ({ ...el, assetId: null, crop: DEFAULT_CROP })))
@@ -266,6 +287,17 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           <PageView page={page} format={book.format} imageSrc={imageSrc} onTextFit={onTextFit} />
           {page.elements.map((el) => {
             const ref = { pageId: page.id, elId: el.id }
+            if (el.type === 'sticker') {
+              return (
+                <StickerOverlay
+                  key={el.id}
+                  el={el}
+                  selected={sameEl(selected, ref)}
+                  onTap={() => setSelected(ref)}
+                  onMove={(x, y) => update((d) => updateSticker(d, ref, (s) => moveSticker(s, x, y)))}
+                />
+              )
+            }
             if (el.type === 'text') {
               return (
                 <TextOverlay
@@ -333,7 +365,15 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
               overflow={!!overflow[elKey(active)]}
               onChange={(fn) => update((d) => updateText(d, active, fn))}
               onEdit={() => setEditingText(active)}
-              onRemove={() => removeText(active)}
+              onRemove={() => removeEl(active)}
+              onDone={() => setSelected(null)}
+            />
+          ) : active && activeEl?.type === 'sticker' ? (
+            <StickerPanel
+              el={activeEl}
+              format={book.format}
+              onChange={(fn) => update((d) => updateSticker(d, active, fn))}
+              onRemove={() => removeEl(active)}
               onDone={() => setSelected(null)}
             />
           ) : active && activeEl?.type === 'photo_slot' && activeEl.assetId ? (
@@ -366,15 +406,23 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           ) : (
             <div className="ed-idle">
               <p className="muted ed-hint">{t.editor.hint}</p>
-              <button className="btn" onClick={addText}>
-                {t.editor.addText}
-              </button>
+              <div className="ed-toolbar-row">
+                <button className="btn" onClick={addText} disabled={pageFull}>
+                  {t.editor.addText}
+                </button>
+                <button className="btn" onClick={() => setPickingSticker(true)} disabled={pageFull}>
+                  {t.editor.addSticker}
+                </button>
+              </div>
+              {pageFull && <p className="muted ed-hint">{t.editor.pageFull}</p>}
             </div>
           )}
         </div>
       </div>
 
       <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={onFileChosen} />
+
+      {pickingSticker && <StickerPicker onPick={addSticker} onClose={() => setPickingSticker(false)} />}
 
       {editingText && editingEl?.type === 'text' && (
         <TextDialog

@@ -1,0 +1,142 @@
+{
+  "sets": [
+    {
+      "id": "love",
+      "name": "Любовь",
+      "stickers": [
+        {
+          "id": "love-heart",
+          "name": "Сердце",
+          "file": "love/heart.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "love-hearts",
+          "name": "Два сердца",
+          "file": "love/hearts.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "love-letter",
+          "name": "Письмо",
+          "file": "love/letter.svg",
+          "aspect": 1.0
+        }
+      ]
+    },
+    {
+      "id": "party",
+      "name": "Праздник",
+      "stickers": [
+        {
+          "id": "party-balloon",
+          "name": "Шарик",
+          "file": "party/balloon.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-balloons",
+          "name": "Шарики",
+          "file": "party/balloons.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-gift",
+          "name": "Подарок",
+          "file": "party/gift.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-cake",
+          "name": "Торт",
+          "file": "party/cake.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-star",
+          "name": "Звезда",
+          "file": "party/star.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-confetti",
+          "name": "Конфетти",
+          "file": "party/confetti.svg",
+          "aspect": 1.0
+        }
+      ]
+    },
+    {
+      "id": "travel",
+      "name": "Путешествие",
+      "stickers": [
+        {
+          "id": "travel-plane",
+          "name": "Самолёт",
+          "file": "travel/plane.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-sun",
+          "name": "Солнце",
+          "file": "travel/sun.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-palm",
+          "name": "Пальма",
+          "file": "travel/palm.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-pin",
+          "name": "Метка на карте",
+          "file": "travel/pin.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-camera",
+          "name": "Фотоаппарат",
+          "file": "travel/camera.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-suitcase",
+          "name": "Чемодан",
+          "file": "travel/suitcase.svg",
+          "aspect": 1.0
+        }
+      ]
+    },
+    {
+      "id": "nature",
+      "name": "Природа",
+      "stickers": [
+        {
+          "id": "nature-leaves",
+          "name": "Веточка",
+          "file": "nature/leaves.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-daisy",
+          "name": "Ромашка",
+          "file": "nature/daisy.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-sparkles",
+          "name": "Блёстки",
+          "file": "nature/sparkles.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-banner",
+          "name": "Лента",
+          "file": "nature/banner.svg",
+          "aspect": 2.0
+        }
+      ]
+    }
+  ]
+}

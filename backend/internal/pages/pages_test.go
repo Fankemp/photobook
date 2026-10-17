@@ -13,7 +13,14 @@ type testFonts map[string]bool
 func (f testFonts) Has(id string) bool     { _, ok := f[id]; return ok }
 func (f testFonts) HasBold(id string) bool { return f[id] }
 
-var fonts = testFonts{"lora": true, "pacifico": false}
+type testStickers map[string]bool
+
+func (s testStickers) Has(id string) bool { return s[id] }
+
+var lib = Library{
+	Fonts:    testFonts{"lora": true, "pacifico": false},
+	Stickers: testStickers{"love-heart": true},
+}
 
 func validText() Element {
 	return Element{Type: Text, ID: "t1", X: 10, Y: 80, W: 80, H: 15,
@@ -29,7 +36,7 @@ func TestPageValidate(t *testing.T) {
 		{"valid page", Page{ID: "p1", Background: "#ffffff", Elements: []Element{
 			{Type: PhotoSlot, ID: "s1", X: 0, Y: 0, W: 100, H: 100},
 			validText(),
-			{Type: Sticker, ID: "st1", X: 50, Y: 10, W: 20, H: 20, StickerID: "heart-01"},
+			{Type: Sticker, ID: "st1", X: 50, Y: 10, W: 20, H: 20, StickerID: "love-heart", Rotation: -45},
 		}}, ""},
 		{"rounding tolerance", Page{ID: "p1", Elements: []Element{
 			{Type: PhotoSlot, ID: "s1", X: 33.34, Y: 0, W: 66.67, H: 100},
@@ -67,10 +74,16 @@ func TestPageValidate(t *testing.T) {
 		{"text too long", Page{ID: "p1", Elements: []Element{
 			func() Element { e := validText(); e.Text = ptr(strings.Repeat("я", MaxTextRunes+1)); return e }(),
 		}}, "too long"},
+		{"unknown sticker", Page{ID: "p1", Elements: []Element{
+			{Type: Sticker, ID: "st1", W: 10, H: 10, StickerID: "unicorn"},
+		}}, "not in the stickers config"},
+		{"sticker rotation out of range", Page{ID: "p1", Elements: []Element{
+			{Type: Sticker, ID: "st1", W: 10, H: 10, StickerID: "love-heart", Rotation: 270},
+		}}, "rotation"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.page.Validate(fonts)
+			err := tt.page.Validate(lib)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -85,7 +98,7 @@ func TestPageValidate(t *testing.T) {
 }
 
 func TestValidateAllDuplicatePageID(t *testing.T) {
-	err := ValidateAll([]Page{{ID: "p1"}, {ID: "p1"}}, fonts)
+	err := ValidateAll([]Page{{ID: "p1"}, {ID: "p1"}}, lib)
 	if err == nil || !strings.Contains(err.Error(), "duplicate page id") {
 		t.Fatalf("error = %v, want duplicate page id", err)
 	}

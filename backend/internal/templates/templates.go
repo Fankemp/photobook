@@ -49,7 +49,7 @@ type Catalog struct {
 }
 
 // LoadDir читает все *.json из dir и проверяет их против известных форматов и шрифтов.
-func LoadDir(dir string, fmts map[string]formats.Format, fonts pages.Fonts) (*Catalog, error) {
+func LoadDir(dir string, fmts map[string]formats.Format, lib pages.Library) (*Catalog, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func LoadDir(dir string, fmts map[string]formats.Format, fonts pages.Fonts) (*Ca
 
 	c := &Catalog{byID: map[string]Template{}}
 	for _, file := range files {
-		t, err := loadFile(file, fmts, fonts)
+		t, err := loadFile(file, fmts, lib)
 		if err != nil {
 			return nil, fmt.Errorf("template %s: %w", filepath.Base(file), err)
 		}
@@ -74,7 +74,7 @@ func LoadDir(dir string, fmts map[string]formats.Format, fonts pages.Fonts) (*Ca
 	return c, nil
 }
 
-func loadFile(path string, fmts map[string]formats.Format, fonts pages.Fonts) (Template, error) {
+func loadFile(path string, fmts map[string]formats.Format, lib pages.Library) (Template, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Template{}, err
@@ -88,10 +88,10 @@ func loadFile(path string, fmts map[string]formats.Format, fonts pages.Fonts) (T
 	if t.BackCover.ID == "" {
 		t.BackCover = pages.Page{ID: BackCoverID, Background: t.Cover.Background, Elements: []pages.Element{}}
 	}
-	return t, t.validate(fmts, fonts)
+	return t, t.validate(fmts, lib)
 }
 
-func (t Template) validate(fmts map[string]formats.Format, fonts pages.Fonts) error {
+func (t Template) validate(fmts map[string]formats.Format, lib pages.Library) error {
 	if t.SchemaVersion != pages.SchemaVersion {
 		return fmt.Errorf("schemaVersion %d is not supported (current is %d)", t.SchemaVersion, pages.SchemaVersion)
 	}
@@ -112,7 +112,7 @@ func (t Template) validate(fmts map[string]formats.Format, fonts pages.Fonts) er
 		return fmt.Errorf("has %d pages, format %q needs exactly %d", len(t.Pages), f.ID, f.Pages)
 	}
 	all := append(append([]pages.Page{t.Cover}, t.Pages...), t.BackCover)
-	if err := pages.ValidateAll(all, fonts); err != nil {
+	if err := pages.ValidateAll(all, lib); err != nil {
 		return err
 	}
 	return textInsideSafeZone(all, f)

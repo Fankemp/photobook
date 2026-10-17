@@ -10,10 +10,11 @@ import (
 )
 
 type Config struct {
-	HTTPAddr     string
-	DatabaseURL  string
-	TemplatesDir string
-	FontsConfig  string // fonts.json — общий конфиг шрифтов с фронтендом
+	HTTPAddr       string
+	DatabaseURL    string
+	TemplatesDir   string
+	FontsConfig    string // fonts.json — общий конфиг шрифтов с фронтендом
+	StickersConfig string // stickers.json — общий конфиг стикеров с фронтендом
 	// Адреса сайта, с которых браузер может загружать файлы прямо в хранилище (CORS).
 	AppOrigins []string
 	// Адрес сайта для ссылок в уведомлениях («Превью книги» в Telegram).
@@ -74,12 +75,13 @@ func Load() (Config, error) {
 		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
 		DatabaseURL: required("DATABASE_URL"),
 		// По умолчанию — папка templates/ в корне репозитория (для go run из backend/).
-		TemplatesDir:  getenv("TEMPLATES_DIR", "../templates"),
-		FontsConfig:   getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
-		AppOrigins:    strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
-		AppBaseURL:    getenv("APP_BASE_URL", "http://localhost:5173"),
-		AdminUser:     getenv("ADMIN_USER", "admin"),
-		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		TemplatesDir:   getenv("TEMPLATES_DIR", "../templates"),
+		FontsConfig:    getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
+		StickersConfig: getenv("STICKERS_CONFIG", "../frontend/src/book/stickers.json"),
+		AppOrigins:     strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
+		AppBaseURL:     getenv("APP_BASE_URL", "http://localhost:5173"),
+		AdminUser:      getenv("ADMIN_USER", "admin"),
+		AdminPassword:  os.Getenv("ADMIN_PASSWORD"),
 		Render: RenderConfig{
 			ServiceURL:   os.Getenv("RENDER_URL"),
 			PrintBaseURL: getenv("PRINT_BASE_URL", "http://frontend:5173"),

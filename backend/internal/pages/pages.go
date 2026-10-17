@@ -76,12 +76,27 @@ type Fonts interface {
 	HasBold(id string) bool
 }
 
+// Stickers — какие стикеры существуют (реализует stickers.Registry).
+type Stickers interface {
+	Has(id string) bool
+}
+
+// Library — то, на что ссылаются элементы страниц: шрифты и стикеры.
+// Элемент с несуществующим шрифтом или стикером на печати выглядел бы иначе.
+type Library struct {
+	Fonts    Fonts
+	Stickers Stickers
+}
+
+// Поворот стикера в градусах по часовой стрелке.
+const MaxRotation = 180
+
 // Допуск на погрешность дробных процентов (например, 33.34 + 66.67).
 const eps = 0.01
 
 // Validate проверяет одну страницу: геометрию, обязательные поля по типам,
-// уникальность id элементов, шрифты.
-func (p Page) Validate(fonts Fonts) error {
+// уникальность id элементов, шрифты и стикеры.
+func (p Page) Validate(lib Library) error {
 	if p.ID == "" {
 		return fmt.Errorf("page id is empty")
 	}
@@ -100,14 +115,14 @@ func (p Page) Validate(fonts Fonts) error {
 			return fmt.Errorf("page %s: duplicate element id %q", p.ID, e.ID)
 		}
 		seen[e.ID] = true
-		if err := e.validate(fonts); err != nil {
+		if err := e.validate(lib); err != nil {
 			return fmt.Errorf("page %s, element %s: %w", p.ID, e.ID, err)
 		}
 	}
 	return nil
 }
 
-func (e Element) validate(fonts Fonts) error {
+func (e Element) validate(lib Library) error {
 	if e.X < 0 || e.Y < 0 || e.W <= 0 || e.H <= 0 || e.X+e.W > 100+eps || e.Y+e.H > 100+eps {
 		return fmt.Errorf("geometry x=%v y=%v w=%v h=%v is outside the page (0–100)", e.X, e.Y, e.W, e.H)
 	}
@@ -123,10 +138,10 @@ func (e Element) validate(fonts Fonts) error {
 		if n := utf8.RuneCountInString(*e.Text); n > MaxTextRunes {
 			return fmt.Errorf("text is too long (%d > %d characters)", n, MaxTextRunes)
 		}
-		if !fonts.Has(e.Font) {
+		if !lib.Fonts.Has(e.Font) {
 			return fmt.Errorf("font %q is not in the fonts config", e.Font)
 		}
-		if e.Bold && !fonts.HasBold(e.Font) {
+		if e.Bold && !lib.Fonts.HasBold(e.Font) {
 			return fmt.Errorf("font %q has no bold face", e.Font)
 		}
 		if e.Size <= 0 {
@@ -141,8 +156,11 @@ func (e Element) validate(fonts Fonts) error {
 			return fmt.Errorf("align %q must be left, center or right", e.Align)
 		}
 	case Sticker:
-		if e.StickerID == "" {
-			return fmt.Errorf("stickerId is empty")
+		if !lib.Stickers.Has(e.StickerID) {
+			return fmt.Errorf("sticker %q is not in the stickers config", e.StickerID)
+		}
+		if e.Rotation < -MaxRotation || e.Rotation > MaxRotation {
+			return fmt.Errorf("rotation %v must be between -%d and %d", e.Rotation, MaxRotation, MaxRotation)
 		}
 	default:
 		return fmt.Errorf("unknown type %q", e.Type)
@@ -151,10 +169,10 @@ func (e Element) validate(fonts Fonts) error {
 }
 
 // ValidateAll проверяет набор страниц (обложка + внутренние) и уникальность id страниц.
-func ValidateAll(all []Page, fonts Fonts) error {
+func ValidateAll(all []Page, lib Library) error {
 	seen := map[string]bool{}
 	for _, p := range all {
-		if err := p.Validate(fonts); err != nil {
+		if err := p.Validate(lib); err != nil {
 			return err
 		}
 		if seen[p.ID] {

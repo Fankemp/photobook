@@ -3,6 +3,7 @@ import type { Format, Page, PageElement, TextElement } from '../types.ts'
 import { cropStyle } from './crop.ts'
 import { fontFamily } from './fonts.ts'
 import { bleedBox, box, sheetMarginMm, type PageKind } from './geometry.ts'
+import { stickerById, stickerUrl } from './stickers.ts'
 import './PageView.css'
 
 type Props = {
@@ -119,8 +120,20 @@ function ElementView({ el, format, imageSrc, lazy, variant, onTextFit, marginMm 
     }
     case 'text':
       return <TextView el={el} format={format} onFit={onTextFit} />
-    case 'sticker':
-      return null // стикеры — шаг 9
+    case 'sticker': {
+      const sticker = stickerById(el.stickerId)
+      if (!sticker) return null // такого стикера нет в наборе — не рисуем пустое место
+      // Поворот — вокруг центра; рисунок вписан в блок без искажений (object-fit: contain).
+      return (
+        <img
+          className="pv-el pv-sticker"
+          src={stickerUrl(sticker)}
+          alt=""
+          draggable={false}
+          style={{ ...box(el), transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined }}
+        />
+      )
+    }
   }
 }
 

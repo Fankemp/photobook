@@ -111,6 +111,10 @@ setSlot(book.pages[1], 1, ids[3])
 setSlot(book.pages[2], 0, ids[2], { zoom: 2, offsetX: 1, offsetY: 1 })
 Object.assign(book.pages[2].elements.find((e) => e.type === 'text'), { text: 'Съешь же ещё этих мягких французских булок', font: 'caveat', size: 16 })
 for (let i = 0; i < 4; i++) setSlot(book.pages[6], i, ids[i])
+// Стикеры (SVG): повёрнутое сердце на стр. 3, веточка на задней обложке.
+// В PDF они должны остаться вектором, а не картинкой (проверка «0 разжато» ниже).
+book.pages[2].elements.push({ type: 'sticker', id: 'st-pdf1', x: 72, y: 6, w: 22, h: 22, stickerId: 'love-heart', rotation: 15 })
+book.backCover.elements.push({ type: 'sticker', id: 'st-pdf2', x: 40, y: 30, w: 20, h: 20, stickerId: 'nature-leaves', rotation: 0 })
 // Свой текст на задней обложке (по умолчанию она пустая, с фоном обложки).
 book.backCover.elements.push({ type: 'text', id: 'ut-back1', x: 8, y: 82, w: 84, h: 10, text: 'Спасибо за путешествие!', font: 'lora', size: 14, color: '#000000', align: 'center' })
 const saved = await api(`/books/${token}`, {
@@ -143,7 +147,7 @@ const pdfInfo = /book\.pdf — [^<]*?(?=\s{2,}|$)/.exec(page)?.[0] ?? page.slice
 log('  ' + pdfInfo)
 check(page.includes('book.pdf — 22 стр.: передняя обложка, страницы 1–20, задняя обложка; 206×206 мм'), 'one book.pdf: front cover, pages 1–20, back cover, all 206×206 mm (200 + 2×3 bleed)')
 check(page.includes('цвет фото: RGB'), 'photos are RGB (PDF_CMYK=false)')
-check(/фото: \d+ JPEG без пересжатия, 0 разжато/.test(page), 'every photo embedded as JPEG without recompression (rotated one via its upright print copy)')
+check(/фото: \d+ JPEG без пересжатия, 0 разжато/.test(page), 'every photo embedded as JPEG without recompression (rotated one via its upright print copy); stickers stay vector, no extra images')
 check(/шрифты встроены:[^.]*Caveat/.test(page) && /шрифты встроены:[^.]*Montserrat-Bold/.test(page) && /шрифты встроены:[^.]*Lora/.test(page), 'fonts embedded: Caveat (caption), Montserrat-Bold (cover title), Lora (back cover)')
 
 // 5. Скачивание из админки: один файл, правильное имя.

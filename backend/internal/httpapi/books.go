@@ -146,7 +146,7 @@ func (a *API) saveBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	all := append(append([]pages.Page{req.Cover}, req.Pages...), *req.BackCover)
-	if len(req.Pages) != f.Pages || pages.ValidateAll(all, a.Fonts) != nil {
+	if len(req.Pages) != f.Pages || pages.ValidateAll(all, a.Library) != nil {
 		writeError(w, http.StatusBadRequest, "invalid_pages")
 		return
 	}

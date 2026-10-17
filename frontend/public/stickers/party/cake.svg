@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <ellipse cx="60" cy="102" rx="46" ry="7" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="20" y="66" width="80" height="34" rx="6" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M20 72 C26 80 32 80 38 72 C44 80 50 80 56 72 C62 80 68 80 74 72 C80 80 86 80 92 72 L100 72 L100 70 Q100 66 94 66 L26 66 Q20 66 20 70 Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="32" y="44" width="56" height="24" rx="5" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="44" y="28" width="5" height="17" rx="2" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="58" y="28" width="5" height="17" rx="2" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="72" y="28" width="5" height="17" rx="2" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M46.5 14 C52.0 21 51.0 27 46.5 28 C42.0 27 41.0 21 46.5 14 Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M60.5 14 C66.0 21 65.0 27 60.5 28 C56.0 27 55.0 21 60.5 14 Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M74.5 14 C80.0 21 79.0 27 74.5 28 C70.0 27 69.0 21 74.5 14 Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <ellipse cx="60" cy="102" rx="46" ry="7" fill="#e9e2d6"/>
+  <rect x="20" y="66" width="80" height="34" rx="6" fill="#f49ab0"/>
+  <path d="M20 72 C26 80 32 80 38 72 C44 80 50 80 56 72 C62 80 68 80 74 72 C80 80 86 80 92 72 L100 72 L100 70 Q100 66 94 66 L26 66 Q20 66 20 70 Z" fill="#fff"/>
+  <rect x="32" y="44" width="56" height="24" rx="5" fill="#fff1d6"/>
+  <rect x="44" y="28" width="5" height="17" rx="2" fill="#5aa9e6"/>
+  <rect x="58" y="28" width="5" height="17" rx="2" fill="#f2a33a"/>
+  <rect x="72" y="28" width="5" height="17" rx="2" fill="#e2525c"/>
+  <path d="M46.5 14 C52.0 21 51.0 27 46.5 28 C42.0 27 41.0 21 46.5 14 Z" fill="#f6c344"/>
+  <path d="M60.5 14 C66.0 21 65.0 27 60.5 28 C56.0 27 55.0 21 60.5 14 Z" fill="#f6c344"/>
+  <path d="M74.5 14 C80.0 21 79.0 27 74.5 28 C70.0 27 69.0 21 74.5 14 Z" fill="#f6c344"/>
+</svg>

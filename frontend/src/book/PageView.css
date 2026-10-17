@@ -83,3 +83,10 @@
   overflow-wrap: anywhere;
   overflow: hidden;
 }
+
+/* Стикер — SVG-картинка. Поворот задан inline-стилем. */
+.pv-sticker {
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}

@@ -9,6 +9,8 @@ import (
 
 	"photobook/internal/fonts"
 	"photobook/internal/formats"
+	"photobook/internal/pages"
+	"photobook/internal/stickers"
 )
 
 // Формат как в миграции 00001 — тестам не нужна база.
@@ -19,12 +21,16 @@ var testFormats = map[string]formats.Format{
 // Все шаблоны из репозитория должны проходить проверку: битый шаблон
 // ловится здесь, а не при старте сервера.
 func TestShippedTemplatesAreValid(t *testing.T) {
-	// Настоящий конфиг шрифтов: шаблон не должен ссылаться на шрифт, которого нет.
-	reg, err := fonts.Load("../../../frontend/src/book/fonts.json")
+	// Настоящие конфиги шрифтов и стикеров: шаблон не должен ссылаться на то, чего нет.
+	fontReg, err := fonts.Load("../../../frontend/src/book/fonts.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := LoadDir("../../../templates", testFormats, reg)
+	stickerReg, err := stickers.Load("../../../frontend/src/book/stickers.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadDir("../../../templates", testFormats, pages.Library{Fonts: fontReg, Stickers: stickerReg})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +77,7 @@ func TestLoadDirErrors(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "t.json"), []byte(tt.file), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			_, err := LoadDir(dir, oneFormat, fonts.New(fonts.Font{ID: "lora", Bold: true}))
+			_, err := LoadDir(dir, oneFormat, pages.Library{Fonts: fonts.New(fonts.Font{ID: "lora", Bold: true}), Stickers: stickers.New()})
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)

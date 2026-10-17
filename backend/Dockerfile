@@ -16,8 +16,8 @@ FROM alpine:3.24
 RUN apk add --no-cache vips-tools && adduser -D -H app
 COPY --from=build /out/ /app/
 COPY templates/ /app/templates/
-COPY frontend/src/book/fonts.json /app/fonts.json
-ENV TEMPLATES_DIR=/app/templates FONTS_CONFIG=/app/fonts.json
+COPY frontend/src/book/fonts.json frontend/src/book/stickers.json /app/
+ENV TEMPLATES_DIR=/app/templates FONTS_CONFIG=/app/fonts.json STICKERS_CONFIG=/app/stickers.json
 USER app
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]

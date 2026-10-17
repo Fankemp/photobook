@@ -4,3 +4,4 @@
 !backend/
 !templates/
 !frontend/src/book/fonts.json
+!frontend/src/book/stickers.json

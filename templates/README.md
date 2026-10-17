@@ -31,4 +31,8 @@ id элементов — в пределах страницы.
 |---|---|
 | `photo_slot` | `assetId` (null в шаблоне), `crop: {zoom ≥ 1, offsetX, offsetY}` |
 | `text` | `text`, `font` (id шрифта), `size` (пункты на печати), `color` (`#rrggbb`), `align` (`left`/`center`/`right`), `bold` |
-| `sticker` | `stickerId`, `rotation` (стикеры появятся на шаге 9) |
+| `sticker` | `stickerId` (id из `frontend/src/book/stickers.json`), `rotation` (градусы, −180…180) |
+
+Блок стикера задайте с пропорциями рисунка (`aspect` в `stickers.json` — ширина / высота):
+на квадратном формате `h = w / aspect`. Рисунок вписывается в блок без искажений,
+так что небольшая неточность не страшна.

@@ -24,7 +24,9 @@ import (
 	"photobook/internal/httpapi"
 	"photobook/internal/notify"
 	"photobook/internal/orders"
+	"photobook/internal/pages"
 	"photobook/internal/render"
+	"photobook/internal/stickers"
 	"photobook/internal/storage"
 	"photobook/internal/templates"
 )
@@ -79,7 +81,12 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	catalog, err := templates.LoadDir(cfg.TemplatesDir, fmts, fontRegistry)
+	stickerRegistry, err := stickers.Load(cfg.StickersConfig)
+	if err != nil {
+		return err
+	}
+	library := pages.Library{Fonts: fontRegistry, Stickers: stickerRegistry}
+	catalog, err := templates.LoadDir(cfg.TemplatesDir, fmts, library)
 	if err != nil {
 		return err
 	}
@@ -159,7 +166,7 @@ func run(log *slog.Logger) error {
 			DB:        pool,
 			Storage:   store,
 			Formats:   formatStore,
-			Fonts:     fontRegistry,
+			Library:   library,
 			Templates: catalog,
 			Books:     books.NewStore(pool),
 			Assets:    assetService,
