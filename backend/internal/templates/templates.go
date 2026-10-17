@@ -43,8 +43,8 @@ type Catalog struct {
 	byID map[string]Template
 }
 
-// LoadDir читает все *.json из dir и проверяет их против известных форматов.
-func LoadDir(dir string, fmts map[string]formats.Format) (*Catalog, error) {
+// LoadDir читает все *.json из dir и проверяет их против известных форматов и шрифтов.
+func LoadDir(dir string, fmts map[string]formats.Format, fonts pages.Fonts) (*Catalog, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func LoadDir(dir string, fmts map[string]formats.Format) (*Catalog, error) {
 
 	c := &Catalog{byID: map[string]Template{}}
 	for _, file := range files {
-		t, err := loadFile(file, fmts)
+		t, err := loadFile(file, fmts, fonts)
 		if err != nil {
 			return nil, fmt.Errorf("template %s: %w", filepath.Base(file), err)
 		}
@@ -69,7 +69,7 @@ func LoadDir(dir string, fmts map[string]formats.Format) (*Catalog, error) {
 	return c, nil
 }
 
-func loadFile(path string, fmts map[string]formats.Format) (Template, error) {
+func loadFile(path string, fmts map[string]formats.Format, fonts pages.Fonts) (Template, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Template{}, err
@@ -80,10 +80,10 @@ func loadFile(path string, fmts map[string]formats.Format) (Template, error) {
 	if err := dec.Decode(&t); err != nil {
 		return Template{}, fmt.Errorf("parse: %w", err)
 	}
-	return t, t.validate(fmts)
+	return t, t.validate(fmts, fonts)
 }
 
-func (t Template) validate(fmts map[string]formats.Format) error {
+func (t Template) validate(fmts map[string]formats.Format, fonts pages.Fonts) error {
 	if t.SchemaVersion != pages.SchemaVersion {
 		return fmt.Errorf("schemaVersion %d is not supported (current is %d)", t.SchemaVersion, pages.SchemaVersion)
 	}
@@ -103,7 +103,31 @@ func (t Template) validate(fmts map[string]formats.Format) error {
 	if len(t.Pages) != f.Pages {
 		return fmt.Errorf("has %d pages, format %q needs exactly %d", len(t.Pages), f.ID, f.Pages)
 	}
-	return pages.ValidateAll(append([]pages.Page{t.Cover}, t.Pages...))
+	all := append([]pages.Page{t.Cover}, t.Pages...)
+	if err := pages.ValidateAll(all, fonts); err != nil {
+		return err
+	}
+	return textInsideSafeZone(all, f)
+}
+
+// textInsideSafeZone: текстовые блоки шаблона не ближе к краю, чем safe_mm.
+// Рез может сместиться на пару миллиметров — текст у края рискует быть срезанным.
+// (Фото у края — нормально: они специально уходят в вылет.)
+func textInsideSafeZone(all []pages.Page, f formats.Format) error {
+	sx := f.SafeMM / f.WidthMM * 100
+	sy := f.SafeMM / f.HeightMM * 100
+	const eps = 0.01
+	for _, p := range all {
+		for _, e := range p.Elements {
+			if e.Type != pages.Text {
+				continue
+			}
+			if e.X < sx-eps || e.Y < sy-eps || e.X+e.W > 100-sx+eps || e.Y+e.H > 100-sy+eps {
+				return fmt.Errorf("page %s, text %s: outside the safe zone (keep %.1f%% from the edges)", p.ID, e.ID, sx)
+			}
+		}
+	}
+	return nil
 }
 
 // List возвращает шаблоны в порядке имён файлов.

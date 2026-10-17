@@ -102,6 +102,7 @@ export function SlotOverlay({ el, selected, imageSize, upload, lowDpi, label, on
       ref={ref}
       className={className}
       style={box(el)}
+      data-el-id={el.id}
       role="button"
       aria-label={label}
       aria-pressed={selected}

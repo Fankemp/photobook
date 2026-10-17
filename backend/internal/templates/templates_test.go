@@ -3,9 +3,11 @@ package templates
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	"photobook/internal/fonts"
 	"photobook/internal/formats"
 )
 
@@ -17,7 +19,12 @@ var testFormats = map[string]formats.Format{
 // Все шаблоны из репозитория должны проходить проверку: битый шаблон
 // ловится здесь, а не при старте сервера.
 func TestShippedTemplatesAreValid(t *testing.T) {
-	c, err := LoadDir("../../../templates", testFormats)
+	// Настоящий конфиг шрифтов: шаблон не должен ссылаться на шрифт, которого нет.
+	reg, err := fonts.Load("../../../frontend/src/book/fonts.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadDir("../../../templates", testFormats, reg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +41,13 @@ func TestShippedTemplatesAreValid(t *testing.T) {
 func TestLoadDirErrors(t *testing.T) {
 	cover := `"cover": {"id": "cover", "background": "#ffffff", "elements": []}`
 	onePage := `"pages": [{"id": "p1", "background": "#ffffff", "elements": []}]`
-	oneFormat := map[string]formats.Format{"f1": {ID: "f1", Pages: 1}}
+	oneFormat := map[string]formats.Format{"f1": {ID: "f1", Pages: 1, WidthMM: 200, HeightMM: 200, SafeMM: 5}}
+	textAt := func(x int) string {
+		return `{"type": "text", "id": "t1", "x": ` + strconv.Itoa(x) + `, "y": 40, "w": 50, "h": 10, "text": "", "font": "lora", "size": 12, "align": "left"}`
+	}
+	pageWith := func(el string) string {
+		return `"pages": [{"id": "p1", "background": "#ffffff", "elements": [` + el + `]}]`
+	}
 
 	tests := []struct {
 		name    string
@@ -48,6 +61,9 @@ func TestLoadDirErrors(t *testing.T) {
 		{"unknown occasion", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "party", "formatId": "f1", ` + cover + `, ` + onePage + `}`, "occasion"},
 		{"unknown format", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "nope", ` + cover + `, ` + onePage + `}`, "formatId"},
 		{"wrong page count", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, "pages": []}`, "needs exactly 1"},
+		{"text inside safe zone", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(textAt(10)) + `}`, ""},
+		{"text too close to the edge", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(textAt(1)) + `}`, "safe zone"},
+		{"unknown font", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), "lora", "comic-sans", 1)) + `}`, "fonts config"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -55,7 +71,7 @@ func TestLoadDirErrors(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "t.json"), []byte(tt.file), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			_, err := LoadDir(dir, oneFormat)
+			_, err := LoadDir(dir, oneFormat, fonts.New(fonts.Font{ID: "lora", Bold: true}))
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)

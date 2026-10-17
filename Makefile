@@ -36,7 +36,8 @@ test: ## Тесты backend и frontend, линтер, проверка типо
 # (он же понадобится для печатного PDF). --network host — чтобы видеть localhost.
 PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v1.64.1-noble
 
-e2e: ## Сквозной тест в браузере (сервисы должны быть запущены: make up)
+# Репозиторий монтируется только для чтения (тесту нужен fonts.json), e2e/ — для записи.
+e2e: ## Сквозные тесты в браузере (сервисы должны быть запущены: make up)
 	docker run --rm --network host -u $$(id -u):$$(id -g) -e HOME=/tmp \
-		-v $(CURDIR)/e2e:/work -w /work $(PLAYWRIGHT_IMAGE) \
-		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs"
+		-v $(CURDIR):/repo:ro -v $(CURDIR)/e2e:/work -w /work $(PLAYWRIGHT_IMAGE) \
+		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs && node text.mjs"

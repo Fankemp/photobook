@@ -12,6 +12,7 @@ type Config struct {
 	HTTPAddr     string
 	DatabaseURL  string
 	TemplatesDir string
+	FontsConfig  string // fonts.json — общий конфиг шрифтов с фронтендом
 	// Адреса сайта, с которых браузер может загружать файлы прямо в хранилище (CORS).
 	AppOrigins []string
 	S3         S3Config
@@ -48,6 +49,7 @@ func Load() (Config, error) {
 		DatabaseURL: required("DATABASE_URL"),
 		// По умолчанию — папка templates/ в корне репозитория (для go run из backend/).
 		TemplatesDir: getenv("TEMPLATES_DIR", "../templates"),
+		FontsConfig:  getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
 		AppOrigins:   strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
 		S3: S3Config{
 			Endpoint:  required("S3_ENDPOINT"),

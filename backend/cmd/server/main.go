@@ -17,6 +17,7 @@ import (
 	"photobook/internal/books"
 	"photobook/internal/config"
 	"photobook/internal/db"
+	"photobook/internal/fonts"
 	"photobook/internal/formats"
 	"photobook/internal/httpapi"
 	"photobook/internal/storage"
@@ -63,7 +64,11 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	catalog, err := templates.LoadDir(cfg.TemplatesDir, fmts)
+	fontRegistry, err := fonts.Load(cfg.FontsConfig)
+	if err != nil {
+		return err
+	}
+	catalog, err := templates.LoadDir(cfg.TemplatesDir, fmts, fontRegistry)
 	if err != nil {
 		return err
 	}
@@ -92,6 +97,7 @@ func run(log *slog.Logger) error {
 			DB:        pool,
 			Storage:   store,
 			Formats:   formatStore,
+			Fonts:     fontRegistry,
 			Templates: catalog,
 			Books:     books.NewStore(pool),
 			Assets:    assetService,

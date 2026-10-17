@@ -1,5 +1,5 @@
 # Собирается из корня репозитория (см. docker-compose.yml), чтобы в образ
-# попали и код backend, и папка templates/.
+# попали код backend, папка templates/ и конфиг шрифтов (общий с фронтендом).
 
 # Сборка: статические бинарники без CGO.
 FROM golang:1.27-alpine AS build
@@ -16,7 +16,8 @@ FROM alpine:3.24
 RUN apk add --no-cache vips-tools && adduser -D -H app
 COPY --from=build /out/ /app/
 COPY templates/ /app/templates/
-ENV TEMPLATES_DIR=/app/templates
+COPY frontend/src/book/fonts.json /app/fonts.json
+ENV TEMPLATES_DIR=/app/templates FONTS_CONFIG=/app/fonts.json
 USER app
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]

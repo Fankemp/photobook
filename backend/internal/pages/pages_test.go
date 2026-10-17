@@ -7,6 +7,14 @@ import (
 
 func ptr[T any](v T) *T { return &v }
 
+// Шрифты для тестов: lora с жирным, pacifico без.
+type testFonts map[string]bool
+
+func (f testFonts) Has(id string) bool     { _, ok := f[id]; return ok }
+func (f testFonts) HasBold(id string) bool { return f[id] }
+
+var fonts = testFonts{"lora": true, "pacifico": false}
+
 func validText() Element {
 	return Element{Type: Text, ID: "t1", X: 10, Y: 80, W: 80, H: 15,
 		Text: ptr(""), Font: "lora", Size: 14, Align: "center"}
@@ -50,10 +58,19 @@ func TestPageValidate(t *testing.T) {
 		{"zoom below 1", Page{ID: "p1", Elements: []Element{
 			{Type: PhotoSlot, ID: "s1", W: 10, H: 10, Crop: &Crop{Zoom: 0.5}},
 		}}, "zoom"},
+		{"unknown font", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.Font = "comic-sans"; return e }(),
+		}}, "not in the fonts config"},
+		{"bold on a font without bold", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.Font = "pacifico"; e.Bold = true; return e }(),
+		}}, "no bold face"},
+		{"text too long", Page{ID: "p1", Elements: []Element{
+			func() Element { e := validText(); e.Text = ptr(strings.Repeat("я", MaxTextRunes+1)); return e }(),
+		}}, "too long"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.page.Validate()
+			err := tt.page.Validate(fonts)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -68,7 +85,7 @@ func TestPageValidate(t *testing.T) {
 }
 
 func TestValidateAllDuplicatePageID(t *testing.T) {
-	err := ValidateAll([]Page{{ID: "p1"}, {ID: "p1"}})
+	err := ValidateAll([]Page{{ID: "p1"}, {ID: "p1"}}, fonts)
 	if err == nil || !strings.Contains(err.Error(), "duplicate page id") {
 		t.Fatalf("error = %v, want duplicate page id", err)
 	}

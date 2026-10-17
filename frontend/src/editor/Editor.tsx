@@ -7,23 +7,42 @@ import { PageView } from '../book/PageView.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
 import { t } from '../i18n/index.ts'
-import type { Book, Crop, Format, Page, PhotoSlotElement } from '../types.ts'
+import type { Book, Crop, Format, Page, PhotoSlotElement, TextElement } from '../types.ts'
 import { useBookDoc, type SaveStatus } from './autosave.ts'
-import { findSlot, sameSlot, slotKey, updateSlot, type SlotRef } from './doc.ts'
+import {
+  addElement,
+  elKey,
+  findElement,
+  newTextElement,
+  removeElement,
+  sameEl,
+  slotKey,
+  updateSlot,
+  updateText,
+  USER_TEXT_PREFIX,
+  type ElRef,
+  type SlotRef,
+} from './doc.ts'
 import { SlotOverlay, type UploadState } from './SlotOverlay.tsx'
+import { TextDialog } from './TextDialog.tsx'
+import { TextOverlay } from './TextOverlay.tsx'
+import { TextPanel } from './TextPanel.tsx'
 import { ACCEPT, checkFile, readImageSize, uploadPhoto, type Size } from './upload.ts'
 import './Editor.css'
 
 type LocalImage = Size & { url: string }
 
-// Редактор v0: листаем страницы, тап по пустому слоту — выбор фото,
-// тап по фото — выделение, затем двигаем и масштабируем кадр.
+// Редактор: листаем страницы, тап по пустому слоту — выбор фото,
+// тап по фото — выделение, затем двигаем и масштабируем кадр;
+// тап по тексту — панель шрифта, размера, цвета и окно ввода текста.
 // Все правки сохраняются автоматически (см. autosave.ts).
 // initialPage — с какой страницы открыть (0 — обложка), например по ссылке из превью.
 export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: number }) {
   const { doc, update, status } = useBookDoc(book)
   const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length, initialPage)))
-  const [selected, setSelected] = useState<SlotRef | null>(null)
+  const [selected, setSelected] = useState<ElRef | null>(null)
+  const [editingText, setEditingText] = useState<ElRef | null>(null) // открыто окно ввода
+  const [overflow, setOverflow] = useState<Record<string, boolean>>({}) // текст не влезает
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [localImages, setLocalImages] = useState<Record<string, LocalImage>>({})
   const [error, setError] = useState<ApiError | null>(null)
@@ -47,6 +66,12 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
 
   const allPages = [doc.cover, ...doc.pages]
   const page = allPages[pageIndex]
+
+  // PageView сообщает, влез ли текст в блок; храним для предупреждений.
+  const onTextFit = (elId: string, fits: boolean) => {
+    const key = elKey({ pageId: page.id, elId })
+    setOverflow((o) => (o[key] === !fits ? o : { ...o, [key]: !fits }))
+  }
 
   // Только что загруженные фото показываем прямо из памяти устройства
   // (мгновенно, без скачивания обратно), остальные — с сервера.
@@ -81,13 +106,13 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   // Стрелки ← → на клавиатуре листают страницы (удобно на компьютере).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText) return
       if (e.key === 'ArrowLeft') goTo(pageIndex - 1)
       if (e.key === 'ArrowRight') goTo(pageIndex + 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goTo, pageIndex])
+  }, [goTo, pageIndex, editingText])
 
   function pickPhoto(target: SlotRef) {
     pickTarget.current = target
@@ -141,14 +166,53 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
 
   const setCrop = (target: SlotRef, crop: Crop) => update((d) => updateSlot(d, target, (el) => ({ ...el, crop })))
 
+  // Тап по тексту: выбрать; пустой — сразу открыть ввод.
+  function onTapText(el: TextElement) {
+    const target = { pageId: page.id, elId: el.id }
+    setSelected(target)
+    if (el.text.trim() === '') setEditingText(target)
+  }
+
+  function addText() {
+    const el = newTextElement(doc, page)
+    const target = { pageId: page.id, elId: el.id }
+    update((d) => addElement(d, page.id, el))
+    setSelected(target)
+    setEditingText(target)
+  }
+
+  function removeText(target: ElRef) {
+    update((d) => removeElement(d, target))
+    setSelected(null)
+  }
+
   function removePhoto(target: SlotRef) {
     update((d) => updateSlot(d, target, (el) => ({ ...el, assetId: null, crop: DEFAULT_CROP })))
     setSelected(null)
   }
 
-  // Выделенный слот с фото на текущей странице — для него показываем панель кадра.
+  // Выбранный элемент не должен прятаться под панелью внизу экрана (на телефоне
+  // она занимает пол-экрана, а подписи часто внизу страницы). После того как
+  // панель отрисовалась, докручиваем страницу, чтобы элемент был над ней.
+  const selectedId = selected?.elId
+  useEffect(() => {
+    if (!selectedId) return
+    const frame = requestAnimationFrame(() => {
+      const node = rootRef.current?.querySelector(`[data-el-id="${selectedId}"]`)
+      const bar = toolbarRef.current
+      if (!node || !bar) return
+      const r = node.getBoundingClientRect()
+      const visibleBottom = window.innerHeight - bar.offsetHeight - 12
+      if (r.bottom > visibleBottom) window.scrollBy({ top: r.bottom - visibleBottom, behavior: 'smooth' })
+      else if (r.top < 8) window.scrollBy({ top: r.top - 8, behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [selectedId])
+
+  // Выбранный элемент на текущей странице — для него показываем панель внизу.
   const active = selected && selected.pageId === page.id ? selected : null
-  const activeEl = active ? findSlot(doc, active) : undefined
+  const activeEl = active ? findElement(doc, active) : undefined
+  const editingEl = editingText ? findElement(doc, editingText) : undefined
   const pageLabel = pageIndex === 0 ? t.book.cover : t.editor.pageOf(pageIndex, doc.pages.length)
 
   return (
@@ -187,15 +251,26 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
       {/* Тап по пустому месту вокруг слотов снимает выделение. */}
       <div className="ed-stage" onClick={() => setSelected(null)}>
         <div className="ed-page">
-          <PageView page={page} format={book.format} imageSrc={imageSrc} />
+          <PageView page={page} format={book.format} imageSrc={imageSrc} onTextFit={onTextFit} />
           {page.elements.map((el) => {
-            if (el.type !== 'photo_slot') return null
             const ref = { pageId: page.id, elId: el.id }
+            if (el.type === 'text') {
+              return (
+                <TextOverlay
+                  key={el.id}
+                  el={el}
+                  selected={sameEl(selected, ref)}
+                  overflow={!!overflow[elKey(ref)]}
+                  onTap={() => onTapText(el)}
+                />
+              )
+            }
+            if (el.type !== 'photo_slot') return null
             return (
               <SlotOverlay
                 key={el.id}
                 el={el}
-                selected={sameSlot(selected, ref)}
+                selected={sameEl(selected, ref)}
                 imageSize={el.assetId ? sizeOf(el.assetId) : undefined}
                 upload={uploads[slotKey(ref)]}
                 lowDpi={lowDpi(el)}
@@ -239,7 +314,17 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
       <div className="ed-toolbar" ref={toolbarRef}>
         <div className="ed-toolbar-inner">
           {error && <ErrorMessage error={error} />}
-          {active && activeEl?.assetId ? (
+          {active && activeEl?.type === 'text' ? (
+            <TextPanel
+              el={activeEl}
+              movable={activeEl.id.startsWith(USER_TEXT_PREFIX)}
+              overflow={!!overflow[elKey(active)]}
+              onChange={(fn) => update((d) => updateText(d, active, fn))}
+              onEdit={() => setEditingText(active)}
+              onRemove={() => removeText(active)}
+              onDone={() => setSelected(null)}
+            />
+          ) : active && activeEl?.type === 'photo_slot' && activeEl.assetId ? (
             <>
               {lowDpi(activeEl) && <p className="ed-dpi-warning">{t.editor.lowDpi}</p>}
               <label className="ed-zoom">
@@ -267,12 +352,28 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
               <p className="muted ed-hint">{t.editor.adjustHint}</p>
             </>
           ) : (
-            <p className="muted ed-hint">{t.editor.hint}</p>
+            <div className="ed-idle">
+              <p className="muted ed-hint">{t.editor.hint}</p>
+              <button className="btn" onClick={addText}>
+                {t.editor.addText}
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={onFileChosen} />
+
+      {editingText && editingEl?.type === 'text' && (
+        <TextDialog
+          el={editingEl}
+          page={allPages.find((p) => p.id === editingText.pageId) ?? page}
+          format={book.format}
+          imageSrc={imageSrc}
+          onChange={(text) => update((d) => updateText(d, editingText, (e) => ({ ...e, text })))}
+          onClose={() => setEditingText(null)}
+        />
+      )}
     </div>
   )
 }

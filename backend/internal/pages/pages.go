@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"unicode/utf8"
 )
 
 // SchemaVersion — текущая версия формата JSON страниц. Меняется, когда формат
@@ -63,17 +64,32 @@ type Crop struct {
 
 var colorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
+// Ограничения от злоупотреблений и случайностей (вставили роман в подпись).
+const (
+	MaxElementsPerPage = 50
+	MaxTextRunes       = 1000
+)
+
+// Fonts — какие шрифты существуют (реализует fonts.Registry).
+type Fonts interface {
+	Has(id string) bool
+	HasBold(id string) bool
+}
+
 // Допуск на погрешность дробных процентов (например, 33.34 + 66.67).
 const eps = 0.01
 
 // Validate проверяет одну страницу: геометрию, обязательные поля по типам,
-// уникальность id элементов.
-func (p Page) Validate() error {
+// уникальность id элементов, шрифты.
+func (p Page) Validate(fonts Fonts) error {
 	if p.ID == "" {
 		return fmt.Errorf("page id is empty")
 	}
 	if p.Background != "" && !colorRe.MatchString(p.Background) {
 		return fmt.Errorf("page %s: background %q is not #rrggbb", p.ID, p.Background)
+	}
+	if len(p.Elements) > MaxElementsPerPage {
+		return fmt.Errorf("page %s: too many elements (%d > %d)", p.ID, len(p.Elements), MaxElementsPerPage)
 	}
 	seen := map[string]bool{}
 	for i, e := range p.Elements {
@@ -84,14 +100,14 @@ func (p Page) Validate() error {
 			return fmt.Errorf("page %s: duplicate element id %q", p.ID, e.ID)
 		}
 		seen[e.ID] = true
-		if err := e.validate(); err != nil {
+		if err := e.validate(fonts); err != nil {
 			return fmt.Errorf("page %s, element %s: %w", p.ID, e.ID, err)
 		}
 	}
 	return nil
 }
 
-func (e Element) validate() error {
+func (e Element) validate(fonts Fonts) error {
 	if e.X < 0 || e.Y < 0 || e.W <= 0 || e.H <= 0 || e.X+e.W > 100+eps || e.Y+e.H > 100+eps {
 		return fmt.Errorf("geometry x=%v y=%v w=%v h=%v is outside the page (0–100)", e.X, e.Y, e.W, e.H)
 	}
@@ -104,8 +120,14 @@ func (e Element) validate() error {
 		if e.Text == nil {
 			return fmt.Errorf("text is missing")
 		}
-		if e.Font == "" {
-			return fmt.Errorf("font is empty")
+		if n := utf8.RuneCountInString(*e.Text); n > MaxTextRunes {
+			return fmt.Errorf("text is too long (%d > %d characters)", n, MaxTextRunes)
+		}
+		if !fonts.Has(e.Font) {
+			return fmt.Errorf("font %q is not in the fonts config", e.Font)
+		}
+		if e.Bold && !fonts.HasBold(e.Font) {
+			return fmt.Errorf("font %q has no bold face", e.Font)
 		}
 		if e.Size <= 0 {
 			return fmt.Errorf("size must be > 0")
@@ -129,10 +151,10 @@ func (e Element) validate() error {
 }
 
 // ValidateAll проверяет набор страниц (обложка + внутренние) и уникальность id страниц.
-func ValidateAll(all []Page) error {
+func ValidateAll(all []Page, fonts Fonts) error {
 	seen := map[string]bool{}
 	for _, p := range all {
-		if err := p.Validate(); err != nil {
+		if err := p.Validate(fonts); err != nil {
 			return err
 		}
 		if seen[p.ID] {

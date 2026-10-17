@@ -1,0 +1,170 @@
+{
+  "fonts": [
+    {
+      "id": "caveat",
+      "name": "Caveat",
+      "category": "handwritten",
+      "license": "OFL-1.1",
+      "modified": true,
+      "files": [
+        {
+          "file": "caveat-regular.woff2",
+          "weight": "400"
+        },
+        {
+          "file": "caveat-bold.woff2",
+          "weight": "700"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    },
+    {
+      "id": "marck-script",
+      "name": "Marck Script",
+      "category": "handwritten",
+      "license": "OFL-1.1",
+      "modified": false,
+      "files": [
+        {
+          "file": "marck-script-regular.ttf",
+          "weight": "400"
+        }
+      ],
+      "bold": false,
+      "kk": false
+    },
+    {
+      "id": "pacifico",
+      "name": "Pacifico",
+      "category": "handwritten",
+      "license": "OFL-1.1",
+      "modified": true,
+      "files": [
+        {
+          "file": "pacifico-regular.woff2",
+          "weight": "400"
+        }
+      ],
+      "bold": false,
+      "kk": true
+    },
+    {
+      "id": "lobster",
+      "name": "Lobster",
+      "category": "handwritten",
+      "license": "OFL-1.1",
+      "modified": false,
+      "files": [
+        {
+          "file": "lobster-regular.ttf",
+          "weight": "400"
+        }
+      ],
+      "bold": false,
+      "kk": true
+    },
+    {
+      "id": "playfair-display",
+      "name": "Playfair Display",
+      "category": "serif",
+      "license": "OFL-1.1",
+      "modified": false,
+      "files": [
+        {
+          "file": "playfair-display-variable.ttf",
+          "weight": "400 900"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    },
+    {
+      "id": "lora",
+      "name": "Lora",
+      "category": "serif",
+      "license": "OFL-1.1",
+      "modified": false,
+      "files": [
+        {
+          "file": "lora-variable.ttf",
+          "weight": "400 700"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    },
+    {
+      "id": "pt-serif",
+      "name": "PT Serif",
+      "category": "serif",
+      "license": "OFL-1.1",
+      "modified": false,
+      "files": [
+        {
+          "file": "pt-serif-regular.ttf",
+          "weight": "400"
+        },
+        {
+          "file": "pt-serif-bold.ttf",
+          "weight": "700"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    },
+    {
+      "id": "montserrat",
+      "name": "Montserrat",
+      "category": "sans",
+      "license": "OFL-1.1",
+      "modified": true,
+      "files": [
+        {
+          "file": "montserrat-regular.woff2",
+          "weight": "400"
+        },
+        {
+          "file": "montserrat-bold.woff2",
+          "weight": "700"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    },
+    {
+      "id": "raleway",
+      "name": "Raleway",
+      "category": "sans",
+      "license": "OFL-1.1",
+      "modified": false,
+      "files": [
+        {
+          "file": "raleway-variable.ttf",
+          "weight": "100 900"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    },
+    {
+      "id": "nunito",
+      "name": "Nunito",
+      "category": "sans",
+      "license": "OFL-1.1",
+      "modified": true,
+      "files": [
+        {
+          "file": "nunito-regular.woff2",
+          "weight": "400"
+        },
+        {
+          "file": "nunito-bold.woff2",
+          "weight": "700"
+        }
+      ],
+      "bold": true,
+      "kk": true
+    }
+  ]
+}

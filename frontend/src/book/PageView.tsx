@@ -1,5 +1,5 @@
-import { memo, type CSSProperties } from 'react'
-import type { Format, Page, PageElement } from '../types.ts'
+import { memo, useEffectEvent, useLayoutEffect, useRef, type CSSProperties } from 'react'
+import type { Format, Page, PageElement, TextElement } from '../types.ts'
 import { cropStyle } from './crop.ts'
 import { fontFamily } from './fonts.ts'
 import { bleedBox, box } from './geometry.ts'
@@ -21,7 +21,12 @@ type Props = {
   showBleed?: boolean
   // Линия реза и безопасная зона поверх страницы — подсказка в превью, не для печати.
   guides?: boolean
+  // Сообщает, поместился ли текст в свой блок (редактор показывает предупреждение).
+  onTextFit?: (elId: string, fits: boolean) => void
 }
+
+// Ниже этого кегля автоподбор не уменьшает: мельче на печати не прочитать.
+export const MIN_TEXT_PT = 8
 
 // Один компонент рисует страницу везде: в каталоге, в редакторе, в превью,
 // дальше — в PDF (правило «превью = печать»). Все размеры — из формата книги.
@@ -40,6 +45,7 @@ export const PageView = memo(function PageView({
   variant = 'screen',
   showBleed = false,
   guides = false,
+  onTextFit,
 }: Props) {
   const { widthMm: w, heightMm: h, bleedMm: b } = format
   const sheetW = w + 2 * b
@@ -57,7 +63,15 @@ export const PageView = memo(function PageView({
       <div className="pv-sheet" style={{ ...sheet, background: page.background || '#ffffff' }}>
         <div className="pv-trim" style={trim}>
           {page.elements.map((el) => (
-            <ElementView key={el.id} el={el} format={format} imageSrc={imageSrc} lazy={lazy} variant={variant} />
+            <ElementView
+              key={el.id}
+              el={el}
+              format={format}
+              imageSrc={imageSrc}
+              lazy={lazy}
+              variant={variant}
+              onTextFit={onTextFit}
+            />
           ))}
           {guides && <Guides format={format} />}
         </div>
@@ -68,9 +82,9 @@ export const PageView = memo(function PageView({
 
 const pct = (part: number, whole: number) => `${(part / whole) * 100}%`
 
-type ElementProps = Pick<Props, 'format' | 'imageSrc' | 'lazy' | 'variant'> & { el: PageElement }
+type ElementProps = Pick<Props, 'format' | 'imageSrc' | 'lazy' | 'variant' | 'onTextFit'> & { el: PageElement }
 
-function ElementView({ el, format, imageSrc, lazy, variant }: ElementProps) {
+function ElementView({ el, format, imageSrc, lazy, variant, onTextFit }: ElementProps) {
   switch (el.type) {
     case 'photo_slot': {
       const src = el.assetId && imageSrc ? imageSrc(el.assetId) : undefined
@@ -93,24 +107,74 @@ function ElementView({ el, format, imageSrc, lazy, variant }: ElementProps) {
       )
     }
     case 'text':
-      return (
-        <div
-          className="pv-el pv-text"
-          style={{
-            ...box(el),
-            fontFamily: fontFamily(el.font),
-            fontSize: fontSize(el.size, format),
-            color: el.color ?? '#000000',
-            textAlign: el.align,
-            fontWeight: el.bold ? 700 : 400,
-          }}
-        >
-          {el.text}
-        </div>
-      )
+      return <TextView el={el} format={format} onFit={onTextFit} />
     case 'sticker':
       return null // стикеры — шаг 9
   }
+}
+
+// Текст с автоподбором кегля: если при заданном размере текст не влезает
+// в блок, берём самый крупный размер, при котором влезает (но не меньше
+// MIN_TEXT_PT). Подбор идёт по настоящей вёрстке с настоящим шрифтом, поэтому
+// и в редакторе, и в превью, и в PDF он видит одно и то же. Пересчёт — при
+// изменении текста, размера блока на экране и когда догрузился шрифт.
+function TextView({ el, format, onFit }: { el: TextElement; format: Format; onFit?: (id: string, fits: boolean) => void }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLDivElement>(null)
+  const report = useEffectEvent((fits: boolean) => onFit?.(el.id, fits))
+
+  useLayoutEffect(() => {
+    const boxEl = boxRef.current
+    const textEl = textRef.current
+    if (!boxEl || !textEl) return
+
+    const fitsAt = (pt: number) => {
+      textEl.style.fontSize = fontSize(pt, format)
+      return textEl.offsetHeight <= boxEl.clientHeight + 0.5
+    }
+    const fit = () => {
+      const max = el.size
+      const min = Math.min(MIN_TEXT_PT, el.size)
+      if (fitsAt(max)) return report(true)
+      if (!fitsAt(min)) return report(false) // не влезает даже мелко — лишнее обрежется
+      let lo = min
+      let hi = max
+      for (let i = 0; i < 7; i++) {
+        const mid = (lo + hi) / 2
+        if (fitsAt(mid)) lo = mid
+        else hi = mid
+      }
+      fitsAt(lo)
+      report(true)
+    }
+
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(boxEl)
+    document.fonts.addEventListener('loadingdone', fit)
+    return () => {
+      ro.disconnect()
+      document.fonts.removeEventListener('loadingdone', fit)
+    }
+  }, [el.text, el.size, el.font, el.bold, el.w, el.h, format])
+
+  return (
+    <div
+      ref={boxRef}
+      className="pv-el pv-text"
+      style={{
+        ...box(el),
+        fontFamily: fontFamily(el.font),
+        color: el.color ?? '#000000',
+        textAlign: el.align,
+        fontWeight: el.bold ? 700 : 400,
+      }}
+    >
+      <div ref={textRef} style={{ fontSize: fontSize(el.size, format) }}>
+        {el.text}
+      </div>
+    </div>
+  )
 }
 
 // Линия реза (всё за ней затемнено — уйдёт в обрезки) и безопасная зона

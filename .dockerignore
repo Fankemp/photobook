@@ -3,3 +3,4 @@
 *
 !backend/
 !templates/
+!frontend/src/book/fonts.json

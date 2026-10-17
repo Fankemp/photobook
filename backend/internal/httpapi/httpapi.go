@@ -10,6 +10,7 @@ import (
 
 	"photobook/internal/assets"
 	"photobook/internal/books"
+	"photobook/internal/fonts"
 	"photobook/internal/formats"
 	"photobook/internal/templates"
 )
@@ -23,6 +24,7 @@ type Deps struct {
 	DB        Pinger
 	Storage   Pinger
 	Formats   *formats.Store
+	Fonts     *fonts.Registry
 	Templates *templates.Catalog
 	Books     *books.Store
 	Assets    *assets.Service
