@@ -1,0 +1,142 @@
+/* ---------- Знак ---------- */
+.logo {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* Ленточка свисает от верхнего края шапки, как ляссе из книги. */
+.logo-ribbon {
+  width: 11px;
+  height: 26px;
+  margin-top: -14px;
+  fill: var(--ribbon);
+}
+
+.logo-word {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Шапка ---------- */
+.site-header {
+  border-top: 3px solid var(--cloth);
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 14px 16px;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.site-nav-secondary {
+  display: none !important;
+}
+
+/* ---------- Подвал ---------- */
+.site-footer {
+  margin-top: 72px;
+  border-top: 1px solid var(--rule);
+}
+
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 16px calc(28px + env(safe-area-inset-bottom));
+}
+
+.site-footer p {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Ленточка в подвале — просто красная метка рядом с названием. */
+.site-footer .logo-ribbon {
+  margin-top: 0;
+}
+
+/* ---------- Метки реза ---------- */
+.crop {
+  position: relative;
+}
+
+/* Каждая метка — две короткие линии на продолжении краёв блока, с зазором
+   от угла, как на листе в типографии: угол 22×22 вплотную к блоку,
+   линии по 14px, зазор 8px. */
+.crop-mark {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
+.crop-mark::before,
+.crop-mark::after {
+  content: '';
+  position: absolute;
+  background: var(--mark);
+}
+
+.crop-mark::before {
+  width: 14px;
+  height: 1px;
+}
+
+.crop-mark::after {
+  width: 1px;
+  height: 14px;
+}
+
+.crop-tl { left: -22px; top: -22px; }
+.crop-tr { right: -22px; top: -22px; }
+.crop-bl { left: -22px; bottom: -22px; }
+.crop-br { right: -22px; bottom: -22px; }
+
+.crop-tl::before { left: 0; bottom: 0; }
+.crop-tl::after { right: 0; top: 0; }
+.crop-tr::before { right: 0; bottom: 0; }
+.crop-tr::after { left: 0; top: 0; }
+.crop-bl::before { left: 0; top: 0; }
+.crop-bl::after { right: 0; bottom: 0; }
+.crop-br::before { right: 0; top: 0; }
+.crop-br::after { left: 0; bottom: 0; }
+
+@media (min-width: 720px) {
+  .site-nav-secondary {
+    display: inline-flex !important;
+  }
+}

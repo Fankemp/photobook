@@ -1,5 +1,5 @@
-// Каталог: фильтр шаблонов по поводу, новые шаблоны (стикеры, повёрнутый текст,
-// задняя обложка) и книга по новому шаблону.
+// Главная и каталог: книга-витрина, фильтр шаблонов по поводу, новые шаблоны
+// (стикеры, повёрнутый текст, задняя обложка, примеры фото) и книга по шаблону.
 // Запуск: make e2e (сервисы должны быть запущены через make up).
 import { chromium, devices } from 'playwright'
 import { mkdirSync } from 'node:fs'
@@ -54,6 +54,27 @@ await page.goto(base + '/?occasion=unicorn')
 await cards.first().waitFor()
 check((await cards.count()) === all.length && (await chip('Все').getAttribute('aria-pressed')) === 'true', 'unknown occasion in the address → all templates')
 
+// 2б. Книга-витрина на главной: раскрывается сама, листается кнопкой; в ней
+//     примеры фото. Если человек просил меньше движения — открыта сразу.
+await page.goto(base + '/')
+await page.locator('.fb-leaf.is-cover.is-turned').waitFor({ timeout: 5000 })
+const count = page.locator('.fb-count')
+check((await count.textContent()) === 'Разворот 1 из 4' && (await page.title()).startsWith('Сақта'), 'home: the showcase book opens by itself on spread 1 of 4, title «Сақта…»')
+await page.getByRole('button', { name: 'Следующий разворот' }).click()
+await page.locator('.fb-count', { hasText: 'Разворот 2 из 4' }).waitFor()
+await imagesLoaded()
+const demoImgs = await page.locator('.fb img[src^="/demo/"]').count()
+check(demoImgs >= 6, `"Следующий разворот" turns the page; the book shows example photos (${demoImgs} pictures)`)
+check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'home: crop marks and the book do not make the phone page scroll sideways')
+await page.screenshot({ path: `${out}/cat-0-home.png` })
+{
+  const calm = await browser.newPage({ ...devices['iPhone 13'], reducedMotion: 'reduce' })
+  await calm.goto(base + '/')
+  await calm.locator('.fb-count').waitFor()
+  check((await calm.locator('.fb-count').textContent()) === 'Разворот 1 из 4', 'reduced motion: the book is open right away, no animation')
+  await calm.close()
+}
+
 // 3. Каждый новый шаблон: свой повод в фильтре, 22 страницы (обложки + 20), стикеры.
 for (const [id, occasion] of Object.entries(NEW)) {
   const tpl = all.find((x) => x.id === id)
@@ -64,7 +85,8 @@ for (const [id, occasion] of Object.entries(NEW)) {
   await imagesLoaded()
   const pagesShown = await page.locator('.grid .pv').count()
   const stickers = await page.locator('.grid .pv-sticker').count()
-  check(pagesShown === 22 && stickers >= 5, `${id}: 22 pages with back cover, ${stickers} stickers drawn`)
+  const photos = await page.locator('.grid .pv-slot img[src^="/demo/"]').count()
+  check(pagesShown === 22 && stickers >= 5 && photos >= 20, `${id}: 22 pages with back cover, ${stickers} stickers, ${photos} example photos`)
 }
 
 // 4. Книга по шаблону «Первый год»: подписи месяцев повёрнуты, стикеры на месте.

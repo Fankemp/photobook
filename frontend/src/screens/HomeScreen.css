@@ -1,0 +1,392 @@
+/* Главная. Mobile-first; шире — через min-width. Текст по левому краю, как в книге. */
+.home {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ---------- Первый экран ---------- */
+.hero {
+  display: grid;
+  gap: 40px;
+  padding-top: 28px;
+}
+
+.hero h1 {
+  margin: 0 0 16px;
+  font-size: clamp(2.25rem, 9.5vw, 4.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  /* Не даём заголовку разорваться так, что в строке останется одно слово. */
+  text-wrap: balance;
+}
+
+.hero-lead {
+  max-width: 34em;
+  margin: 0 0 24px;
+  font-family: var(--font-serif);
+  font-size: clamp(1.0625rem, 4.4vw, 1.25rem);
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.hero-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink);
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+
+/* Книга: метки реза рисуются снаружи на 22px — оставляем им место на телефоне. */
+.hero-book {
+  padding: 22px 8px 0;
+}
+
+.hero-book-space {
+  aspect-ratio: 2 / 1;
+}
+
+.hero-note {
+  margin: 12px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* ---------- Разделы ---------- */
+.home-section {
+  margin-top: 80px;
+  /* Ссылка из шапки прокручивает к разделу: оставляем воздух сверху. */
+  scroll-margin-top: 16px;
+}
+
+.home-section h2 {
+  margin: 0 0 8px;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.section-lead {
+  max-width: 34em;
+  margin: 0 0 24px;
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---------- Фильтр: закладки-разделители ---------- */
+.chips {
+  display: flex;
+  gap: 4px;
+  margin: 0 -16px 28px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Линия, на которой стоят закладки, — до краёв экрана. */
+  box-shadow: inset 0 -1px 0 var(--rule);
+}
+
+.chip {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--paper);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--cloth);
+  background: var(--cloth);
+  color: #ffffff;
+}
+
+/* ---------- Полка с шаблонами ---------- */
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Обложка как у книги в твёрдом переплёте: тень на «полке» и корешок слева. */
+.tpl-book {
+  position: relative;
+  display: block;
+  margin-bottom: 12px;
+  box-shadow:
+    0 1px 1px rgb(27 36 64 / 0.08),
+    0 12px 22px -12px rgb(27 36 64 / 0.5);
+}
+
+.tpl-book::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 7%;
+  pointer-events: none;
+  background: linear-gradient(to right, rgb(27 36 64 / 0.22), rgb(255 255 255 / 0.18) 45%, rgb(27 36 64 / 0.08) 70%, rgb(27 36 64 / 0));
+}
+
+.tpl-book .pv {
+  box-shadow: none;
+}
+
+.tpl-card-name {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.25;
+}
+
+.tpl-card:hover .tpl-card-name {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.tpl-card-occasion {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* ---------- Как это устроено: шаги, сшитые нитью ---------- */
+.steps {
+  position: relative;
+  display: grid;
+  gap: 28px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Пунктир между номерами — как стежок, которым сшивают тетради книги. */
+.steps::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 20px;
+  bottom: 20px;
+  border-left: 2px dashed var(--mark);
+}
+
+.steps li {
+  position: relative;
+  padding-left: 60px;
+}
+
+.step-n {
+  position: absolute;
+  left: 0;
+  top: -4px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--cloth);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--cloth);
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.steps h3 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.steps p {
+  max-width: 30em;
+  margin: 0;
+  font-family: var(--font-serif);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---------- Что вы получите: техкарта заказа ---------- */
+.ticket {
+  max-width: 560px;
+  margin: 28px 22px 0;
+  padding: 8px 20px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(27 36 64 / 0.08);
+}
+
+.ticket dl {
+  margin: 0;
+}
+
+.ticket-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 0;
+  font-family: var(--font-serif);
+}
+
+.ticket-row + .ticket-row {
+  border-top: 1px solid var(--rule);
+}
+
+/* Отточие от названия к значению. */
+.ticket-row dt {
+  display: flex;
+  flex: 1 0 auto;
+  align-items: baseline;
+  font-weight: 600;
+}
+
+.ticket-row dt::after {
+  content: '';
+  flex: 1;
+  min-width: 16px;
+  margin-left: 8px;
+  border-bottom: 1px dotted var(--mark);
+}
+
+.ticket-row dd {
+  max-width: 62%;
+  margin: 0;
+  text-align: right;
+}
+
+/* ---------- Вопросы ---------- */
+.faq {
+  max-width: 720px;
+  margin-top: 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.faq details {
+  border-top: 1px solid var(--rule);
+}
+
+.faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 12px 0;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.125rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Плюс поворачивается в крестик, когда ответ открыт. */
+.faq summary::after {
+  content: '+';
+  flex: none;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--cloth);
+  transition: transform 0.2s;
+}
+
+.faq details[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.faq p {
+  max-width: 36em;
+  margin: 0 0 16px;
+  font-family: var(--font-serif);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---------- Шире ---------- */
+@media (min-width: 640px) {
+  .shelf {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .chips {
+    flex-wrap: wrap;
+    margin: 0 0 28px;
+    padding: 0;
+  }
+}
+
+@media (min-width: 960px) {
+  .hero {
+    grid-template-columns: 5fr 7fr;
+    align-items: center;
+    gap: 56px;
+    padding-top: 72px;
+  }
+
+  .hero-book {
+    padding: 0 24px;
+  }
+
+  .home-section {
+    margin-top: 120px;
+  }
+
+  .shelf {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 40px 28px;
+  }
+
+  /* Шаги в ряд: нить идёт по горизонтали через номера. */
+  .steps {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+  }
+
+  .steps::before {
+    left: 20px;
+    right: 20px;
+    top: 19px;
+    bottom: auto;
+    border-left: none;
+    border-top: 2px dashed var(--mark);
+  }
+
+  .steps li {
+    padding: 60px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq summary::after {
+    transition: none;
+  }
+}

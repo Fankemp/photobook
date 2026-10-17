@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError, createBook, getTemplate, toApiError } from '../api.ts'
 import { PagesGrid } from '../book/PagesGrid.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
+import { SiteFooter, SiteHeader } from '../components/Site.tsx'
 import { t } from '../i18n/index.ts'
+import { demoImageSrc, withDemoPhotos } from '../landing/demo.ts'
 import { saveLastBook } from '../lib/lastBook.ts'
 import { useLoad } from '../lib/useLoad.ts'
 
-// Просмотр шаблона перед выбором. Книга создаётся только по кнопке,
-// чтобы просто листающие каталог не плодили пустые книги в базе.
+// Просмотр шаблона перед выбором. Рамки заняты примерами фото — видно, как
+// книга будет выглядеть; в книгу они не попадают. Книга создаётся только
+// по кнопке, чтобы просто листающие каталог не плодили пустые книги в базе.
 export function TemplateScreen() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -29,9 +32,19 @@ export function TemplateScreen() {
     }
   }
 
+  const tpl = template.status === 'ok' ? template.data : null
+  // Сцены идут подряд через обложку и страницы (useMemo: не пересчитывать на каждый рендер).
+  const demo = useMemo(() => {
+    if (!tpl) return null
+    const [cover, ...rest] = withDemoPhotos([tpl.cover, ...tpl.pages, tpl.backCover], tpl.occasion)
+    return { cover, pages: rest.slice(0, -1), backCover: rest[rest.length - 1] }
+  }, [tpl])
+
   return (
-    <main className="page">
-      <Link to="/" className="back">
+    <>
+    <SiteHeader />
+    <main className="page page-wide">
+      <Link to={{ pathname: '/', hash: '#templates' }} className="back">
         {t.template.back}
       </Link>
 
@@ -41,13 +54,18 @@ export function TemplateScreen() {
         <>
           <h1>{template.data.name}</h1>
           <p className="muted">{t.formatInfo(template.data.format.name, template.data.pageCount)}</p>
+          <p className="muted">{t.template.demoNote}</p>
 
-          <PagesGrid
-            cover={template.data.cover}
-            pages={template.data.pages}
-            backCover={template.data.backCover}
-            format={template.data.format}
-          />
+          {demo && (
+            <PagesGrid
+              cover={demo.cover}
+              pages={demo.pages}
+              backCover={demo.backCover}
+              format={template.data.format}
+              imageSrc={demoImageSrc}
+              variant="print"
+            />
+          )}
 
           {/* Кнопка прилипает к низу экрана: на телефоне её не нужно искать, листая вниз. */}
           <div className="sticky-actions">
@@ -59,5 +77,7 @@ export function TemplateScreen() {
         </>
       )}
     </main>
+    <SiteFooter />
+    </>
   )
 }

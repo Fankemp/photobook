@@ -1,17 +1,52 @@
-/* Mobile-first: базовые стили — для телефона, шире экран — через min-width. */
+/* Mobile-first: базовые стили — для телефона, шире экран — через min-width.
+
+   Стиль «Переплётная мастерская»: белая бумага, синий книжный переплёт,
+   красное ляссе (ленточка-закладка) — единственный яркий цвет, только для
+   главного действия и знака. Метки реза из типографии — там, где показываем
+   «лист, который пойдёт в печать». */
+
+/* Шрифт сайта — Literata (антиква для чтения книг), облегчённая: текст и
+   заголовки (tools/fonts/ui_fonts.py). Своё имя семейства — чтобы не взять
+   другую версию, установленную у человека в системе. */
+@font-face {
+  font-family: 'Sakta Literata';
+  src: url('/fonts/ui/literata-text-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sakta Literata';
+  src: url('/fonts/ui/literata-display-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+
 :root {
-  --bg: #f6f4f1;
+  --paper: #fbfbf8; /* бумага */
   --surface: #ffffff;
-  --text: #1f1d1a;
-  --muted: #6b665f;
-  --accent: #8a4b2d;
-  --accent-text: #ffffff;
-  --border: #e3ded6;
+  --ink: #1b2440; /* текст — синие чернила */
+  --muted: #5b6478;
+  --cloth: #233259; /* книжный переплёт: выбор, кнопки интерфейса */
+  --ribbon: #c8283c; /* ляссе: главное действие и знак */
+  --ribbon-dark: #a51f31;
+  --rule: #dfe2e9; /* линейки и рамки */
+  --mark: #8f98ab; /* метки реза, отточия */
   --error: #b42318;
   --warning-bg: #fff4d6;
   --warning-text: #8a5a00;
 
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Прежние имена — ими пользуются редактор, превью и заявка. */
+  --bg: var(--paper);
+  --text: var(--ink);
+  --accent: var(--cloth);
+  --accent-text: #ffffff;
+  --border: var(--rule);
+
+  --font-serif: 'Sakta Literata', Georgia, 'Times New Roman', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  font-family: var(--font-ui);
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
@@ -29,10 +64,24 @@ body {
   min-height: 100dvh;
 }
 
+/* Заголовки — шрифтом сайта; интерфейс (кнопки, поля) — системным. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+}
+
 h1 {
   margin: 0 0 4px;
   font-size: 1.75rem;
   line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cloth);
+  outline-offset: 2px;
 }
 
 p {
@@ -57,6 +106,11 @@ a {
   padding: 24px 16px;
 }
 
+/* Страницы сайта с шапкой — по ширине шапки. */
+.page-wide {
+  max-width: 1120px;
+}
+
 .card {
   background: var(--surface);
   border-radius: 12px;
@@ -69,7 +123,7 @@ a {
   min-height: 44px;
   padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -85,25 +139,35 @@ a {
 .btn-primary {
   width: 100%;
   min-height: 52px;
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
+  border-color: var(--ribbon);
+  background: var(--ribbon);
+  color: #ffffff;
+}
+
+/* Главное действие на странице — цвета ляссе. Одно на экран. */
+.btn-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 28px;
+  border-radius: 4px;
+  background: var(--ribbon);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  text-decoration: none;
+}
+
+.btn-cta:hover,
+.btn-primary:hover:not(:disabled) {
+  background: var(--ribbon-dark);
+  border-color: var(--ribbon-dark);
 }
 
 .back {
   display: inline-block;
   margin-bottom: 12px;
-  text-decoration: none;
-}
-
-.banner {
-  display: block;
-  margin-bottom: 24px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-weight: 600;
   text-decoration: none;
 }
 
@@ -122,52 +186,6 @@ a {
   flex-direction: column;
   gap: 6px;
   font-size: 0.875rem;
-}
-
-/* Фильтр по поводу. На телефоне — одна строка, листается пальцем до краёв
-   экрана (отрицательные поля съедают отступ .page); на широком — переносится. */
-.chips {
-  display: flex;
-  gap: 8px;
-  margin: 0 -16px 20px;
-  padding: 0 16px 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.chip {
-  flex: none;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.9375rem;
-  cursor: pointer;
-}
-
-.chip[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-.tpl-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.tpl-card .pv {
-  margin-bottom: 6px;
-}
-
-.tpl-card-name {
-  font-weight: 600;
 }
 
 /* Кнопка «Создать книгу» прилипает к низу экрана, пока листаешь страницы.
@@ -238,13 +256,6 @@ a {
 @media (min-width: 640px) {
   .grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-
-  .chips {
-    flex-wrap: wrap;
-    margin: 0 0 24px;
-    padding: 0;
-    overflow: visible;
   }
 
   .btn-primary {

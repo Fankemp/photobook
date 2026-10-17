@@ -7,6 +7,7 @@ import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
 import { clearDraft, restoreDoc } from '../editor/draft.ts'
 import { t } from '../i18n/index.ts'
+import { formatTenge } from '../lib/money.ts'
 import { formatPhone, normalizePhone } from '../lib/phone.ts'
 import { useLoad } from '../lib/useLoad.ts'
 import type { Book, Order, OrderInfo } from '../types.ts'
@@ -283,9 +284,4 @@ function OrderStatus({ order, token }: { order: Order; token: string }) {
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(y, m - 1, d))
-}
-
-// «15 000 ₸» — Intl сам ставит неразрывные пробелы между тысячами.
-function formatTenge(n: number): string {
-  return `${new Intl.NumberFormat('ru-RU').format(n)} ₸`
 }

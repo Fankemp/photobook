@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+<defs><radialGradient id="bg" cx="0.5" cy="0.45" r="0.75"><stop offset="0" stop-color="#f1f6e3"/><stop offset="1" stop-color="#c9ddb0"/></radialGradient><radialGradient id="apple" cx="0.38" cy="0.35" r="0.75"><stop offset="0" stop-color="#f06a5c"/><stop offset="0.6" stop-color="#d4313a"/><stop offset="1" stop-color="#9c1d27"/></radialGradient></defs>
+<rect x="0" y="0" width="800" height="800" fill="url(#bg)" />
+<path d="M-20 210 C 180 170 320 260 460 230 S 700 150 830 190" fill="none" stroke="#6b4a32" stroke-width="26" stroke-linecap="round"/>
+<path d="M330 245 C 360 300 380 330 400 380" fill="none" stroke="#6b4a32" stroke-width="10" stroke-linecap="round"/>
+<path d="M560 205 C 560 260 545 300 520 350" fill="none" stroke="#6b4a32" stroke-width="10" stroke-linecap="round"/>
+<ellipse cx="120" cy="170" rx="70" ry="30" transform="rotate(-30 120 170)" fill="#5b9a4f"/>
+<ellipse cx="250" cy="240" rx="70" ry="30" transform="rotate(40 250 240)" fill="#4b8442"/>
+<ellipse cx="430" cy="185" rx="70" ry="30" transform="rotate(-20 430 185)" fill="#5b9a4f"/>
+<ellipse cx="640" cy="150" rx="70" ry="30" transform="rotate(25 640 150)" fill="#4b8442"/>
+<ellipse cx="720" cy="230" rx="70" ry="30" transform="rotate(60 720 230)" fill="#5b9a4f"/>
+<ellipse cx="300" cy="300" rx="70" ry="30" transform="rotate(70 300 300)" fill="#5b9a4f"/>
+<ellipse cx="600" cy="290" rx="70" ry="30" transform="rotate(-50 600 290)" fill="#4b8442"/>
+<circle cx="400" cy="470" r="110" fill="url(#apple)"/>
+<ellipse cx="362" cy="426" rx="24" ry="14" transform="rotate(-30 362 426)" fill="#ffffff" opacity=".45"/>
+<path d="M400 369 q 5 -30 18 -48" fill="none" stroke="#5a3b26" stroke-width="7" stroke-linecap="round"/>
+<circle cx="520" cy="450" r="95" fill="url(#apple)"/>
+<ellipse cx="487" cy="412" rx="21" ry="12" transform="rotate(-30 487 412)" fill="#ffffff" opacity=".45"/>
+<path d="M520 363 q 5 -30 18 -48" fill="none" stroke="#5a3b26" stroke-width="7" stroke-linecap="round"/>
+<circle cx="255" cy="520" r="80" fill="url(#apple)"/>
+<ellipse cx="227" cy="488" rx="18" ry="10" transform="rotate(-30 227 488)" fill="#ffffff" opacity=".45"/>
+<path d="M255 446 q 5 -30 18 -48" fill="none" stroke="#5a3b26" stroke-width="7" stroke-linecap="round"/>
+</svg>

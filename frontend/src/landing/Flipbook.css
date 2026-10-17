@@ -1,0 +1,153 @@
+/* Книга на главной. Размер задаёт .fb (aspect-ratio — разворот из двух страниц
+   формата), всё остальное лежит внутри абсолютно. */
+.fb-wrap {
+  width: 100%;
+}
+
+.fb {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+  /* Вертикальная прокрутка пальцем по книге работает, горизонтальный свайп — листает. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* perspective — «глубина» поворота листа: чем больше, тем спокойнее. */
+.fb-book {
+  position: absolute;
+  inset: 0;
+  perspective: 2600px;
+  transition: transform 0.9s cubic-bezier(0.25, 0.7, 0.2, 1);
+}
+
+/* Закрытая книга — это одна обложка справа; сдвигаем её в центр. */
+.fb.is-closed .fb-book {
+  transform: translateX(-25%);
+}
+
+.fb-base,
+.fb-leaf {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+}
+
+.fb-leaf {
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.3, 0.1, 0.2, 1);
+}
+
+.fb-leaf.is-turned {
+  transform: rotateY(-180deg);
+}
+
+/* У поворачивающихся страниц тени нет: Chrome обрезает размытую тень 3D-слоя
+   по прямоугольнику, и вокруг книги видны жёсткие края. Тень — у .fb-shadow. */
+.fb-face {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Плоская тень под книгой: под обложкой, пока книга закрыта, под разворотом — когда открыта. */
+.fb-shadow {
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    0 2px 3px rgb(27 36 64 / 0.12),
+    0 22px 34px -20px rgb(27 36 64 / 0.6);
+  transition: left 0.9s cubic-bezier(0.3, 0.1, 0.2, 1);
+}
+
+.fb.is-closed .fb-shadow {
+  left: 50%;
+}
+
+.fb-back {
+  transform: rotateY(180deg);
+}
+
+/* Тень у корешка: правая страница темнее слева, левая — справа. */
+.fb-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to right, rgb(27 36 64 / 0.24), rgb(27 36 64 / 0) 10%);
+}
+
+.fb-back::after {
+  background: linear-gradient(to left, rgb(27 36 64 / 0.24), rgb(27 36 64 / 0) 10%);
+}
+
+/* Обложка снаружи — у неё тени корешка нет. */
+.fb-leaf.is-cover .fb-front::after {
+  background: none;
+}
+
+.fb-face .pv {
+  box-shadow: none;
+}
+
+/* Ляссе — ленточка-закладка: свисает из-под страниц у корешка. */
+.fb-ribbon {
+  position: absolute;
+  left: calc(50% + 14%);
+  bottom: -46px;
+  width: 14px;
+  height: 70px;
+  background: var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+}
+
+.fb.is-closed .fb-ribbon {
+  left: calc(50% + 34%);
+}
+
+.fb-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 56px;
+}
+
+.fb-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.fb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.fb-count {
+  min-width: 9em;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-book,
+  .fb-leaf,
+  .fb-shadow {
+    transition: none;
+  }
+}
