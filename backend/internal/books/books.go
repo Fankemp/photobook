@@ -101,10 +101,19 @@ func (s *Store) IsLocked(ctx context.Context, bookID string) (bool, error) {
 }
 
 func (s *Store) GetByToken(ctx context.Context, token string) (Book, error) {
+	return s.get(ctx, "token", token)
+}
+
+func (s *Store) GetByID(ctx context.Context, id string) (Book, error) {
+	return s.get(ctx, "id", id)
+}
+
+// get — по токену (клиент) или по id (печать). column — из кода, не от пользователя.
+func (s *Store) get(ctx context.Context, column, value string) (Book, error) {
 	var b Book
 	err := s.db.QueryRow(ctx, `
 		SELECT id, token, template_id, format_id, schema_version, version, cover, pages, created_at, updated_at
-		FROM books WHERE token = $1`, token,
+		FROM books WHERE `+column+` = $1`, value,
 	).Scan(&b.ID, &b.Token, &b.TemplateID, &b.FormatID, &b.SchemaVersion, &b.Version, &b.Cover, &b.Pages, &b.CreatedAt, &b.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Book{}, ErrNotFound

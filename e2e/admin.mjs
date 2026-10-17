@@ -58,7 +58,9 @@ await page.locator('h1', { hasText: `Заявка №${order.number}` }).waitFor
 check((await page.locator('a[href^="tel:"]').getAttribute('href')) === 'tel:+77015554433', 'phone is a tap-to-call link')
 check((await page.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')) === 'https://wa.me/77015554433', 'WhatsApp link')
 check(await page.getByText('сообщение отправлено').isVisible(), 'Telegram notification marked as sent (log sender in dev)')
-check(await page.getByText('ещё не собран').isVisible(), 'PDF: not built yet (step 8)')
+// PDF собирается в фоне за секунды: в карточке либо «собирается…», либо уже ссылки на файлы.
+const pdfRow = await page.locator('dt:text-is("PDF") + dd').textContent()
+check(/собирается|cover\.pdf/.test(pdfRow), `PDF row shows build status (${pdfRow.trim().slice(0, 40)})`)
 
 // 4. Следующий шаг с заметкой → клиент видит новый статус.
 await page.locator('input[name="note"]').first().fill('аванс 50% на Kaspi')

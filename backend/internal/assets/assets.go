@@ -53,6 +53,7 @@ type Asset struct {
 	Status      string
 	OriginalKey string
 	ThumbKey    string // пусто, пока миниатюра не готова
+	PrintKey    string // повёрнутая копия для печати; пусто — печатается оригинал
 	ContentType string
 	SizeBytes   int64
 	WidthPx     int
@@ -213,7 +214,7 @@ func (s *Service) Get(ctx context.Context, bookID, assetID string) (Asset, error
 // ListUploaded — готовые фото книги, ключ — id.
 func (s *Service) ListUploaded(ctx context.Context, bookID string) (map[string]Asset, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT id, original_key, content_type, size_bytes, width_px, height_px
+		SELECT id, original_key, coalesce(print_key, ''), content_type, size_bytes, width_px, height_px
 		FROM assets WHERE book_id = $1 AND status = 'uploaded'`, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("list assets: %w", err)
@@ -223,12 +224,23 @@ func (s *Service) ListUploaded(ctx context.Context, bookID string) (map[string]A
 	out := map[string]Asset{}
 	for rows.Next() {
 		a := Asset{BookID: bookID, Status: "uploaded"}
-		if err := rows.Scan(&a.ID, &a.OriginalKey, &a.ContentType, &a.SizeBytes, &a.WidthPx, &a.HeightPx); err != nil {
+		if err := rows.Scan(&a.ID, &a.OriginalKey, &a.PrintKey, &a.ContentType, &a.SizeBytes, &a.WidthPx, &a.HeightPx); err != nil {
 			return nil, fmt.Errorf("scan asset: %w", err)
 		}
 		out[a.ID] = a
 	}
 	return out, rows.Err()
+}
+
+// OriginalURLForPrint — ссылка на фото для печати (внутренний адрес хранилища,
+// снаружи недоступен): оригинал, а для фото «лёжа» — его повёрнутая копия.
+// Клиент оригиналы не получает — только миниатюры.
+func (s *Service) OriginalURLForPrint(ctx context.Context, a Asset) (string, error) {
+	key := a.OriginalKey
+	if a.PrintKey != "" {
+		key = a.PrintKey
+	}
+	return s.storage.PresignGetInternal(ctx, key, time.Hour)
 }
 
 // ImageURL — временная ссылка на картинку для показа в браузере: миниатюра,

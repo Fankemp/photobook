@@ -1,5 +1,5 @@
 // Обращения к Go-бэкенду. Пути относительные (/api/...): в dev их проксирует Vite.
-import type { AssetInfo, Book, Order, OrderForm, OrderInfo, Template, TemplateSummary } from './types.ts'
+import type { AssetInfo, Book, Order, OrderForm, OrderInfo, PrintData, Template, TemplateSummary } from './types.ts'
 
 // Ошибка API с машинным кодом ("book_not_found", "network", ...).
 // Текст для человека подбирается по коду из словаря (см. ErrorMessage).
@@ -117,4 +117,9 @@ export function createOrder(token: string, form: OrderForm) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(form),
   })
+}
+
+// Данные для печатной страницы; query — подпись ссылки (exp, sig) от backend.
+export function getPrintData(orderId: string, query: string, signal?: AbortSignal) {
+  return request<PrintData>(`/api/print/${encodeURIComponent(orderId)}?${query}`, { signal })
 }

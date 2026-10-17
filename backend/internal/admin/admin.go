@@ -33,6 +33,7 @@ type Deps struct {
 	Orders       *orders.Service
 	Storage      *storage.Storage
 	TemplateName func(id string) string
+	RenderWake   func() // разбудить сборку PDF (после «Пересобрать»)
 	Log          *slog.Logger
 }
 
@@ -50,7 +51,8 @@ func New(cfg Config, d Deps) http.Handler {
 	mux.HandleFunc("GET /admin/{$}", h.list)
 	mux.HandleFunc("GET /admin/orders/{number}", h.detail)
 	mux.HandleFunc("POST /admin/orders/{number}/status", h.changeStatus)
-	mux.HandleFunc("GET /admin/orders/{number}/pdf", h.pdf)
+	mux.HandleFunc("GET /admin/orders/{number}/pdf/{part}", h.pdf)
+	mux.HandleFunc("POST /admin/orders/{number}/render", h.rerender)
 
 	// Защита от подделки запросов (CSRF): браузер сам подставляет пароль Basic Auth
 	// в любой запрос к нашему адресу, даже со стороннего сайта. CrossOriginProtection
@@ -160,6 +162,7 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 		"Next":         orders.NextStatus[d.Status],
 		"Statuses":     orders.Statuses,
 		"Saved":        r.URL.Query().Has("saved"),
+		"Rerender":     r.URL.Query().Has("rerender"),
 		"Error":        r.URL.Query().Get("error"),
 		"WhatsAppLink": "https://wa.me/" + d.Phone[1:], // +77001234567 → 77001234567
 	})
@@ -192,22 +195,45 @@ func (h *handler) changeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// pdf отдаёт печатный PDF (его собирает шаг 8) через временную ссылку в хранилище.
+// pdf отдаёт печатный PDF (cover — обложка, block — страницы) через временную
+// ссылку в хранилище. Имя файла при скачивании: photobook-1001-cover.pdf.
 func (h *handler) pdf(w http.ResponseWriter, r *http.Request) {
 	d, ok := h.order(w, r)
 	if !ok {
 		return
 	}
-	if d.PDFKey == "" {
+	part := r.PathValue("part")
+	key := map[string]string{"cover": d.CoverPDFKey, "block": d.BlockPDFKey}[part]
+	if key == "" {
 		http.Error(w, "PDF для этой заявки ещё не собран", http.StatusNotFound)
 		return
 	}
-	link, err := h.Storage.PresignDownload(r.Context(), d.PDFKey, fmt.Sprintf("photobook-%d.pdf", d.Number), 15*time.Minute)
+	link, err := h.Storage.PresignDownload(r.Context(), key, fmt.Sprintf("photobook-%d-%s.pdf", d.Number, part), 15*time.Minute)
 	if err != nil {
 		h.fail(w, err)
 		return
 	}
 	http.Redirect(w, r, link, http.StatusFound)
+}
+
+// rerender — собрать PDF заново (после правок шаблона, рендера или по просьбе типографии).
+func (h *handler) rerender(w http.ResponseWriter, r *http.Request) {
+	number, err := strconv.ParseInt(r.PathValue("number"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := h.Orders.ResetRender(r.Context(), number); errors.Is(err, orders.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		h.fail(w, err)
+		return
+	}
+	if h.RenderWake != nil {
+		h.RenderWake()
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/orders/%d?rerender", number), http.StatusSeeOther)
 }
 
 func (h *handler) order(w http.ResponseWriter, r *http.Request) (orders.Detail, bool) {

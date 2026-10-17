@@ -24,7 +24,16 @@ type Config struct {
 	// Админка: вход по логину и паролю (HTTP Basic Auth). Пустой пароль — админка выключена.
 	AdminUser     string
 	AdminPassword string
+	Render        RenderConfig
 	S3            S3Config
+}
+
+// RenderConfig — сборка печатных PDF. Пустой RENDER_URL — сборка выключена
+// (например, при локальном go run без сервиса рендера).
+type RenderConfig struct {
+	ServiceURL   string // RENDER_URL, например http://render:3000
+	PrintBaseURL string // PRINT_BASE_URL: адрес сайта для сервиса рендера, например http://frontend:5173
+	CMYK         bool   // PDF_CMYK=true — перевести PDF в CMYK через Ghostscript
 }
 
 // TelegramConfig — бот для уведомлений о заявках. Пустой токен — бот выключен,
@@ -71,6 +80,11 @@ func Load() (Config, error) {
 		AppBaseURL:    getenv("APP_BASE_URL", "http://localhost:5173"),
 		AdminUser:     getenv("ADMIN_USER", "admin"),
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		Render: RenderConfig{
+			ServiceURL:   os.Getenv("RENDER_URL"),
+			PrintBaseURL: getenv("PRINT_BASE_URL", "http://frontend:5173"),
+			CMYK:         getenv("PDF_CMYK", "false") == "true",
+		},
 		Telegram: TelegramConfig{
 			Token:  os.Getenv("TELEGRAM_BOT_TOKEN"),
 			ChatID: os.Getenv("TELEGRAM_CHAT_ID"),

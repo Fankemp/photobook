@@ -23,7 +23,7 @@
       <span class="num">№{{.Number}}</span>
       <span class="who">{{.Name}}</span>
       <span class="status s-{{.Status}}">{{statusName .Status}}</span>
-      <span class="meta">{{phone .Phone}} · нужна к {{date .WantedDate}} · заявка от {{datetime .CreatedAt}}{{if .PDFKey}} · PDF готов{{end}}</span>
+      <span class="meta">{{phone .Phone}} · нужна к {{date .WantedDate}} · заявка от {{datetime .CreatedAt}}{{if .PDFReady}} · PDF готов{{end}}</span>
     </a>
   </li>
   {{end}}

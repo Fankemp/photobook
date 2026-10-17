@@ -13,6 +13,9 @@ export default defineConfig({
     host: true, // слушать все интерфейсы, иначе из Docker-контейнера не достучаться
     port: 5173,
     strictPort: true,
+    // Сервис рендера открывает сайт внутри Docker по имени сервиса frontend;
+    // Vite по умолчанию пускает только localhost и IP-адреса.
+    allowedHosts: ['frontend'],
     proxy: {
       '/api': apiTarget,
       '/admin': apiTarget, // админка — HTML-страницы, которые отдаёт сам Go-сервер

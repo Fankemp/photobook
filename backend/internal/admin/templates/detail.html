@@ -17,6 +17,7 @@
 
 <h1>Заявка №{{.O.Number}} <span class="status s-{{.O.Status}}">{{statusName .O.Status}}</span></h1>
 {{if .Saved}}<p class="flash ok" role="status">Статус изменён.</p>{{end}}
+{{if .Rerender}}<p class="flash ok" role="status">PDF поставлен в очередь на сборку. Обновите страницу через минуту.</p>{{end}}
 {{if .Error}}<p class="flash err" role="alert">{{.Error}}</p>{{end}}
 
 <section class="card">
@@ -36,11 +37,23 @@
   <dl>
     <dt>Шаблон</dt><dd>{{.Template}}</dd>
     <dt>Цена</dt><dd>{{if .O.PriceKZT}}{{tenge .O.PriceKZT}}{{else}}не задана в формате{{end}}</dd>
-    <dt>PDF</dt><dd>{{if .O.PDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf">Скачать печатный PDF</a>{{else}}<span class="muted">ещё не собран</span>{{end}}</dd>
+    <dt>PDF</dt>
+    <dd>
+      {{if .O.PDFReady}}
+        <a href="/admin/orders/{{.O.Number}}/pdf/cover">cover.pdf (обложка)</a> ·
+        <a href="/admin/orders/{{.O.Number}}/pdf/block">block.pdf (страницы)</a>
+        <br><span class="muted">собран {{datetime .O.RenderedAt}}. {{.O.PDFInfo}}</span>
+      {{else if eq .O.Status "cancelled"}}<span class="muted">заявка отменена, не собирается</span>
+      {{else if .O.RenderError}}<span style="color: var(--err)">не собран (попыток: {{.O.RenderAttempts}}): {{.O.RenderError}}</span>
+      {{else}}<span class="muted">собирается…</span>{{end}}
+    </dd>
     <dt>Telegram</dt><dd>{{if .O.NotifiedAt}}сообщение отправлено {{datetime .O.NotifiedAt}}{{else if .O.NotifyError}}<span style="color: var(--err)">не отправлено: {{.O.NotifyError}}</span>{{else}}<span class="muted">в очереди</span>{{end}}</dd>
   </dl>
   <div class="links">
     <a href="/b/{{.O.BookToken}}/preview" target="_blank" rel="noopener">Открыть превью книги</a>
+    {{if ne .O.Status "cancelled"}}
+    <form method="post" action="/admin/orders/{{.O.Number}}/render" style="display: inline"><button>Пересобрать PDF</button></form>
+    {{end}}
   </div>
 </section>
 

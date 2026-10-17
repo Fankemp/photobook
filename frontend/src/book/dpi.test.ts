@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Format, PhotoSlotElement } from '../types.ts'
 import { isLowDpi, slotDpi } from './dpi.ts'
-import { bleedRect } from './geometry.ts'
+import { bleedRect, sheetMarginMm } from './geometry.ts'
 
 const format: Format = {
   id: 'square-200',
@@ -14,6 +14,8 @@ const format: Format = {
   minDpi: 200,
   targetDpi: 300,
   priceKzt: 0,
+  spineMm: 0,
+  wrapMm: 0,
 }
 
 const fullPage: PhotoSlotElement = { type: 'photo_slot', id: 's1', x: 0, y: 0, w: 100, h: 100 }
@@ -34,6 +36,16 @@ describe('bleedRect', () => {
     expect(bleedRect(inner, format)).toEqual({ x: 25, y: 25, w: 50, h: 50 })
     const text = { type: 'text' as const, id: 't', x: 0, y: 0, w: 100, h: 10, text: '', font: 'lora', size: 12, align: 'center' as const }
     expect(bleedRect(text, format)).toEqual({ x: 0, y: 0, w: 100, h: 10 })
+  })
+})
+
+describe('sheetMarginMm', () => {
+  it('pages get the bleed; the cover also gets the wrap around the board', () => {
+    const wrapped = { ...format, wrapMm: 15 }
+    expect(sheetMarginMm(wrapped, 'page')).toBe(3)
+    expect(sheetMarginMm(wrapped, 'cover')).toBe(18)
+    // Фото обложки у края тянется на вылет + загиб: 18 мм из 200 = 9%.
+    expect(bleedRect(fullPage, wrapped, sheetMarginMm(wrapped, 'cover'))).toEqual({ x: -9, y: -9, w: 118, h: 118 })
   })
 })
 

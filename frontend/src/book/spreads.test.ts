@@ -25,7 +25,7 @@ describe('bookSpreads', () => {
 describe('findIssues', () => {
   const format: Format = {
     id: 'f', name: 'f', widthMm: 200, heightMm: 200, bleedMm: 3, safeMm: 5,
-    pages: 2, minDpi: 200, targetDpi: 300, priceKzt: 0,
+    pages: 2, minDpi: 200, targetDpi: 300, priceKzt: 0, spineMm: 0, wrapMm: 0,
   }
   const slot = (id: string, assetId: string | null) =>
     ({ type: 'photo_slot', id, x: 0, y: 0, w: 100, h: 100, assetId }) as const

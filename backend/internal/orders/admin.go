@@ -36,10 +36,14 @@ var (
 // Row — заявка в списке админки.
 type Row struct {
 	Order
-	BookToken  string
-	TemplateID string
-	PDFKey     string
+	BookToken   string
+	TemplateID  string
+	CoverPDFKey string // печатные PDF (пусто — ещё не собраны)
+	BlockPDFKey string
 }
+
+// PDFReady — оба печатных файла собраны.
+func (r Row) PDFReady() bool { return r.CoverPDFKey != "" && r.BlockPDFKey != "" }
 
 type Event struct {
 	Status    string
@@ -50,19 +54,24 @@ type Event struct {
 // Detail — всё о заявке для её страницы в админке.
 type Detail struct {
 	Row
-	Events      []Event
-	NotifiedAt  *time.Time
-	NotifyError string
+	Events         []Event
+	NotifiedAt     *time.Time
+	NotifyError    string
+	RenderedAt     *time.Time
+	RenderError    string
+	RenderAttempts int
+	PDFInfo        string
 }
 
 const rowColumns = `o.id, o.number, o.book_id, o.book_version, o.name, o.phone, o.address, o.wanted_date,
-	o.comment, o.status, o.price_kzt, o.created_at, b.token, b.template_id, coalesce(o.pdf_key, '')`
+	o.comment, o.status, o.price_kzt, o.created_at, b.token, b.template_id,
+	coalesce(o.cover_pdf_key, ''), coalesce(o.block_pdf_key, '')`
 
 func scanRow(row pgx.Row, extra ...any) (Row, error) {
 	var r Row
 	var wanted time.Time
 	dest := append([]any{&r.ID, &r.Number, &r.BookID, &r.BookVersion, &r.Name, &r.Phone, &r.Address, &wanted,
-		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.PDFKey}, extra...)
+		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.CoverPDFKey, &r.BlockPDFKey}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return Row{}, err
 	}
@@ -105,11 +114,11 @@ func (s *Service) Counts(ctx context.Context) (map[string]int, error) {
 
 func (s *Service) GetByNumber(ctx context.Context, number int64) (Detail, error) {
 	var d Detail
-	var notifyErr *string
+	var notifyErr, renderErr, pdfInfo *string
 	row, err := scanRow(s.db.QueryRow(ctx, `
-		SELECT `+rowColumns+`, o.notified_at, o.notify_error
+		SELECT `+rowColumns+`, o.notified_at, o.notify_error, o.rendered_at, o.render_error, o.render_attempts, o.pdf_info
 		FROM orders o JOIN books b ON b.id = o.book_id
-		WHERE o.number = $1`, number), &d.NotifiedAt, &notifyErr)
+		WHERE o.number = $1`, number), &d.NotifiedAt, &notifyErr, &d.RenderedAt, &renderErr, &d.RenderAttempts, &pdfInfo)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -119,6 +128,12 @@ func (s *Service) GetByNumber(ctx context.Context, number int64) (Detail, error)
 	d.Row = row
 	if notifyErr != nil {
 		d.NotifyError = *notifyErr
+	}
+	if renderErr != nil {
+		d.RenderError = *renderErr
+	}
+	if pdfInfo != nil {
+		d.PDFInfo = *pdfInfo
 	}
 
 	rows, err := s.db.Query(ctx, `SELECT status, note, created_at FROM order_events WHERE order_id = $1 ORDER BY id`, d.ID)
@@ -171,4 +186,30 @@ func (s *Service) ChangeStatus(ctx context.Context, number int64, to, note strin
 		return fmt.Errorf("insert order event: %w", err)
 	}
 	return tx.Commit(ctx)
+}
+
+// ResetRender — собрать PDF заново (например, после исправления шаблона или
+// рендера): старые ключи сбрасываются, заявка снова попадает в очередь.
+func (s *Service) ResetRender(ctx context.Context, number int64) error {
+	tag, err := s.db.Exec(ctx, `
+		UPDATE orders SET cover_pdf_key = NULL, block_pdf_key = NULL, render_attempts = 0,
+		                  render_error = NULL, rendered_at = NULL, pdf_info = NULL
+		WHERE number = $1`, number)
+	if err != nil {
+		return fmt.Errorf("reset render: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// BookOf — книга заявки (для печатной страницы).
+func (s *Service) BookOf(ctx context.Context, orderID string) (string, error) {
+	var bookID string
+	err := s.db.QueryRow(ctx, `SELECT book_id FROM orders WHERE id = $1`, orderID).Scan(&bookID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return bookID, err
 }

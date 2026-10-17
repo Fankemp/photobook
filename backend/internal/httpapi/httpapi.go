@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -13,6 +14,7 @@ import (
 	"photobook/internal/fonts"
 	"photobook/internal/formats"
 	"photobook/internal/orders"
+	"photobook/internal/render"
 	"photobook/internal/templates"
 )
 
@@ -30,7 +32,8 @@ type Deps struct {
 	Books     *books.Store
 	Assets    *assets.Service
 	Orders    *orders.Service
-	Admin     http.Handler // nil — админка выключена (не задан пароль)
+	Admin     http.Handler   // nil — админка выключена (не задан пароль)
+	Signer    *render.Signer // подпись ссылок на печатную страницу
 	Log       *slog.Logger
 }
 
@@ -53,6 +56,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/books/{token}/assets/{id}/image", a.assetImage)
 	mux.HandleFunc("GET /api/books/{token}/order", a.getOrder)
 	mux.HandleFunc("POST /api/books/{token}/order", a.createOrder)
+	mux.HandleFunc("GET /api/print/{order}", a.printData)
 	if d.Admin != nil {
 		mux.Handle("/admin/", d.Admin)
 		mux.Handle("GET /admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently))
@@ -73,7 +77,11 @@ func writeError(w http.ResponseWriter, status int, code string) {
 }
 
 // internalError пишет подробности в лог, а клиенту — только общий код.
+// Запрос, который отменил сам клиент (ушёл со страницы), — не ошибка сервера.
 func (a *API) internalError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, context.Canceled) {
+		return
+	}
 	a.Log.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
 	writeError(w, http.StatusInternalServerError, "internal")
 }

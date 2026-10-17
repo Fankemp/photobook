@@ -41,4 +41,4 @@ PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v1.64.1-noble
 e2e: .env ## Сквозные тесты в браузере (сервисы должны быть запущены: make up)
 	docker run --rm --network host -u $$(id -u):$$(id -g) -e HOME=/tmp --env-file .env \
 		-v $(CURDIR):/repo:ro -v $(CURDIR)/e2e:/work -w /work $(PLAYWRIGHT_IMAGE) \
-		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs && node text.mjs && node order.mjs && node admin.mjs"
+		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs && node text.mjs && node order.mjs && node admin.mjs && node print.mjs"

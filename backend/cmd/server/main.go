@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"photobook/internal/httpapi"
 	"photobook/internal/notify"
 	"photobook/internal/orders"
+	"photobook/internal/render"
 	"photobook/internal/storage"
 	"photobook/internal/templates"
 )
@@ -102,6 +104,25 @@ func run(log *slog.Logger) error {
 		return id
 	}
 	orderService := orders.NewService(pool, cfg.OrderMinLeadDays)
+
+	// Сборка печатных PDF. Секрет подписи ссылок на печатную страницу — случайный
+	// при каждом старте: подписывает и проверяет один и тот же процесс.
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return err
+	}
+	signer := render.NewSigner(secret)
+	var renderWake func()
+	if cfg.Render.ServiceURL != "" {
+		worker := render.NewWorker(pool, store, signer, render.Config{
+			ServiceURL: cfg.Render.ServiceURL, PrintBaseURL: cfg.Render.PrintBaseURL, CMYK: cfg.Render.CMYK,
+		}, log)
+		renderWake = worker.Wake
+		orderService.OnCreate = worker.Wake
+		bg.Go(func() { worker.Run(bgCtx) })
+	} else {
+		log.Warn("RENDER_URL is not set: print PDFs are not built")
+	}
 	var sender notify.Sender = notify.LogSender{Log: log}
 	if cfg.Telegram.Token != "" {
 		sender = notify.Telegram{Token: cfg.Telegram.Token, ChatID: cfg.Telegram.ChatID, APIURL: cfg.Telegram.APIURL}
@@ -120,7 +141,7 @@ func run(log *slog.Logger) error {
 	var adminHandler http.Handler
 	if cfg.AdminPassword != "" {
 		adminHandler = admin.New(admin.Config{User: cfg.AdminUser, Password: cfg.AdminPassword}, admin.Deps{
-			Orders: orderService, Storage: store, TemplateName: templateName, Log: log,
+			Orders: orderService, Storage: store, TemplateName: templateName, RenderWake: renderWake, Log: log,
 		})
 	} else {
 		log.Warn("ADMIN_PASSWORD is not set: admin pages are disabled")
@@ -138,6 +159,7 @@ func run(log *slog.Logger) error {
 			Assets:    assetService,
 			Orders:    orderService,
 			Admin:     adminHandler,
+			Signer:    signer,
 			Log:       log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

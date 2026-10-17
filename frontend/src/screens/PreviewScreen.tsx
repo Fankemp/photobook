@@ -145,7 +145,7 @@ function SpreadView({ spread, doc, format, imageSrc, guides }: SpreadProps) {
   if (spread.kind === 'cover') {
     return (
       <div className="pp-spread is-single">
-        <PageView page={doc.cover} {...pageProps} />
+        <PageView page={doc.cover} {...pageProps} kind="cover" />
       </div>
     )
   }

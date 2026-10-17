@@ -11,6 +11,8 @@ export type Format = {
   minDpi: number
   targetDpi: number
   priceKzt: number
+  spineMm: number // корешок обложки (пока 0)
+  wrapMm: number // загиб обложки на картон с каждой стороны (пока 0)
 }
 
 // Координаты — проценты от страницы по линии реза (0–100).
@@ -104,3 +106,6 @@ export type Order = {
 export type OrderInfo = { order: Order | null; minWantedDate: string; priceKzt: number }
 
 export type OrderForm = Pick<Order, 'name' | 'phone' | 'address' | 'wantedDate' | 'comment'> & { version: number }
+
+// Данные для печатной страницы (/print/…): книга и ссылки на оригиналы фото.
+export type PrintData = { format: Format; cover: Page; pages: Page[]; images: Record<string, string> }

@@ -69,6 +69,11 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       # Админка /admin: логин admin и этот пароль. Без пароля админка выключена.
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Печатные PDF: сервис рендера и адрес сайта, который он открывает (внутри Docker).
+      RENDER_URL: http://render:3000
+      PRINT_BASE_URL: http://frontend:5173
+      # true — перевести PDF в CMYK через Ghostscript (пока типографии нужен RGB).
+      PDF_CMYK: ${PDF_CMYK:-false}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:
@@ -81,6 +86,19 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+    restart: unless-stopped
+
+  # Сборка печатных PDF: Chromium (Playwright) + Ghostscript + poppler-utils.
+  # Порт наружу не открыт — к сервису обращается только backend.
+  render:
+    build: ./render
+    init: true # корректно завершает дочерние процессы Chromium
+    mem_limit: 1536m # правило 6: ограничение памяти у Chromium
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
   frontend:

@@ -35,6 +35,11 @@
   pointer-events: none;
 }
 
+/* На печати — без тени: лист PDF ровно по размеру страницы. */
+.pv.pv-print {
+  box-shadow: none;
+}
+
 .pv-el {
   position: absolute;
 }

@@ -110,6 +110,16 @@ func (s *Storage) PresignGet(ctx context.Context, key string, ttl time.Duration)
 	return u.String(), nil
 }
 
+// PresignGetInternal — временная ссылка с внутренним адресом хранилища (s3:9000):
+// для сервиса рендера внутри Docker-сети. Браузер клиента по ней не откроет.
+func (s *Storage) PresignGetInternal(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	u, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, nil)
+	if err != nil {
+		return "", fmt.Errorf("presign internal get %s: %w", key, err)
+	}
+	return u.String(), nil
+}
+
 // PresignDownload — временная ссылка, по которой браузер скачает файл
 // под именем filename (а не откроет его во вкладке).
 func (s *Storage) PresignDownload(ctx context.Context, key, filename string, ttl time.Duration) (string, error) {

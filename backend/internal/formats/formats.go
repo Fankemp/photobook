@@ -21,6 +21,8 @@ type Format struct {
 	MinDPI    int     `json:"minDpi"`
 	TargetDPI int     `json:"targetDpi"`
 	PriceKZT  int     `json:"priceKzt"`
+	SpineMM   float64 `json:"spineMm"` // корешок обложки (пока 0 — даст типография)
+	WrapMM    float64 `json:"wrapMm"`  // загиб обложки на картон с каждой стороны
 }
 
 var ErrNotFound = errors.New("format not found")
@@ -33,12 +35,12 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
-const columns = `id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt`
+const columns = `id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, spine_mm, wrap_mm`
 
 func scan(row pgx.Row) (Format, error) {
 	var f Format
 	err := row.Scan(&f.ID, &f.Name, &f.WidthMM, &f.HeightMM, &f.BleedMM, &f.SafeMM,
-		&f.Pages, &f.MinDPI, &f.TargetDPI, &f.PriceKZT)
+		&f.Pages, &f.MinDPI, &f.TargetDPI, &f.PriceKZT, &f.SpineMM, &f.WrapMM)
 	return f, err
 }
 

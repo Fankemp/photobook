@@ -2,7 +2,7 @@ import { memo, useEffectEvent, useLayoutEffect, useRef, type CSSProperties } fro
 import type { Format, Page, PageElement, TextElement } from '../types.ts'
 import { cropStyle } from './crop.ts'
 import { fontFamily } from './fonts.ts'
-import { bleedBox, box } from './geometry.ts'
+import { bleedBox, box, sheetMarginMm, type PageKind } from './geometry.ts'
 import './PageView.css'
 
 type Props = {
@@ -23,6 +23,8 @@ type Props = {
   guides?: boolean
   // Сообщает, поместился ли текст в свой блок (редактор показывает предупреждение).
   onTextFit?: (elId: string, fits: boolean) => void
+  // cover — обложка: за линией реза кроме вылета ещё загиб на картон (format.wrapMm).
+  kind?: PageKind
 }
 
 // Ниже этого кегля автоподбор не уменьшает: мельче на печати не прочитать.
@@ -46,8 +48,10 @@ export const PageView = memo(function PageView({
   showBleed = false,
   guides = false,
   onTextFit,
+  kind = 'page',
 }: Props) {
-  const { widthMm: w, heightMm: h, bleedMm: b } = format
+  const { widthMm: w, heightMm: h } = format
+  const b = sheetMarginMm(format, kind) // поле за линией реза: вылет (+ загиб у обложки)
   const sheetW = w + 2 * b
   const sheetH = h + 2 * b
 
@@ -59,7 +63,10 @@ export const PageView = memo(function PageView({
   const trim: CSSProperties = { left: pct(b, sheetW), top: pct(b, sheetH), width: pct(w, sheetW), height: pct(h, sheetH) }
 
   return (
-    <div className="pv" style={{ aspectRatio: showBleed ? `${sheetW} / ${sheetH}` : `${w} / ${h}` }}>
+    <div
+      className={variant === 'print' ? 'pv pv-print' : 'pv'}
+      style={{ aspectRatio: showBleed ? `${sheetW} / ${sheetH}` : `${w} / ${h}` }}
+    >
       <div className="pv-sheet" style={{ ...sheet, background: page.background || '#ffffff' }}>
         <div className="pv-trim" style={trim}>
           {page.elements.map((el) => (
@@ -71,6 +78,7 @@ export const PageView = memo(function PageView({
               lazy={lazy}
               variant={variant}
               onTextFit={onTextFit}
+              marginMm={b}
             />
           ))}
           {guides && <Guides format={format} />}
@@ -82,15 +90,18 @@ export const PageView = memo(function PageView({
 
 const pct = (part: number, whole: number) => `${(part / whole) * 100}%`
 
-type ElementProps = Pick<Props, 'format' | 'imageSrc' | 'lazy' | 'variant' | 'onTextFit'> & { el: PageElement }
+type ElementProps = Pick<Props, 'format' | 'imageSrc' | 'lazy' | 'variant' | 'onTextFit'> & {
+  el: PageElement
+  marginMm: number
+}
 
-function ElementView({ el, format, imageSrc, lazy, variant, onTextFit }: ElementProps) {
+function ElementView({ el, format, imageSrc, lazy, variant, onTextFit, marginMm }: ElementProps) {
   switch (el.type) {
     case 'photo_slot': {
       const src = el.assetId && imageSrc ? imageSrc(el.assetId) : undefined
       if (!src && variant === 'print') return null // пустая рамка на бумаге не печатается
       return (
-        <div className="pv-el pv-slot" style={bleedBox(el, format)}>
+        <div className="pv-el pv-slot" style={bleedBox(el, format, marginMm)}>
           {src ? (
             <img
               src={src}

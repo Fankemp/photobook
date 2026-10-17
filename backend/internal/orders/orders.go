@@ -65,6 +65,8 @@ type Service struct {
 	minLeadDays int // за сколько дней минимум можно заказать (время на печать)
 	// Сигнал обработчику уведомлений «есть новая заявка» (как у миниатюр).
 	queued chan struct{}
+	// Что ещё сделать после новой заявки (разбудить сборку PDF). Задаётся в main.
+	OnCreate func()
 }
 
 func NewService(db *pgxpool.Pool, minLeadDays int) *Service {
@@ -179,6 +181,9 @@ func (s *Service) Create(ctx context.Context, bookID string, priceKZT int, in In
 	select {
 	case s.queued <- struct{}{}:
 	default: // сигнал уже ждёт обработчика
+	}
+	if s.OnCreate != nil {
+		s.OnCreate()
 	}
 	return o, nil
 }

@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,9 +26,14 @@ const (
 	idlePoll         = time.Minute // на всякий случай проверяем очередь и без сигнала
 )
 
-// Thumbnailer делает миниатюру из файла src в JPEG-файл dst.
+// Thumbnailer делает миниатюру и печатную копию фото (libvips).
 type Thumbnailer interface {
+	// Thumbnail — миниатюра из файла src в JPEG-файл dst.
 	Thumbnail(ctx context.Context, src, dst string) error
+	// Orientation — пометка EXIF о повороте: 1 — фото стоит как надо, иначе 2–8.
+	Orientation(ctx context.Context, src string) (int, error)
+	// Upright — копия фото, повёрнутая по пометке EXIF (для печати).
+	Upright(ctx context.Context, src, dst string) error
 }
 
 // VipsThumbnailer вызывает утилиту vipsthumbnail из libvips отдельным процессом:
@@ -42,6 +49,27 @@ func (VipsThumbnailer) Thumbnail(ctx context.Context, src, dst string) error {
 	cmd := exec.CommandContext(ctx, "vipsthumbnail", src, "--size", size, "-o", out)
 	if msg, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("vipsthumbnail: %w: %s", err, bytes.TrimSpace(msg))
+	}
+	return nil
+}
+
+func (VipsThumbnailer) Orientation(ctx context.Context, src string) (int, error) {
+	out, err := exec.CommandContext(ctx, "vipsheader", "-f", "orientation", src).Output()
+	if err != nil {
+		return 1, nil // поля нет (например, PNG) — значит, поворачивать не нужно
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return 1, nil
+	}
+	return n, nil
+}
+
+func (VipsThumbnailer) Upright(ctx context.Context, src, dst string) error {
+	// Q=95 — визуально без потерь; keep=icc — сохранить цветовой профиль фото.
+	cmd := exec.CommandContext(ctx, "vips", "autorot", src, dst+"[Q=95,keep=icc]")
+	if msg, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("vips autorot: %w: %s", err, bytes.TrimSpace(msg))
 	}
 	return nil
 }
@@ -98,7 +126,7 @@ func (s *Service) thumbnailNext(ctx context.Context, th Thumbnailer) (bool, erro
 
 	jobCtx, cancel := context.WithTimeout(ctx, thumbTimeout)
 	defer cancel()
-	key, w, h, thumbErr := s.makeThumb(jobCtx, th, a)
+	res, thumbErr := s.makeThumb(jobCtx, th, a)
 	if thumbErr != nil && ctx.Err() != nil {
 		return false, nil // сервер останавливается — это не ошибка фото, попытку не тратим
 	}
@@ -112,46 +140,71 @@ func (s *Service) thumbnailNext(ctx context.Context, th Thumbnailer) (bool, erro
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE assets SET thumb_key = $2, width_px = $3, height_px = $4, thumb_error = NULL
-		WHERE id = $1`, a.ID, key, w, h)
+		UPDATE assets SET thumb_key = $2, print_key = $3, width_px = $4, height_px = $5, thumb_error = NULL
+		WHERE id = $1`, a.ID, res.thumbKey, nullIfEmpty(res.printKey), res.width, res.height)
 	if err != nil {
 		return true, err
 	}
 	return true, tx.Commit(ctx)
 }
 
-// makeThumb скачивает оригинал, делает и загружает миниатюру. Заодно уточняет
+type thumbResult struct {
+	thumbKey      string
+	printKey      string // пусто — для печати годится сам оригинал
+	width, height int
+}
+
+// makeThumb скачивает оригинал, делает и загружает миниатюру, а для фото
+// «лёжа» с пометкой EXIF — ещё и повёрнутую печатную копию. Заодно уточняет
 // размеры оригинала с учётом поворота: до этого их сообщал браузер.
-func (s *Service) makeThumb(ctx context.Context, th Thumbnailer, a Asset) (key string, w, h int, err error) {
+func (s *Service) makeThumb(ctx context.Context, th Thumbnailer, a Asset) (thumbResult, error) {
+	var res thumbResult
 	dir, err := os.MkdirTemp("", "thumb-")
 	if err != nil {
-		return "", 0, 0, err
+		return res, err
 	}
 	defer os.RemoveAll(dir)
 
 	src := filepath.Join(dir, "original")
 	dst := filepath.Join(dir, "thumb.jpg")
 	if err := s.storage.Download(ctx, a.OriginalKey, src); err != nil {
-		return "", 0, 0, err
+		return res, err
 	}
 	rawW, rawH, err := fileImageSize(src)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("read original: %w", err)
+		return res, fmt.Errorf("read original: %w", err)
 	}
 	if err := th.Thumbnail(ctx, src, dst); err != nil {
-		return "", 0, 0, err
+		return res, err
 	}
 	thumbW, thumbH, err := fileImageSize(dst)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("read thumbnail: %w", err)
+		return res, fmt.Errorf("read thumbnail: %w", err)
 	}
+	res.thumbKey = fmt.Sprintf("books/%s/thumbs/%s.jpg", a.BookID, a.ID)
+	if err := s.storage.Upload(ctx, res.thumbKey, dst, "image/jpeg"); err != nil {
+		return res, err
+	}
+	res.width, res.height = orientedSize(rawW, rawH, thumbW, thumbH)
 
-	key = fmt.Sprintf("books/%s/thumbs/%s.jpg", a.BookID, a.ID)
-	if err := s.storage.Upload(ctx, key, dst, "image/jpeg"); err != nil {
-		return "", 0, 0, err
+	if orientation, _ := th.Orientation(ctx, src); orientation > 1 {
+		upright := filepath.Join(dir, "print.jpg")
+		if err := th.Upright(ctx, src, upright); err != nil {
+			return res, err
+		}
+		res.printKey = fmt.Sprintf("books/%s/print/%s.jpg", a.BookID, a.ID)
+		if err := s.storage.Upload(ctx, res.printKey, upright, "image/jpeg"); err != nil {
+			return res, err
+		}
 	}
-	w, h = orientedSize(rawW, rawH, thumbW, thumbH)
-	return key, w, h, nil
+	return res, nil
+}
+
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // orientedSize — размеры оригинала так, как фото видит человек.
