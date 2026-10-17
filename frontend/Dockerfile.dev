@@ -1,0 +1,12 @@
+# Образ только для разработки: исходники монтируются из ./frontend,
+# node_modules живут в отдельном docker volume (не смешиваются с хостом).
+FROM node:24-alpine
+WORKDIR /app
+# Папка под volume должна принадлежать пользователю node, иначе npm install
+# внутри контейнера не сможет в неё писать.
+RUN mkdir -p /app/node_modules && chown node:node /app/node_modules
+USER node
+EXPOSE 5173
+# npm install при каждом старте: быстро, если зависимости не менялись,
+# и подтягивает новые, если package.json изменился.
+CMD ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]

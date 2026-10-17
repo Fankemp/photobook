@@ -1,0 +1,14 @@
+# Секреты и локальные настройки
+.env
+
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Логи и мусор
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

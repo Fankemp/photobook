@@ -1,0 +1,82 @@
+/* Mobile-first: базовые стили — для телефона, шире экран — через min-width. */
+:root {
+  --bg: #f6f4f1;
+  --surface: #ffffff;
+  --text: #1f1d1a;
+  --muted: #6b665f;
+  --ok: #1e7a46;
+  --error: #b42318;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+h1,
+h2 {
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.75rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checks li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.checks li + li {
+  border-top: 1px solid var(--bg);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.error {
+  color: var(--error);
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding-top: 64px;
+  }
+}
