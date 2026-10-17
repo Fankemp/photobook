@@ -2,7 +2,9 @@
 
 Сервис подарочных фотокниг. Описание продукта, правила и план работ — в [CLAUDE.md](CLAUDE.md).
 
-Сейчас готов **шаг 1 — каркас**: Go-бэкенд, React-фронтенд, PostgreSQL, S3-хранилище, миграции, health-check.
+Готово:
+- **шаг 1 — каркас**: Go-бэкенд, React-фронтенд, PostgreSQL, S3-хранилище, миграции, health-check;
+- **шаг 2 — книга и шаблоны**: каталог шаблонов → просмотр шаблона → создание книги → книга по секретной ссылке `/b/<токен>`.
 
 ## Что нужно
 
@@ -28,11 +30,13 @@ make down      # остановить; данные БД и файлов сох�
 
 | Что | Где | Ожидаемо |
 |---|---|---|
-| Сайт | http://localhost:5173 | «Состояние системы»: сервер, база, хранилище — «работает» |
+| Каталог | http://localhost:5173 | три шаблона с обложками |
+| Создание книги | открыть шаблон → «Создать книгу по этому шаблону» | адрес вида `/b/ABCD…` (26 символов), ссылка и кнопка «Копировать» |
+| Возврат к книге | снова открыть http://localhost:5173 | плашка «Продолжить мою книгу» |
 | API | `curl localhost:8080/api/health` | `{"status":"ok","checks":{"db":"ok","storage":"ok"}}` |
 | Консоль хранилища | http://localhost:9001/rustfs/console/ | вход по `S3_ACCESS_KEY` / `S3_SECRET_KEY` из `.env`, виден бакет `photobook` |
 | База | `make psql`, затем `\dt` | таблицы `books`, `formats`, `goose_db_version` |
-| Миграции | `make migrate-status` | обе миграции `applied` |
+| Миграции | `make migrate-status` | все миграции `applied` |
 
 Если зависимость недоступна, `/api/health` отвечает `503` и пишет, какая именно (`"storage":"error"`).
 
@@ -56,7 +60,7 @@ make down      # остановить; данные БД и файлов сох�
 **Frontend** — правки в `frontend/src` сразу видны в браузере.
 Если поменяли `package.json`: `docker compose restart frontend`.
 
-**Backend** — после правок пересобрать: `docker compose up --build -d backend`.
+**Backend и шаблоны** — после правок пересобрать: `docker compose up --build -d backend`.
 Или запустить локально против Postgres и S3 из Docker:
 
 ```bash
@@ -64,10 +68,30 @@ cd backend
 export DATABASE_URL="postgres://photobook:photobook@localhost:5432/photobook?sslmode=disable"
 export S3_ENDPOINT=localhost:9000 S3_ACCESS_KEY=photobook S3_SECRET_KEY=photobooksecret S3_BUCKET=photobook
 export HTTP_ADDR=:8081   # 8080 занят контейнером backend
+# TEMPLATES_DIR по умолчанию ../templates — для запуска из backend/ ничего задавать не нужно
 go run ./cmd/server
 ```
 
 **Тесты:** `make test` (Go-тесты + линтер и сборка фронтенда; один раз перед этим `cd frontend && npm install`).
+
+### Шаблоны
+
+Лежат в [templates/](templates/), один JSON-файл = один шаблон. Формат и правила — в
+[templates/README.md](templates/README.md). Сервер проверяет все шаблоны при старте и не
+запустится с битым файлом; `make test` проверяет их без запуска.
+
+### API
+
+| Метод и путь | Что делает |
+|---|---|
+| `GET /api/health` | состояние сервиса и зависимостей |
+| `GET /api/templates` | каталог: шаблоны без внутренних страниц, но с обложкой и форматом |
+| `GET /api/templates/{id}` | шаблон целиком |
+| `POST /api/books` `{"templateId": "…"}` | создать книгу по шаблону → `201 {"token": "…"}` |
+| `GET /api/books/{token}` | книга (обложка, страницы) вместе с форматом |
+
+Ошибки приходят как `{"error": "код"}` (`template_not_found`, `book_not_found`, `bad_request`,
+`internal`); текст для человека фронтенд берёт из словаря по коду.
 
 ### Миграции
 
@@ -100,12 +124,20 @@ backend/
   internal/config/    настройки из переменных окружения
   internal/db/        подключение к Postgres, запуск миграций
   internal/storage/   клиент S3
-  internal/httpapi/   HTTP-роуты (/api/health)
+  internal/pages/     формат страницы (JSON) и его проверка
+  internal/formats/   форматы книг из таблицы formats
+  internal/templates/ загрузка и проверка шаблонов
+  internal/books/     книги: создание по шаблону, токен, чтение
+  internal/httpapi/   HTTP-роуты
   migrations/         SQL-миграции (вшиваются в бинарник)
+templates/            шаблоны книг (JSON)
 frontend/
   src/i18n/ru.ts      все строки интерфейса
   src/api.ts          запросы к бэкенду
-  src/App.tsx         стартовая страница (пока — состояние системы)
+  src/types.ts        типы данных API (повторяют Go-структуры)
+  src/book/PageView   единый компонент отрисовки страницы
+  src/screens/        экраны: каталог, шаблон, книга
+  src/App.tsx         карта адресов (роуты)
 docker-compose.yml    локальное окружение
 .env.example          шаблон настроек и секретов
 ```
@@ -120,3 +152,4 @@ docker-compose.yml    локальное окружение
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | | обязательны |
 | `S3_BUCKET` | `photobook` | создаётся при старте, если нет |
 | `S3_USE_SSL` | `false` | `true` для HTTPS-хранилища |
+| `TEMPLATES_DIR` | `/app/templates` | папка шаблонов (по умолчанию `../templates`) |

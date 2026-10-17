@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "id": "birthday-bright",
+  "name": "С днём рождения!",
+  "occasion": "birthday",
+  "formatId": "square-200",
+  "cover": {"id": "cover", "background": "#fff4e0", "elements": [
+      {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+      {"type": "text", "id": "t1", "x": 8, "y": 73, "w": 84, "h": 15, "text": "С днём рождения!", "font": "caveat", "size": 36, "color": "#c2410c", "align": "center"},
+      {"type": "text", "id": "t2", "x": 8, "y": 88, "w": 84, "h": 6, "text": "Имя", "font": "nunito", "size": 14, "color": "#c2410c", "align": "center"}
+  ]},
+  "pages": [
+    {"id": "p1", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p2", "background": "#fff4e0", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Этот год был особенным", "font": "caveat", "size": 18, "color": "#c2410c", "align": "center"}
+    ]},
+    {"id": "p3", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p4", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 8, "y": 8, "w": 84, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#c2410c", "align": "center"}
+    ]},
+    {"id": "p5", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 52, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p6", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p7", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#c2410c", "align": "center"}
+    ]},
+    {"id": "p8", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p9", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p10", "background": "#fff4e0", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Самые яркие моменты", "font": "caveat", "size": 18, "color": "#c2410c", "align": "center"}
+    ]},
+    {"id": "p11", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p12", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p13", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 8, "y": 8, "w": 84, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#c2410c", "align": "center"}
+    ]},
+    {"id": "p14", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 52, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p15", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p16", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#c2410c", "align": "center"}
+    ]},
+    {"id": "p17", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p18", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p19", "background": "#fff4e0", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p20", "background": "#fff4e0", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "С любовью от нас", "font": "caveat", "size": 18, "color": "#c2410c", "align": "center"}
+    ]}
+  ]
+}

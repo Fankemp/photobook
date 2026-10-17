@@ -1,4 +1,5 @@
-// Сервер photobook: HTTP API. При старте применяет миграции и создаёт бакет.
+// Сервер photobook: HTTP API. При старте применяет миграции, создаёт бакет
+// и загружает шаблоны (с проверкой).
 package main
 
 import (
@@ -11,10 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"photobook/internal/books"
 	"photobook/internal/config"
 	"photobook/internal/db"
+	"photobook/internal/formats"
 	"photobook/internal/httpapi"
 	"photobook/internal/storage"
+	"photobook/internal/templates"
 )
 
 func main() {
@@ -52,9 +56,27 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	formatStore := formats.NewStore(pool)
+	fmts, err := formatStore.All(ctx)
+	if err != nil {
+		return err
+	}
+	catalog, err := templates.LoadDir(cfg.TemplatesDir, fmts)
+	if err != nil {
+		return err
+	}
+	log.Info("templates loaded", "count", len(catalog.List()), "dir", cfg.TemplatesDir)
+
 	srv := &http.Server{
-		Addr:              cfg.HTTPAddr,
-		Handler:           httpapi.New(pool, store, log),
+		Addr: cfg.HTTPAddr,
+		Handler: httpapi.New(httpapi.Deps{
+			DB:        pool,
+			Storage:   store,
+			Formats:   formatStore,
+			Templates: catalog,
+			Books:     books.NewStore(pool),
+			Log:       log,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

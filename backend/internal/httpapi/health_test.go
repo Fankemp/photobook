@@ -36,7 +36,7 @@ func TestHealth(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			New(tt.db, tt.storage, log).ServeHTTP(rec, httptest.NewRequest("GET", "/api/health", nil))
+			New(Deps{DB: tt.db, Storage: tt.storage, Log: log}).ServeHTTP(rec, httptest.NewRequest("GET", "/api/health", nil))
 
 			if rec.Code != tt.wantCode {
 				t.Fatalf("code = %d, want %d", rec.Code, tt.wantCode)
@@ -60,7 +60,7 @@ func TestHealth(t *testing.T) {
 func TestHealthRejectsPost(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	rec := httptest.NewRecorder()
-	New(fakePinger{}, fakePinger{}, log).ServeHTTP(rec, httptest.NewRequest("POST", "/api/health", nil))
+	New(Deps{DB: fakePinger{}, Storage: fakePinger{}, Log: log}).ServeHTTP(rec, httptest.NewRequest("POST", "/api/health", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("code = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 	}

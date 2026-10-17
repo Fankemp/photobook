@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "travel-minimal",
+  "name": "Путешествие",
+  "occasion": "travel",
+  "formatId": "square-200",
+  "cover": {"id": "cover", "background": "#ffffff", "elements": [
+      {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 78, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+      {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 9, "text": "ПУТЕШЕСТВИЕ", "font": "montserrat", "size": 24, "color": "#1f2937", "align": "center", "bold": true},
+      {"type": "text", "id": "t2", "x": 8, "y": 90, "w": 84, "h": 5, "text": "Место · 2026", "font": "montserrat", "size": 12, "color": "#1f2937", "align": "center"}
+  ]},
+  "pages": [
+    {"id": "p1", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p2", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 52, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p3", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "montserrat", "size": 11, "color": "#1f2937", "align": "center"}
+    ]},
+    {"id": "p4", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p5", "background": "#ffffff", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Маршрут начинается здесь", "font": "montserrat", "size": 18, "color": "#1f2937", "align": "center"}
+    ]},
+    {"id": "p6", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p7", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p8", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p9", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 8, "y": 8, "w": 84, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 11, "text": "", "font": "montserrat", "size": 11, "color": "#1f2937", "align": "center"}
+    ]},
+    {"id": "p10", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "montserrat", "size": 11, "color": "#1f2937", "align": "center"}
+    ]},
+    {"id": "p11", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p12", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p13", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 52, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p14", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p15", "background": "#ffffff", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Где-то между небом и дорогой", "font": "montserrat", "size": 18, "color": "#1f2937", "align": "center"}
+    ]},
+    {"id": "p16", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "montserrat", "size": 11, "color": "#1f2937", "align": "center"}
+    ]},
+    {"id": "p17", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p18", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p19", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p20", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 8, "y": 8, "w": 84, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 11, "text": "", "font": "montserrat", "size": 11, "color": "#1f2937", "align": "center"}
+    ]}
+  ]
+}

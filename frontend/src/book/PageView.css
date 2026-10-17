@@ -1,0 +1,38 @@
+.pv {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  /* Делает .pv контейнером: дочерние элементы могут задавать размеры в cqw
+     (процентах от ширины страницы). Так текст масштабируется со страницей. */
+  container-type: inline-size;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+}
+
+.pv-el {
+  position: absolute;
+}
+
+.pv-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e7e2da;
+  color: #a39d94;
+}
+
+.pv-slot svg {
+  width: min(40%, 12cqw);
+  height: auto;
+}
+
+/* Текст центрируется по вертикали внутри блока; длинный переносится,
+   лишнее обрезается (auto-fit и предупреждения — на шаге 5а). */
+.pv-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}

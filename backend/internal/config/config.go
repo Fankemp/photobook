@@ -9,9 +9,10 @@ import (
 )
 
 type Config struct {
-	HTTPAddr    string
-	DatabaseURL string
-	S3          S3Config
+	HTTPAddr     string
+	DatabaseURL  string
+	TemplatesDir string
+	S3           S3Config
 }
 
 // S3Config — любое S3-совместимое хранилище (локально RustFS).
@@ -36,6 +37,8 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
 		DatabaseURL: required("DATABASE_URL"),
+		// По умолчанию — папка templates/ в корне репозитория (для go run из backend/).
+		TemplatesDir: getenv("TEMPLATES_DIR", "../templates"),
 		S3: S3Config{
 			Endpoint:  required("S3_ENDPOINT"),
 			AccessKey: required("S3_ACCESS_KEY"),

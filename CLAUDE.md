@@ -39,7 +39,7 @@
 
 ## Модель данных
 - `formats` (id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, created_at). `id` — читаемый slug (`square-200`), на него ссылаются шаблоны; `price_kzt` — целое число в тенге
-- `books` (id, token, format_id, template_id, schema_version, pages JSONB, created_at, updated_at). `pages` — массив страниц (см. «Формат страницы»), `schema_version` — версия этого формата JSON
+- `books` (id, token, format_id, template_id, schema_version, cover JSONB, pages JSONB, created_at, updated_at). `cover` — страница обложки, `pages` — массив внутренних страниц (см. «Формат страницы»), `schema_version` — версия этого формата JSON. `token` — 26 символов base32 (`crypto/rand.Text`)
 - `assets` (id, book_id, original_key, thumb_key, width_px, height_px, size_bytes)
 - `orders` (id, book_id, name, phone, address, wanted_date, status, comment, pdf_key, created_at)
 - `order_events` (id, order_id, status, note, created_at)
@@ -59,7 +59,7 @@
         { "type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100,
           "assetId": null, "crop": { "zoom": 1, "offsetX": 0, "offsetY": 0 } },
         { "type": "text", "id": "t1", "x": 10, "y": 80, "w": 80, "h": 15,
-          "text": "", "font": "Playfair", "size": 14, "align": "center" },
+          "text": "", "font": "playfair-display", "size": 14, "align": "center" },
         { "type": "sticker", "id": "st1", "x": 50, "y": 10, "w": 20, "h": 20,
           "stickerId": "heart-01", "rotation": 0 }
       ]
@@ -68,6 +68,10 @@
 }
 ```
 Координаты в процентах от страницы (0–100), чтобы одинаково работало на любом экране и в PDF.
+- Ключи JSON — camelCase везде (страницы, шаблоны, ответы API).
+- `size` текста — кегль в пунктах на напечатанной странице; на экране переводится в `cqw` (доля ширины страницы).
+- `font` — id шрифта в kebab-case (`playfair-display`, `caveat`).
+- Go-модель и проверка: `backend/internal/pages`, TS-типы: `frontend/src/types.ts`, отрисовка: `frontend/src/book/PageView.tsx`.
 
 ## Текст и шрифты
 Клиент сам пишет текст на странице и выбирает шрифт.
@@ -80,10 +84,10 @@
 - Длинный текст переносится внутри блока, размер можно уменьшить автоматически (auto-fit) до минимума.
 
 ## Шаблоны (сейчас и в будущем)
-- Шаблон = JSON-файл: список страниц с готовыми слотами, текстами, стикерами, фоном, плюс метаданные (`id`, `name`, `occasion`, `preview`, `format_id`).
+- Шаблон = JSON-файл: список страниц с готовыми слотами, текстами, стикерами, фоном, плюс метаданные (`id`, `name`, `occasion`, `preview`, `formatId`). Обложка — отдельное поле `cover`, внутренних страниц ровно `formats.pages`. Формат файла описан в `templates/README.md`.
 - Шаблоны подгружаются из папки `templates/`, добавить новый = положить файл, без изменений кода.
 - Поле `occasion` (годовщина, день рождения, подарок маме, путешествие и т.д.) нужно сразу, чтобы потом фильтровать шаблоны на сайте.
-- Версионировать формат шаблона (`schema_version`), чтобы старые книги не ломались после обновлений.
+- Версионировать формат шаблона (`schemaVersion`), чтобы старые книги не ломались после обновлений.
 - Книга при создании копирует страницы шаблона и дальше живет независимо (изменение шаблона не меняет чужие книги).
 - Позже: загрузка шаблонов через админку, шаблоны других форматов, платные/премиальные шаблоны.
 
