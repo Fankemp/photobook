@@ -124,6 +124,36 @@ a {
   font-size: 0.875rem;
 }
 
+/* Фильтр по поводу. На телефоне — одна строка, листается пальцем до краёв
+   экрана (отрицательные поля съедают отступ .page); на широком — переносится. */
+.chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px 20px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chip {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
 .tpl-card {
   display: flex;
   flex-direction: column;
@@ -208,6 +238,13 @@ a {
 @media (min-width: 640px) {
   .grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .chips {
+    flex-wrap: wrap;
+    margin: 0 0 24px;
+    padding: 0;
+    overflow: visible;
   }
 
   .btn-primary {

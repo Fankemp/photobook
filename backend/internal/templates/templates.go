@@ -116,7 +116,10 @@ func (t Template) validate(fmts map[string]formats.Format, lib pages.Library) er
 	if err := pages.ValidateAll(all, lib); err != nil {
 		return err
 	}
-	return textInsideSafeZone(all, f)
+	if err := textInsideSafeZone(all, f); err != nil {
+		return err
+	}
+	return noOverlaps(all, f)
 }
 
 // textInsideSafeZone: текстовые блоки шаблона не ближе к краю, чем safe_mm.
@@ -132,6 +135,28 @@ func textInsideSafeZone(all []pages.Page, f formats.Format) error {
 			minX, minY, maxX, maxY := boundsMM(e, f)
 			if minX < f.SafeMM-eps || minY < f.SafeMM-eps || maxX > f.WidthMM-f.SafeMM+eps || maxY > f.HeightMM-f.SafeMM+eps {
 				return fmt.Errorf("page %s, text %s: outside the safe zone (keep %.1f mm from the edges)", p.ID, e.ID, f.SafeMM)
+			}
+		}
+	}
+	return nil
+}
+
+// noOverlaps: в шаблоне фото не наезжает на фото, а текст — на текст. Подпись
+// поверх фото и стикеры где угодно — можно, так задумывают оформление.
+// Повёрнутый текст сравниваем по описанному вокруг него прямоугольнику — с запасом.
+func noOverlaps(all []pages.Page, f formats.Format) error {
+	const eps = 0.01 // мм: блоки, которые только касаются краями, не пересекаются
+	for _, p := range all {
+		for i, a := range p.Elements {
+			for _, b := range p.Elements[i+1:] {
+				if a.Type != b.Type || a.Type == pages.Sticker {
+					continue
+				}
+				ax0, ay0, ax1, ay1 := boundsMM(a, f)
+				bx0, by0, bx1, by1 := boundsMM(b, f)
+				if ax0 < bx1-eps && bx0 < ax1-eps && ay0 < by1-eps && by0 < ay1-eps {
+					return fmt.Errorf("page %s: %s %s overlaps %s", p.ID, a.Type, a.ID, b.ID)
+				}
 			}
 		}
 	}

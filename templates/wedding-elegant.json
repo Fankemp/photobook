@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "wedding-elegant",
+  "name": "Наша свадьба",
+  "occasion": "wedding",
+  "formatId": "square-200",
+  "cover": {"id": "cover", "background": "#fbf8f3", "elements": [
+      {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+      {"type": "text", "id": "t1", "x": 8, "y": 73, "w": 84, "h": 12, "text": "Наша свадьба", "font": "playfair-display", "size": 30, "color": "#7a5c3a", "align": "center"},
+      {"type": "text", "id": "t2", "x": 8, "y": 86, "w": 84, "h": 6, "text": "12 · 08 · 2026", "font": "pt-serif", "size": 13, "color": "#5b4a3a", "align": "center"},
+      {"type": "sticker", "id": "st1", "x": 29, "y": 84.5, "w": 9, "h": 9, "stickerId": "nature-leaves", "rotation": -125},
+      {"type": "sticker", "id": "st2", "x": 62, "y": 84.5, "w": 9, "h": 9, "stickerId": "nature-leaves", "rotation": 55}
+  ]},
+  "pages": [
+    {"id": "p1", "background": "#fbf8f3", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Начало нашей семьи", "font": "playfair-display", "size": 22, "color": "#7a5c3a", "align": "center"}
+    ]},
+    {"id": "p2", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p3", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 8, "y": 8, "w": 84, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 11, "text": "", "font": "pt-serif", "size": 11, "color": "#5b4a3a", "align": "center"}
+    ]},
+    {"id": "p4", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p5", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p6", "background": "#fbf8f3", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Да!", "font": "playfair-display", "size": 60, "color": "#7a5c3a", "align": "center"},
+        {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "love-hearts"}
+    ]},
+    {"id": "p7", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p8", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "pt-serif", "size": 11, "color": "#5b4a3a", "align": "center"}
+    ]},
+    {"id": "p9", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 54, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 64, "y": 6, "w": 30, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 64, "y": 52, "w": 30, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p10", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p11", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 6, "y": 52, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p12", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 54, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 64, "y": 30, "w": 30, "h": 40, "text": "", "font": "pt-serif", "size": 12, "color": "#5b4a3a", "align": "left"}
+    ]},
+    {"id": "p13", "background": "#fbf8f3", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Танцуем вместе всю жизнь", "font": "playfair-display", "size": 22, "color": "#7a5c3a", "align": "center"},
+        {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "nature-leaves"}
+    ]},
+    {"id": "p14", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p15", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 12, "y": 8, "w": 76, "h": 64, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 12, "y": 76, "w": 76, "h": 12, "text": "", "font": "playfair-display", "size": 16, "color": "#7a5c3a", "align": "center", "rotation": -3}
+    ]},
+    {"id": "p16", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p17", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 26, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 37, "y": 6, "w": 26, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 68, "y": 6, "w": 26, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p18", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p19", "background": "#fbf8f3", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "pt-serif", "size": 11, "color": "#5b4a3a", "align": "center"}
+    ]},
+    {"id": "p20", "background": "#fbf8f3", "elements": [
+        {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Долго и счастливо", "font": "playfair-display", "size": 22, "color": "#7a5c3a", "align": "center"},
+        {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "nature-sparkles"}
+    ]}
+  ],
+  "backCover": {"id": "back", "background": "#fbf8f3", "elements": [
+      {"type": "sticker", "id": "st1", "x": 44, "y": 28, "w": 12, "h": 12, "stickerId": "love-hearts"},
+      {"type": "text", "id": "t1", "x": 12, "y": 44, "w": 76, "h": 12, "text": "Спасибо, что были с нами", "font": "pt-serif", "size": 14, "color": "#5b4a3a", "align": "center"}
+  ]}
+}

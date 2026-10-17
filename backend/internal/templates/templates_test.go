@@ -54,6 +54,16 @@ func TestLoadDirErrors(t *testing.T) {
 	pageWith := func(el string) string {
 		return `"pages": [{"id": "p1", "background": "#ffffff", "elements": [` + el + `]}]`
 	}
+	photoAt := func(id string, x int) string {
+		return `{"type": "photo_slot", "id": "` + id + `", "x": ` + strconv.Itoa(x) + `, "y": 10, "w": 40, "h": 40}`
+	}
+	textWithID := func(id string, x int) string {
+		return strings.Replace(textAt(x), `"id": "t1"`, `"id": "`+id+`"`, 1)
+	}
+	heart := `{"type": "sticker", "id": "st1", "x": 30, "y": 30, "w": 20, "h": 20, "stickerId": "love-heart"}`
+	tpl := func(page string) string {
+		return `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + page + `}`
+	}
 
 	tests := []struct {
 		name    string
@@ -72,6 +82,10 @@ func TestLoadDirErrors(t *testing.T) {
 		{"text near the top, straight", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), `"y": 40`, `"y": 5`, 1)) + `}`, ""},
 		{"text near the top, rotated", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), `"y": 40`, `"y": 5, "rotation": 30`, 1)) + `}`, "safe zone"},
 		{"text too close to the edge", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(textAt(1)) + `}`, "safe zone"},
+		{"photos side by side", tpl(pageWith(photoAt("s1", 5) + `, ` + photoAt("s2", 45))), ""},
+		{"photos overlap", tpl(pageWith(photoAt("s1", 5) + `, ` + photoAt("s2", 40))), "photo_slot s1 overlaps s2"},
+		{"texts overlap", tpl(pageWith(textWithID("t1", 10) + `, ` + textWithID("t2", 40))), "text t1 overlaps t2"},
+		{"caption over a photo, sticker on top", tpl(pageWith(photoAt("s1", 5) + `, ` + textAt(10) + `, ` + heart)), ""},
 		{"unknown font", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), "lora", "comic-sans", 1)) + `}`, "fonts config"},
 	}
 	for _, tt := range tests {
@@ -80,7 +94,7 @@ func TestLoadDirErrors(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "t.json"), []byte(tt.file), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			_, err := LoadDir(dir, oneFormat, pages.Library{Fonts: fonts.New(fonts.Font{ID: "lora", Bold: true}), Stickers: stickers.New()})
+			_, err := LoadDir(dir, oneFormat, pages.Library{Fonts: fonts.New(fonts.Font{ID: "lora", Bold: true}), Stickers: stickers.New(stickers.Sticker{ID: "love-heart"})})
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
