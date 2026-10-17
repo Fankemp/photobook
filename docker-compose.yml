@@ -58,11 +58,13 @@ services:
       S3_BUCKET: ${S3_BUCKET}
       S3_USE_SSL: "false"
       # Адрес хранилища для браузера: на него указывают ссылки загрузки и просмотра фото.
-      S3_PUBLIC_ENDPOINT: ${PUBLIC_HOST:-localhost}:${S3_PORT:-9000}
+      # SHARE_* задаёт make share (временный доступ из интернета), иначе — локальные адреса.
+      S3_PUBLIC_ENDPOINT: ${SHARE_S3_HOST:-${PUBLIC_HOST:-localhost}:${S3_PORT:-9000}}
+      S3_PUBLIC_USE_SSL: ${SHARE_S3_SSL:-false}
       # Адреса сайта, которым хранилище разрешит загружать файлы из браузера (CORS).
-      APP_ORIGINS: http://localhost:${FRONTEND_PORT:-5173},http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT:-5173}
+      APP_ORIGINS: http://localhost:${FRONTEND_PORT:-5173},http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT:-5173}${SHARE_SITE_URL:+,${SHARE_SITE_URL}}
       # Адрес сайта для ссылок в уведомлениях.
-      APP_BASE_URL: http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT:-5173}
+      APP_BASE_URL: ${SHARE_SITE_URL:-http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT:-5173}}
       ORDER_MIN_LEAD_DAYS: ${ORDER_MIN_LEAD_DAYS:-3}
       # Telegram-бот для заявок; без токена сообщения пишутся в лог backend.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}

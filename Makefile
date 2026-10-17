@@ -1,4 +1,4 @@
-.PHONY: up down logs ps psql migrate-status migrate-up migrate-down test e2e
+.PHONY: up down logs ps psql migrate-status migrate-up migrate-down test e2e share unshare
 
 # Создать .env из шаблона, если его ещё нет.
 .env:
@@ -42,3 +42,9 @@ e2e: .env ## Сквозные тесты в браузере (сервисы д�
 	docker run --rm --network host -u $$(id -u):$$(id -g) -e HOME=/tmp --env-file .env \
 		-v $(CURDIR):/repo:ro -v $(CURDIR)/e2e:/work -w /work $(PLAYWRIGHT_IMAGE) \
 		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs && node text.mjs && node order.mjs && node admin.mjs && node print.mjs"
+
+share: ## Временная ссылка на сайт из интернета (Cloudflare Tunnel) — показать кому-то
+	./scripts/share.sh
+
+unshare: ## Закрыть доступ из интернета
+	./scripts/unshare.sh
