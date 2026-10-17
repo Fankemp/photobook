@@ -3,8 +3,7 @@ import { t } from '../i18n/index.ts'
 
 // Ссылка на книгу — единственный «ключ» к ней (регистрации нет), поэтому
 // показываем её на видном месте и даём скопировать в один тап.
-export function ShareLink() {
-  const url = window.location.href
+export function ShareLink({ url }: { url: string }) {
   const [copied, setCopied] = useState(false)
 
   async function copy() {

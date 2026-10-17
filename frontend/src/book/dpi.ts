@@ -1,4 +1,5 @@
 import type { Format, PhotoSlotElement } from '../types.ts'
+import { sizeMm } from './geometry.ts'
 
 export type ImageSize = { width: number; height: number }
 
@@ -7,12 +8,11 @@ export type ImageSize = { width: number; height: number }
 //
 // Фото вписано в слот с заполнением (см. crop.ts): на один пиксель фото
 // приходится max(ширина слота / ширина фото, высота слота / высота фото) мм,
-// а увеличение zoom растягивает пиксель ещё в zoom раз.
-// Размеры слота считаем по линии реза; вылет (3 мм) на результат почти не влияет.
+// а увеличение zoom растягивает пиксель ещё в zoom раз. Размер слота — как
+// на бумаге, вместе с вылетом у края (см. geometry.ts).
 export function slotDpi(el: PhotoSlotElement, format: Format, img: ImageSize): number {
-  const slotWmm = (el.w / 100) * format.widthMm
-  const slotHmm = (el.h / 100) * format.heightMm
-  const mmPerPixel = Math.max(slotWmm / img.width, slotHmm / img.height) * (el.crop?.zoom ?? 1)
+  const slot = sizeMm(el, format)
+  const mmPerPixel = Math.max(slot.w / img.width, slot.h / img.height) * (el.crop?.zoom ?? 1)
   return 25.4 / mmPerPixel
 }
 

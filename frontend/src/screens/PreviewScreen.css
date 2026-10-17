@@ -1,0 +1,160 @@
+.preview {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 16px 32px;
+}
+
+.pp-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pp-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.pp-issues,
+.pp-ready {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+}
+
+.pp-issues {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.pp-issues p {
+  margin: 0;
+}
+
+.pp-issues p + p {
+  margin-top: 6px;
+}
+
+.pp-issues a {
+  color: inherit;
+  font-weight: 600;
+}
+
+.pp-ready {
+  background: #e7f4ec;
+  color: #1e6a3f;
+}
+
+/* Переключатель подсказок: вся строка нажимается, высота под палец. */
+.pp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.pp-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+/* touch-action: pan-y — вертикальную прокрутку делает браузер,
+   горизонтальный свайп ловим сами и листаем развороты. */
+.pp-stage {
+  touch-action: pan-y;
+  user-select: none;
+}
+
+/* Разворот вписан и по ширине экрана, и по высоте (двойная ширина страницы
+   не больше, чем позволяет высота окна). */
+.pp-spread {
+  position: relative;
+  display: flex;
+  width: min(100%, calc((100dvh - 280px) * 2));
+  min-width: 280px;
+  margin: 0 auto;
+}
+
+.pp-spread.is-single {
+  display: block;
+  width: min(100%, calc(100dvh - 280px), 560px);
+}
+
+.pp-spread.is-apart {
+  gap: 10px;
+}
+
+.pp-side {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Сгиб посередине раскрытой книги. */
+.pp-spread:not(.is-single):not(.is-apart)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 8%;
+  transform: translateX(-50%);
+  background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.12) 50%, transparent);
+  pointer-events: none;
+}
+
+.pp-blank {
+  width: 100%;
+  background: #e9e5df;
+}
+
+.pp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 560px);
+  margin: 16px auto;
+}
+
+.pp-nav .btn {
+  min-width: 52px;
+  font-size: 1.25rem;
+}
+
+.pp-legend {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 560px);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.pp-legend li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pp-swatch {
+  flex: none;
+  width: 22px;
+  border-top: 2px dashed;
+  transform: translateY(-3px);
+}
+
+.pp-swatch.is-cut {
+  border-color: #c2410c;
+}
+
+.pp-swatch.is-safe {
+  border-color: #2563eb;
+}

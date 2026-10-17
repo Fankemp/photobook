@@ -1,11 +1,38 @@
+/* Видимая рамка страницы: по линии реза или вместе с вылетом (showBleed).
+   overflow: hidden обрезает всё, что за рамкой. */
 .pv {
   position: relative;
   width: 100%;
   overflow: hidden;
-  /* Делает .pv контейнером: дочерние элементы могут задавать размеры в cqw
-     (процентах от ширины страницы). Так текст масштабируется со страницей. */
-  container-type: inline-size;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+}
+
+/* Лист целиком, с вылетом; на нём фон страницы. */
+.pv-sheet {
+  position: absolute;
+}
+
+/* Страница по линии реза. Контейнер для cqw: размеры текста считаются
+   в процентах ширины именно обрезанной страницы. */
+.pv-trim {
+  position: absolute;
+  container-type: inline-size;
+}
+
+/* Подсказки превью. Линия реза — пунктир по краю страницы; огромная тень
+   наружу затемняет вылет («это обрежется»), .pv её обрезает. */
+.pv-cut {
+  position: absolute;
+  inset: 0;
+  outline: 1px dashed #c2410c;
+  box-shadow: 0 0 0 100vmax rgb(255 255 255 / 0.6);
+  pointer-events: none;
+}
+
+.pv-safe {
+  position: absolute;
+  border: 1px dashed #2563eb;
+  pointer-events: none;
 }
 
 .pv-el {

@@ -19,9 +19,10 @@ type LocalImage = Size & { url: string }
 // Редактор v0: листаем страницы, тап по пустому слоту — выбор фото,
 // тап по фото — выделение, затем двигаем и масштабируем кадр.
 // Все правки сохраняются автоматически (см. autosave.ts).
-export function Editor({ book }: { book: Book }) {
+// initialPage — с какой страницы открыть (0 — обложка), например по ссылке из превью.
+export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: number }) {
   const { doc, update, status } = useBookDoc(book)
-  const [pageIndex, setPageIndex] = useState(0) // 0 — обложка, 1..N — страницы
+  const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length, initialPage)))
   const [selected, setSelected] = useState<SlotRef | null>(null)
   const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [localImages, setLocalImages] = useState<Record<string, LocalImage>>({})
@@ -156,8 +157,14 @@ export function Editor({ book }: { book: Book }) {
         <Link to="/" className="ed-back" aria-label={t.editor.back}>
           ←
         </Link>
-        <h1>{t.book.title}</h1>
-        <SaveIndicator status={status} />
+        <div className="ed-title">
+          <h1>{t.book.title}</h1>
+          <SaveIndicator status={status} />
+        </div>
+        {/* Уход в превью — обычный переход: редактор при закрытии дохраняет правки. */}
+        <Link to={`/b/${book.token}/preview`} className="btn ed-preview-link">
+          {t.editor.preview}
+        </Link>
       </header>
 
       {status === 'conflict' && (
@@ -225,7 +232,8 @@ export function Editor({ book }: { book: Book }) {
         onSelect={goTo}
       />
 
-      <ShareLink />
+      {/* Чистая ссылка на книгу, без ?page= и прочего из адресной строки. */}
+      <ShareLink url={`${window.location.origin}/b/${book.token}`} />
 
       {/* Панель внизу экрана: подсказка или управление выбранным фото. */}
       <div className="ed-toolbar" ref={toolbarRef}>

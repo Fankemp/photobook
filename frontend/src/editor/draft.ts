@@ -1,3 +1,4 @@
+import type { Book } from '../types.ts'
 import type { Doc } from './doc.ts'
 
 // Черновик книги в localStorage — страховка на случай обрыва сети или
@@ -22,6 +23,20 @@ export function writeDraft(token: string, draft: Draft) {
   } catch {
     // нет места или запрещено — работаем без черновика
   }
+}
+
+// restoreDoc — что показывать: черновик с этого устройства или версию с сервера.
+// Черновик берём, только если он сделан поверх той же версии, что на сервере,
+// и отличается от неё. Иначе сервер новее (сохранили с другого устройства),
+// и устаревший черновик удаляем. Общая логика для редактора и превью.
+export function restoreDoc(book: Book): { doc: Doc; fromDraft: boolean } {
+  const server: Doc = { cover: book.cover, pages: book.pages }
+  const draft = readDraft(book.token)
+  if (draft && draft.baseVersion === book.version && JSON.stringify(draft.doc) !== JSON.stringify(server)) {
+    return { doc: draft.doc, fromDraft: true }
+  }
+  if (draft) clearDraft(book.token)
+  return { doc: server, fromDraft: false }
 }
 
 export function clearDraft(token: string) {

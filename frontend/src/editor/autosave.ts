@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { saveBook, toApiError } from '../api.ts'
 import type { Book } from '../types.ts'
 import type { Doc } from './doc.ts'
-import { clearDraft, readDraft, writeDraft } from './draft.ts'
+import { clearDraft, restoreDoc, writeDraft } from './draft.ts'
 
 export type SaveStatus = 'saved' | 'pending' | 'saving' | 'offline' | 'conflict' | 'error'
 
@@ -26,19 +26,13 @@ class AutoSaver {
 
   constructor(book: Book) {
     this.book = book
-    const server: Doc = { cover: book.cover, pages: book.pages }
-    this.saved = server
     this.version = book.version
-    this.doc = server
-
-    // Черновик берём, только если он сделан поверх той же версии, что на сервере,
-    // и отличается от неё. Иначе сервер новее (сохранили с другого устройства).
-    const draft = readDraft(book.token)
-    if (draft && draft.baseVersion === book.version && JSON.stringify(draft.doc) !== JSON.stringify(server)) {
-      this.doc = draft.doc
-    } else if (draft) {
-      clearDraft(book.token)
-    }
+    // Несохранённые правки с этого устройства (если есть) — поверх версии с сервера.
+    // «Есть несохранённое» сравнивает объекты, а не содержимое, поэтому без
+    // черновика doc и saved должны быть одним и тем же объектом.
+    const { doc, fromDraft } = restoreDoc(book)
+    this.saved = fromDraft ? { cover: book.cover, pages: book.pages } : doc
+    this.doc = doc
   }
 
   // Куда сообщать о смене статуса (в React-состояние индикатора).

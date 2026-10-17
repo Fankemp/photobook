@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { getBook } from '../api.ts'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { Editor } from '../editor/Editor.tsx'
@@ -10,6 +10,7 @@ import { useLoad } from '../lib/useLoad.ts'
 // Книга клиента по секретной ссылке /b/<токен>: загружаем и открываем редактор.
 export function BookScreen() {
   const { token = '' } = useParams()
+  const [search] = useSearchParams()
   const book = useLoad(token, (signal) => getBook(token, signal))
 
   // Запоминаем книгу для кнопки «Продолжить» на главной; битую ссылку — забываем.
@@ -20,7 +21,7 @@ export function BookScreen() {
 
   if (book.status === 'ok') {
     // key: другая книга — новый редактор с чистым состоянием.
-    return <Editor key={token} book={book.data} />
+    return <Editor key={token} book={book.data} initialPage={Number(search.get('page')) || 0} />
   }
   return (
     <main className="page">
