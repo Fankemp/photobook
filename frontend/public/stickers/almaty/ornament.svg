@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#fff" stroke-width="15.0" stroke-linecap="round" transform="rotate(0 60 60)"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#fff" stroke-width="15.0" stroke-linecap="round" transform="rotate(90 60 60)"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#fff" stroke-width="15.0" stroke-linecap="round" transform="rotate(180 60 60)"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#fff" stroke-width="15.0" stroke-linecap="round" transform="rotate(270 60 60)"/>
+  <path d="M60 48 L 72 60 L 60 72 L 48 60 Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#c8283c" stroke-width="7" stroke-linecap="round" transform="rotate(0 60 60)"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#c8283c" stroke-width="7" stroke-linecap="round" transform="rotate(90 60 60)"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#c8283c" stroke-width="7" stroke-linecap="round" transform="rotate(180 60 60)"/>
+  <path d="M60 60 C 60 40 44 26 30 32 C 18 38 22 54 34 52 C 42 51 42 42 36 42" fill="none" stroke="#c8283c" stroke-width="7" stroke-linecap="round" transform="rotate(270 60 60)"/>
+  <path d="M60 48 L 72 60 L 60 72 L 48 60 Z" fill="#f6c344"/>
+</svg>

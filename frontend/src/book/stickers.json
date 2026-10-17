@@ -21,6 +21,30 @@
           "name": "Письмо",
           "file": "love/letter.svg",
           "aspect": 1.0
+        },
+        {
+          "id": "love-rose",
+          "name": "Роза",
+          "file": "love/rose.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "love-lips",
+          "name": "Поцелуй",
+          "file": "love/lips.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "love-heart-arrow",
+          "name": "Сердце со стрелой",
+          "file": "love/heart-arrow.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "love-coffee",
+          "name": "Кофе",
+          "file": "love/coffee.svg",
+          "aspect": 1.0
         }
       ]
     },
@@ -62,6 +86,36 @@
           "id": "party-confetti",
           "name": "Конфетти",
           "file": "party/confetti.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-hat",
+          "name": "Колпак",
+          "file": "party/hat.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-crown",
+          "name": "Корона",
+          "file": "party/crown.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-fireworks",
+          "name": "Салют",
+          "file": "party/fireworks.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "party-garland",
+          "name": "Флажки",
+          "file": "party/garland.svg",
+          "aspect": 2.4
+        },
+        {
+          "id": "party-cheers",
+          "name": "Бокалы",
+          "file": "party/cheers.svg",
           "aspect": 1.0
         }
       ]
@@ -105,6 +159,36 @@
           "name": "Чемодан",
           "file": "travel/suitcase.svg",
           "aspect": 1.0
+        },
+        {
+          "id": "travel-tent",
+          "name": "Палатка",
+          "file": "travel/tent.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-compass",
+          "name": "Компас",
+          "file": "travel/compass.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-car",
+          "name": "Машина",
+          "file": "travel/car.svg",
+          "aspect": 1.64
+        },
+        {
+          "id": "travel-air-balloon",
+          "name": "Воздушный шар",
+          "file": "travel/air-balloon.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "travel-ticket",
+          "name": "Билет",
+          "file": "travel/ticket.svg",
+          "aspect": 2.0
         }
       ]
     },
@@ -135,6 +219,186 @@
           "name": "Лента",
           "file": "nature/banner.svg",
           "aspect": 2.0
+        },
+        {
+          "id": "nature-rainbow",
+          "name": "Радуга",
+          "file": "nature/rainbow.svg",
+          "aspect": 1.8182
+        },
+        {
+          "id": "nature-cloud",
+          "name": "Облако",
+          "file": "nature/cloud.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-butterfly",
+          "name": "Бабочка",
+          "file": "nature/butterfly.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-moon",
+          "name": "Луна",
+          "file": "nature/moon.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-snowflake",
+          "name": "Снежинка",
+          "file": "nature/snowflake.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "nature-maple",
+          "name": "Кленовый лист",
+          "file": "nature/maple.svg",
+          "aspect": 1.0
+        }
+      ]
+    },
+    {
+      "id": "baby",
+      "name": "Малыш",
+      "stickers": [
+        {
+          "id": "baby-bottle",
+          "name": "Бутылочка",
+          "file": "baby/bottle.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "baby-pacifier",
+          "name": "Соска",
+          "file": "baby/pacifier.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "baby-rattle",
+          "name": "Погремушка",
+          "file": "baby/rattle.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "baby-footprints",
+          "name": "Следы",
+          "file": "baby/footprints.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "baby-duck",
+          "name": "Уточка",
+          "file": "baby/duck.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "baby-onesie",
+          "name": "Боди",
+          "file": "baby/onesie.svg",
+          "aspect": 1.0
+        }
+      ]
+    },
+    {
+      "id": "almaty",
+      "name": "Алматы",
+      "stickers": [
+        {
+          "id": "almaty-apple",
+          "name": "Яблоко",
+          "file": "almaty/apple.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "almaty-yurt",
+          "name": "Юрта",
+          "file": "almaty/yurt.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "almaty-dombra",
+          "name": "Домбра",
+          "file": "almaty/dombra.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "almaty-ornament",
+          "name": "Орнамент «Қошқар мүйіз»",
+          "file": "almaty/ornament.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "almaty-peaks",
+          "name": "Горы",
+          "file": "almaty/peaks.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "almaty-tulip",
+          "name": "Тюльпан",
+          "file": "almaty/tulip.svg",
+          "aspect": 1.0
+        }
+      ]
+    },
+    {
+      "id": "decor",
+      "name": "Декор",
+      "stickers": [
+        {
+          "id": "decor-tape-pink",
+          "name": "Скотч розовый",
+          "file": "decor/tape-pink.svg",
+          "aspect": 3.5714
+        },
+        {
+          "id": "decor-tape-mint",
+          "name": "Скотч мятный",
+          "file": "decor/tape-mint.svg",
+          "aspect": 3.5714
+        },
+        {
+          "id": "decor-tape-yellow",
+          "name": "Скотч жёлтый",
+          "file": "decor/tape-yellow.svg",
+          "aspect": 3.5714
+        },
+        {
+          "id": "decor-tape-blue",
+          "name": "Скотч голубой",
+          "file": "decor/tape-blue.svg",
+          "aspect": 3.5714
+        },
+        {
+          "id": "decor-corner",
+          "name": "Фотоуголок",
+          "file": "decor/corner.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "decor-pushpin",
+          "name": "Кнопка",
+          "file": "decor/pushpin.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "decor-clip",
+          "name": "Скрепка",
+          "file": "decor/clip.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "decor-arrow",
+          "name": "Стрелка",
+          "file": "decor/arrow.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "decor-doodle-heart",
+          "name": "Сердечко от руки",
+          "file": "decor/doodle-heart.svg",
+          "aspect": 1.0
         }
       ]
     }

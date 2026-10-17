@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <path d="M32 16 L 56 16 L 53 58 Q 44 68 35 58 Z" fill="#fff" transform="rotate(12 44 100)" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M33 30 L 55 30 L 53 58 Q 44 68 35 58 Z" fill="#fff" transform="rotate(12 44 100)" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M44 64 L 44 98" fill="none" stroke="#fff" stroke-width="12.0" transform="rotate(12 44 100)"/>
+  <ellipse cx="44" cy="100" rx="14" ry="4" fill="#fff" transform="rotate(12 44 100)" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M64 16 L 88 16 L 85 58 Q 76 68 67 58 Z" fill="#fff" transform="rotate(-12 76 100)" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M65 30 L 87 30 L 85 58 Q 76 68 67 58 Z" fill="#fff" transform="rotate(-12 76 100)" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M76 64 L 76 98" fill="none" stroke="#fff" stroke-width="12.0" transform="rotate(-12 76 100)"/>
+  <ellipse cx="76" cy="100" rx="14" ry="4" fill="#fff" transform="rotate(-12 76 100)" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M60 2 Q60 12 70 12 Q60 12 60 22 Q60 12 50 12 Q60 12 60 2 Z" fill="#fff" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M32 16 L 56 16 L 53 58 Q 44 68 35 58 Z" fill="#dbe7f3" transform="rotate(12 44 100)"/>
+  <path d="M33 30 L 55 30 L 53 58 Q 44 68 35 58 Z" fill="#f6c344" transform="rotate(12 44 100)"/>
+  <path d="M44 64 L 44 98" fill="none" stroke="#b9c7d8" stroke-width="4" transform="rotate(12 44 100)"/>
+  <ellipse cx="44" cy="100" rx="14" ry="4" fill="#b9c7d8" transform="rotate(12 44 100)"/>
+  <path d="M64 16 L 88 16 L 85 58 Q 76 68 67 58 Z" fill="#dbe7f3" transform="rotate(-12 76 100)"/>
+  <path d="M65 30 L 87 30 L 85 58 Q 76 68 67 58 Z" fill="#f6c344" transform="rotate(-12 76 100)"/>
+  <path d="M76 64 L 76 98" fill="none" stroke="#b9c7d8" stroke-width="4" transform="rotate(-12 76 100)"/>
+  <ellipse cx="76" cy="100" rx="14" ry="4" fill="#b9c7d8" transform="rotate(-12 76 100)"/>
+  <path d="M60 2 Q60 12 70 12 Q60 12 60 22 Q60 12 50 12 Q60 12 60 2 Z" fill="#f6c344"/>
+</svg>

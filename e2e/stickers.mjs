@@ -178,6 +178,29 @@ await page.close()
   await full.close()
 }
 
+// 12. Новые наборы: вкладка прокручивает к набору, стикер из него сохраняется.
+{
+  const desk = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  desk.on('pageerror', (e) => problems.push('pageerror: ' + e.message))
+  await desk.goto(`${base}/b/${token}?page=3`)
+  await desk.getByRole('button', { name: 'Добавить стикер' }).click()
+  const dlg = desk.locator('dialog.ed-picker')
+  await dlg.getByRole('button', { name: 'Алматы', exact: true }).click()
+  const heading = dlg.locator('.ed-picker-set h3', { hasText: 'Алматы' })
+  await desk.waitForTimeout(700) // плавная прокрутка
+  const [hb, db] = [await heading.boundingBox(), await dlg.boundingBox()]
+  const scrolled = await dlg.evaluate((d) => d.scrollTop)
+  // Набор ближе к концу не доедет до самого верха — проверяем, что он стал виден.
+  check(scrolled > 0 && hb.y >= db.y && hb.y + hb.height <= db.y + db.height,
+    `tab «Алматы» scrolls the picker to that set (scrolled ${Math.round(scrolled)} px, heading at +${Math.round(hb.y - db.y)} px)`)
+  await dlg.getByRole('button', { name: 'Юрта', exact: true }).click()
+  await desk.waitForTimeout(300)
+  await desk.locator('.ed-status', { hasText: 'Сохранено' }).waitFor({ timeout: 10000 })
+  const saved = (await getBook(token)).pages[2].elements.find((e) => e.type === 'sticker')
+  check(saved?.stickerId === 'almaty-yurt', `sticker from a new set saved on the server (${saved?.stickerId})`)
+  await desk.close()
+}
+
 await browser.close()
 log(problems.length ? `\n${problems.length} problem(s):\n` + problems.join('\n') : '\nall sticker checks passed')
 process.exit(problems.length ? 1 : 0)

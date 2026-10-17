@@ -8,9 +8,11 @@ type Props = {
 }
 
 // Окно выбора стикера: наборы друг под другом, тап по стикеру — добавить
-// его на текущую страницу. Esc или «Отмена» — закрыть без изменений.
+// его на текущую страницу. Сверху — вкладки наборов (прилипают к верху окна),
+// тап — прокрутить к набору. Esc или «Отмена» — закрыть без изменений.
 export function StickerPicker({ onPick, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  const sections = useRef(new Map<string, HTMLElement>())
 
   useEffect(() => {
     const dialog = ref.current
@@ -29,8 +31,26 @@ export function StickerPicker({ onPick, onClose }: Props) {
       }}
     >
       <h2 id="sticker-picker-title">{t.editor.stickersTitle}</h2>
+      <nav className="ed-picker-tabs" aria-label={t.editor.stickerSets}>
+        {STICKER_SETS.map((set) => (
+          <button
+            key={set.id}
+            className="ed-picker-tab"
+            onClick={() => sections.current.get(set.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
+          >
+            {set.name}
+          </button>
+        ))}
+      </nav>
       {STICKER_SETS.map((set) => (
-        <section key={set.id} className="ed-picker-set">
+        <section
+          key={set.id}
+          className="ed-picker-set"
+          ref={(el) => {
+            if (el) sections.current.set(set.id, el)
+            else sections.current.delete(set.id)
+          }}
+        >
           <h3>{set.name}</h3>
           <div className="ed-picker-grid">
             {set.stickers.map((s) => (

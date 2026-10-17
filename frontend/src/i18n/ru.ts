@@ -93,6 +93,7 @@ export const ru = {
     addSticker: 'Добавить стикер',
     pageFull: 'На странице уже слишком много элементов.',
     stickersTitle: 'Стикеры',
+    stickerSets: 'Наборы стикеров',
     sticker: 'Стикер: выбрать, чтобы подвинуть, повернуть или изменить размер',
     stickerSize: 'Размер',
     stickerRotation: 'Поворот',
