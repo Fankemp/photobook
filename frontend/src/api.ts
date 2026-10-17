@@ -57,7 +57,7 @@ export function getBook(token: string, signal?: AbortSignal) {
   return request<Book>(`/api/books/${encodeURIComponent(token)}`, { signal })
 }
 
-export type SaveBookBody = Pick<Book, 'version' | 'cover' | 'pages'>
+export type SaveBookBody = Pick<Book, 'version' | 'cover' | 'pages' | 'backCover'>
 
 // keepalive: запрос доживёт, даже если вкладку закрывают (тело до 64 КБ).
 export function saveBook(token: string, body: SaveBookBody, keepalive = false) {

@@ -69,6 +69,12 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	// Настройка печатного PDF в формате (pdf_mode, pdf_order) — проверяем сразу.
+	for _, f := range fmts {
+		if _, err := f.Order(); err != nil {
+			return err
+		}
+	}
 	fontRegistry, err := fonts.Load(cfg.FontsConfig)
 	if err != nil {
 		return err

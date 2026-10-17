@@ -42,7 +42,12 @@ export function TemplateScreen() {
           <h1>{template.data.name}</h1>
           <p className="muted">{t.formatInfo(template.data.format.name, template.data.pageCount)}</p>
 
-          <PagesGrid cover={template.data.cover} pages={template.data.pages} format={template.data.format} />
+          <PagesGrid
+            cover={template.data.cover}
+            pages={template.data.pages}
+            backCover={template.data.backCover}
+            format={template.data.format}
+          />
 
           {/* Кнопка прилипает к низу экрана: на телефоне её не нужно искать, листая вниз. */}
           <div className="sticky-actions">

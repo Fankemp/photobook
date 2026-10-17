@@ -2,8 +2,10 @@ import type { Format, Page } from '../types.ts'
 import { t } from '../i18n/index.ts'
 import { PageView } from './PageView.tsx'
 
-// Сетка: обложка и все страницы книги/шаблона с подписями.
-export function PagesGrid({ cover, pages, format }: { cover: Page; pages: Page[]; format: Format }) {
+// Сетка: обе обложки и все страницы книги/шаблона с подписями.
+type Props = { cover: Page; pages: Page[]; backCover: Page; format: Format }
+
+export function PagesGrid({ cover, pages, backCover, format }: Props) {
   return (
     <ul className="grid">
       <li className="grid-item">
@@ -16,6 +18,10 @@ export function PagesGrid({ cover, pages, format }: { cover: Page; pages: Page[]
           <span className="muted">{t.book.page(i + 1)}</span>
         </li>
       ))}
+      <li className="grid-item">
+        <PageView page={backCover} format={format} />
+        <span className="muted">{t.book.backCover}</span>
+      </li>
     </ul>
   )
 }

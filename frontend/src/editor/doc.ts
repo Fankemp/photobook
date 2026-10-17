@@ -1,7 +1,11 @@
 import type { Page, PageElement, PhotoSlotElement, TextElement } from '../types.ts'
 
-// Содержимое книги, которое правит редактор и сохраняет автосохранение.
-export type Doc = { cover: Page; pages: Page[] }
+// Содержимое книги, которое правит редактор и сохраняет автосохранение:
+// передняя обложка, страницы блока, задняя обложка.
+export type Doc = { cover: Page; pages: Page[]; backCover: Page }
+
+// Все страницы по порядку: передняя обложка, страницы, задняя обложка.
+export const allPagesOf = (doc: Doc): Page[] => [doc.cover, ...doc.pages, doc.backCover]
 
 // Адрес элемента: страница + элемент. id страниц уникальны в книге (это проверяет backend).
 export type ElRef = { pageId: string; elId: string }
@@ -17,7 +21,7 @@ export const sameSlot = sameEl
 export const USER_TEXT_PREFIX = 'ut-'
 
 export function findPage(doc: Doc, pageId: string): Page | undefined {
-  return pageId === doc.cover.id ? doc.cover : doc.pages.find((p) => p.id === pageId)
+  return allPagesOf(doc).find((p) => p.id === pageId)
 }
 
 export function findElement(doc: Doc, ref: ElRef): PageElement | undefined {
@@ -32,9 +36,9 @@ export function findSlot(doc: Doc, ref: ElRef): PhotoSlotElement | undefined {
 // Неизменяемое обновление: меняется только нужная страница, остальные
 // остаются теми же объектами (поэтому memo в PageView их не перерисовывает).
 function updatePage(doc: Doc, pageId: string, fn: (p: Page) => Page): Doc {
-  return pageId === doc.cover.id
-    ? { ...doc, cover: fn(doc.cover) }
-    : { ...doc, pages: doc.pages.map((p) => (p.id === pageId ? fn(p) : p)) }
+  if (pageId === doc.cover.id) return { ...doc, cover: fn(doc.cover) }
+  if (pageId === doc.backCover.id) return { ...doc, backCover: fn(doc.backCover) }
+  return { ...doc, pages: doc.pages.map((p) => (p.id === pageId ? fn(p) : p)) }
 }
 
 export function updateSlot(doc: Doc, ref: ElRef, fn: (el: PhotoSlotElement) => PhotoSlotElement): Doc {

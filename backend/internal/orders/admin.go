@@ -36,14 +36,17 @@ var (
 // Row — заявка в списке админки.
 type Row struct {
 	Order
-	BookToken   string
-	TemplateID  string
-	CoverPDFKey string // печатные PDF (пусто — ещё не собраны)
+	BookToken  string
+	TemplateID string
+	// Печатные PDF (пусто — ещё не собраны). Режим single — один BookPDFKey,
+	// split — CoverPDFKey и BlockPDFKey (см. formats.pdf_mode).
+	BookPDFKey  string
+	CoverPDFKey string
 	BlockPDFKey string
 }
 
-// PDFReady — оба печатных файла собраны.
-func (r Row) PDFReady() bool { return r.CoverPDFKey != "" && r.BlockPDFKey != "" }
+// PDFReady — печатные файлы собраны.
+func (r Row) PDFReady() bool { return r.BookPDFKey != "" || r.BlockPDFKey != "" }
 
 type Event struct {
 	Status    string
@@ -65,13 +68,13 @@ type Detail struct {
 
 const rowColumns = `o.id, o.number, o.book_id, o.book_version, o.name, o.phone, o.address, o.wanted_date,
 	o.comment, o.status, o.price_kzt, o.created_at, b.token, b.template_id,
-	coalesce(o.cover_pdf_key, ''), coalesce(o.block_pdf_key, '')`
+	coalesce(o.book_pdf_key, ''), coalesce(o.cover_pdf_key, ''), coalesce(o.block_pdf_key, '')`
 
 func scanRow(row pgx.Row, extra ...any) (Row, error) {
 	var r Row
 	var wanted time.Time
 	dest := append([]any{&r.ID, &r.Number, &r.BookID, &r.BookVersion, &r.Name, &r.Phone, &r.Address, &wanted,
-		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.CoverPDFKey, &r.BlockPDFKey}, extra...)
+		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.BookPDFKey, &r.CoverPDFKey, &r.BlockPDFKey}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return Row{}, err
 	}
@@ -192,7 +195,7 @@ func (s *Service) ChangeStatus(ctx context.Context, number int64, to, note strin
 // рендера): старые ключи сбрасываются, заявка снова попадает в очередь.
 func (s *Service) ResetRender(ctx context.Context, number int64) error {
 	tag, err := s.db.Exec(ctx, `
-		UPDATE orders SET cover_pdf_key = NULL, block_pdf_key = NULL, render_attempts = 0,
+		UPDATE orders SET book_pdf_key = NULL, cover_pdf_key = NULL, block_pdf_key = NULL, render_attempts = 0,
 		                  render_error = NULL, rendered_at = NULL, pdf_info = NULL
 		WHERE number = $1`, number)
 	if err != nil {

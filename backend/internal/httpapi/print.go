@@ -13,10 +13,11 @@ import (
 )
 
 type printResponse struct {
-	Format formats.Format    `json:"format"`
-	Cover  pages.Page        `json:"cover"`
-	Pages  []pages.Page      `json:"pages"`
-	Images map[string]string `json:"images"` // id фото → ссылка на оригинал
+	Format    formats.Format    `json:"format"`
+	Cover     pages.Page        `json:"cover"`
+	Pages     []pages.Page      `json:"pages"`
+	BackCover pages.Page        `json:"backCover"`
+	Images    map[string]string `json:"images"` // id фото → ссылка на оригинал
 }
 
 // printData — данные для печатной страницы /print/<id заявки>. Её открывает
@@ -63,5 +64,5 @@ func (a *API) printData(w http.ResponseWriter, r *http.Request) {
 		images[id] = url
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, printResponse{Format: f, Cover: b.Cover, Pages: b.Pages, Images: images})
+	writeJSON(w, http.StatusOK, printResponse{Format: f, Cover: b.Cover, Pages: b.Pages, BackCover: b.BackCover, Images: images})
 }

@@ -11,8 +11,9 @@ func TestNewFromTemplate(t *testing.T) {
 	text := "Заголовок"
 	tpl := templates.Template{
 		ID: "tpl", FormatID: "f1",
-		Cover: pages.Page{ID: "cover", Elements: []pages.Element{{Type: pages.Text, ID: "t1", Text: &text}}},
-		Pages: []pages.Page{{ID: "p1"}},
+		Cover:     pages.Page{ID: "cover", Elements: []pages.Element{{Type: pages.Text, ID: "t1", Text: &text}}},
+		Pages:     []pages.Page{{ID: "p1"}},
+		BackCover: pages.Page{ID: "back"},
 	}
 
 	b, err := NewFromTemplate(tpl)

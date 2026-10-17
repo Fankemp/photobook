@@ -16,6 +16,8 @@ const format: Format = {
   priceKzt: 0,
   spineMm: 0,
   wrapMm: 0,
+  pdfMode: 'single',
+  pdfOrder: 'front,pages,back',
 }
 
 const fullPage: PhotoSlotElement = { type: 'photo_slot', id: 's1', x: 0, y: 0, w: 100, h: 100 }

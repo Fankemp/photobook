@@ -89,7 +89,7 @@ function OrderForm({ book, info, onCreated }: { book: Book; info: OrderInfo; onC
 
   const sizes = useMemo(() => new Map(book.assets.map((a) => [a.id, a])), [book.assets])
   const issues = useMemo(
-    () => findIssues(restored.doc.cover, restored.doc.pages, book.format, sizes),
+    () => findIssues(restored.doc, book.format, sizes),
     [restored, book.format, sizes],
   )
 
@@ -151,7 +151,7 @@ function OrderForm({ book, info, onCreated }: { book: Book; info: OrderInfo; onC
 
   return (
     <form ref={formRef} className="order-form" onSubmit={submit} noValidate>
-      <BookIssues issues={issues} token={book.token} />
+      <BookIssues issues={issues} token={book.token} pageCount={restored.doc.pages.length} />
       {mustConfirm && (
         <label className="order-confirm">
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />

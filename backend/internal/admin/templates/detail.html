@@ -40,8 +40,9 @@
     <dt>PDF</dt>
     <dd>
       {{if .O.PDFReady}}
-        <a href="/admin/orders/{{.O.Number}}/pdf/cover">cover.pdf (обложка)</a> ·
-        <a href="/admin/orders/{{.O.Number}}/pdf/block">block.pdf (страницы)</a>
+        {{if .O.BookPDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf/book">book.pdf (вся книга)</a>{{end}}
+        {{if .O.CoverPDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf/cover">cover.pdf (обложка)</a>{{end}}
+        {{if .O.BlockPDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf/block">block.pdf (страницы)</a>{{end}}
         <br><span class="muted">собран {{datetime .O.RenderedAt}}. {{.O.PDFInfo}}</span>
       {{else if eq .O.Status "cancelled"}}<span class="muted">заявка отменена, не собирается</span>
       {{else if .O.RenderError}}<span style="color: var(--err)">не собран (попыток: {{.O.RenderAttempts}}): {{.O.RenderError}}</span>

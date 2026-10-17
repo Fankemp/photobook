@@ -11,6 +11,7 @@ import type { Book, Crop, Format, Page, PhotoSlotElement, TextElement } from '..
 import { useBookDoc, type SaveStatus } from './autosave.ts'
 import {
   addElement,
+  allPagesOf,
   elKey,
   findElement,
   newTextElement,
@@ -36,10 +37,11 @@ type LocalImage = Size & { url: string }
 // тап по фото — выделение, затем двигаем и масштабируем кадр;
 // тап по тексту — панель шрифта, размера, цвета и окно ввода текста.
 // Все правки сохраняются автоматически (см. autosave.ts).
-// initialPage — с какой страницы открыть (0 — обложка), например по ссылке из превью.
+// initialPage — с какой страницы открыть (0 — обложка, последняя — задняя обложка),
+// например по ссылке из превью.
 export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: number }) {
   const { doc, update, status } = useBookDoc(book)
-  const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length, initialPage)))
+  const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.min(book.pages.length + 1, initialPage)))
   const [selected, setSelected] = useState<ElRef | null>(null)
   const [editingText, setEditingText] = useState<ElRef | null>(null) // открыто окно ввода
   const [overflow, setOverflow] = useState<Record<string, boolean>>({}) // текст не влезает
@@ -64,7 +66,8 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     return () => ro.disconnect()
   }, [])
 
-  const allPages = [doc.cover, ...doc.pages]
+  const allPages = allPagesOf(doc) // 0 — обложка, 1..N — страницы, N+1 — задняя обложка
+  const lastIndex = allPages.length - 1
   const page = allPages[pageIndex]
 
   // PageView сообщает, влез ли текст в блок; храним для предупреждений.
@@ -97,7 +100,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
 
   const goTo = useCallback(
     (i: number) => {
-      setPageIndex(Math.max(0, Math.min(doc.pages.length, i)))
+      setPageIndex(Math.max(0, Math.min(doc.pages.length + 1, i)))
       setSelected(null)
     },
     [doc.pages.length],
@@ -213,7 +216,8 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   const active = selected && selected.pageId === page.id ? selected : null
   const activeEl = active ? findElement(doc, active) : undefined
   const editingEl = editingText ? findElement(doc, editingText) : undefined
-  const pageLabel = pageIndex === 0 ? t.book.cover : t.editor.pageOf(pageIndex, doc.pages.length)
+  const pageLabel =
+    pageIndex === 0 ? t.book.cover : pageIndex === lastIndex ? t.book.backCover : t.editor.pageOf(pageIndex, doc.pages.length)
 
   return (
     <div className="editor" ref={rootRef}>
@@ -299,7 +303,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
         <button
           className="btn"
           onClick={() => goTo(pageIndex + 1)}
-          disabled={pageIndex === doc.pages.length}
+          disabled={pageIndex === lastIndex}
           aria-label={t.editor.nextPage}
         >
           ›
@@ -433,19 +437,24 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: Str
           <button
             className={i === current ? 'is-current' : undefined}
             aria-current={i === current ? 'page' : undefined}
-            aria-label={(i === 0 ? t.book.cover : t.book.page(i)) + (warnings[i] ? `. ${t.editor.lowDpiShort}` : '')}
+            aria-label={pageName(i, pages.length) + (warnings[i] ? `. ${t.editor.lowDpiShort}` : '')}
             onClick={() => onSelect(i)}
           >
             <PageView page={p} format={format} imageSrc={imageSrc} lazy />
             <span>
               {warnings[i] && <span className="ed-strip-warn" aria-hidden="true" />}
-              {i === 0 ? t.editor.coverShort : i}
+              {i === 0 ? t.editor.coverShort : i === pages.length - 1 ? t.editor.backShort : i}
             </span>
           </button>
         </li>
       ))}
     </ol>
   )
+}
+
+// Название страницы по номеру в ленте (всего — count, с обеими обложками).
+function pageName(i: number, count: number) {
+  return i === 0 ? t.book.cover : i === count - 1 ? t.book.backCover : t.book.page(i)
 }
 
 function without<T>(obj: Record<string, T>, key: string): Record<string, T> {

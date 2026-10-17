@@ -23,7 +23,8 @@ type templateSummary struct {
 
 type templateDetail struct {
 	templateSummary
-	Pages []pages.Page `json:"pages"`
+	Pages     []pages.Page `json:"pages"`
+	BackCover pages.Page   `json:"backCover"`
 }
 
 func summarize(t templates.Template, fmts map[string]formats.Format) (templateSummary, error) {
@@ -71,5 +72,5 @@ func (a *API) getTemplate(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, templateDetail{templateSummary: s, Pages: t.Pages})
+	writeJSON(w, http.StatusOK, templateDetail{templateSummary: s, Pages: t.Pages, BackCover: t.BackCover})
 }

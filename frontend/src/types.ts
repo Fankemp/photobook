@@ -13,6 +13,8 @@ export type Format = {
   priceKzt: number
   spineMm: number // корешок обложки (пока 0)
   wrapMm: number // загиб обложки на картон с каждой стороны (пока 0)
+  pdfMode: 'single' | 'split' // печатный PDF: один файл или обложки и страницы отдельно
+  pdfOrder: string // порядок частей PDF: front,pages,back
 }
 
 // Координаты — проценты от страницы по линии реза (0–100).
@@ -68,7 +70,7 @@ export type TemplateSummary = {
   cover: Page
 }
 
-export type Template = TemplateSummary & { pages: Page[] }
+export type Template = TemplateSummary & { pages: Page[]; backCover: Page }
 
 // Загруженное фото. Размеры — с учётом поворота, как фото видит человек.
 export type AssetInfo = { id: string; width: number; height: number }
@@ -82,8 +84,9 @@ export type Book = {
   format: Format
   assets: AssetInfo[]
   order: { number: number; status: OrderStatus } | null // есть заявка — книга закрыта для изменений
-  cover: Page
-  pages: Page[]
+  cover: Page // передняя обложка
+  pages: Page[] // страницы блока
+  backCover: Page // задняя обложка
   createdAt: string
   updatedAt: string
 }
@@ -108,4 +111,4 @@ export type OrderInfo = { order: Order | null; minWantedDate: string; priceKzt: 
 export type OrderForm = Pick<Order, 'name' | 'phone' | 'address' | 'wantedDate' | 'comment'> & { version: number }
 
 // Данные для печатной страницы (/print/…): книга и ссылки на оригиналы фото.
-export type PrintData = { format: Format; cover: Page; pages: Page[]; images: Record<string, string> }
+export type PrintData = { format: Format; cover: Page; pages: Page[]; backCover: Page; images: Record<string, string> }

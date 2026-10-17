@@ -38,7 +38,7 @@ function BookPreview({ book }: { book: Book }) {
   const [doc] = useState(() => restoreDoc(book).doc)
   const spreads = useMemo(() => bookSpreads(doc.pages.length), [doc.pages.length])
   const sizes = useMemo(() => new Map(book.assets.map((a) => [a.id, a])), [book.assets])
-  const issues = useMemo(() => findIssues(doc.cover, doc.pages, book.format, sizes), [doc, book.format, sizes])
+  const issues = useMemo(() => findIssues(doc, book.format, sizes), [doc, book.format, sizes])
   const imageSrc = useCallback((id: string) => assetImageUrl(book.token, id), [book.token])
   const [index, setIndex] = useState(0)
   const [guides, setGuides] = useState(true)
@@ -75,7 +75,7 @@ function BookPreview({ book }: { book: Book }) {
         <h1>{t.preview.title}</h1>
       </header>
 
-      <BookIssues issues={issues} token={book.token} />
+      <BookIssues issues={issues} token={book.token} pageCount={doc.pages.length} />
 
       <label className="pp-toggle">
         <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
@@ -142,10 +142,10 @@ type SpreadProps = {
 function SpreadView({ spread, doc, format, imageSrc, guides }: SpreadProps) {
   const pageProps = { format, imageSrc, variant: 'print' as const, showBleed: guides, guides }
 
-  if (spread.kind === 'cover') {
+  if (spread.kind === 'cover' || spread.kind === 'back') {
     return (
       <div className="pp-spread is-single">
-        <PageView page={doc.cover} {...pageProps} kind="cover" />
+        <PageView page={spread.kind === 'cover' ? doc.cover : doc.backCover} {...pageProps} kind="cover" />
       </div>
     )
   }
@@ -174,6 +174,7 @@ function BlankSide({ format, showBleed }: { format: Format; showBleed: boolean }
 
 function spreadLabel(s: Spread): string {
   if (s.kind === 'cover') return t.book.cover
+  if (s.kind === 'back') return t.book.backCover
   const nums = [s.left, s.right].filter((i): i is number => i !== null).map((i) => i + 1)
   return nums.length === 2 ? t.preview.pages(nums[0], nums[1]) : t.book.page(nums[0])
 }

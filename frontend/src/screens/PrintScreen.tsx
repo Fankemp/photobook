@@ -4,7 +4,7 @@ import { getPrintData } from '../api.ts'
 import { PageView } from '../book/PageView.tsx'
 import { sheetMarginMm, type PageKind } from '../book/geometry.ts'
 import { useLoad } from '../lib/useLoad.ts'
-import type { PrintData } from '../types.ts'
+import type { Page, PrintData } from '../types.ts'
 
 // Сервис рендера сообщает о готовности через эти поля window (см. render/server.mjs).
 declare global {
@@ -14,31 +14,33 @@ declare global {
   }
 }
 
-// Печатная страница /print/<id заявки>?part=cover|block&page=N&exp=…&sig=…
-// Её открывает только Chromium сервиса рендера и печатает в PDF: каждая
-// страница книги — отдельный лист точного размера (с вылетом), фото — оригиналы.
-// page=N — только одна страница блока: сервис печатает блок по странице,
-// чтобы в памяти Chromium были фото одной страницы, а не всей книги.
+// Печатная страница /print/<id заявки>?sheet=front|back|page&page=N&exp=…&sig=…
+// Её открывает только Chromium сервиса рендера и печатает ОДИН лист PDF:
+// переднюю обложку, заднюю или страницу блока N — точного размера, с вылетом,
+// с оригиналами фото. Порядок листов в файле задаёт backend по настройке формата.
 // Рисует тот же PageView, что редактор и превью (правило «превью = печать»).
 export function PrintScreen() {
   const { orderId = '' } = useParams()
   const [search] = useSearchParams()
-  const part: PageKind = search.get('part') === 'cover' ? 'cover' : 'page'
-  const pageParam = search.get('page')
-  const only = pageParam === null ? null : Number(pageParam)
+  const sheet = search.get('sheet') ?? 'page'
+  const pageIndex = Number(search.get('page') ?? 0)
   const query = new URLSearchParams({ exp: search.get('exp') ?? '', sig: search.get('sig') ?? '' }).toString()
-  const data = useLoad(orderId + part, (signal) => getPrintData(orderId, query, signal))
+  const data = useLoad(orderId, (signal) => getPrintData(orderId, query, signal))
+  const d = data.status === 'ok' ? data.data : null
+  const page = d && (sheet === 'front' ? d.cover : sheet === 'back' ? d.backCover : d.pages[pageIndex])
 
+  // Ошибки сообщаем сервису рендера — он не будет ждать «готово» до таймаута.
   useEffect(() => {
     if (data.status === 'error') window.__PRINT_ERROR__ = `данные: ${data.error.code}`
-  }, [data])
+    else if (data.status === 'ok' && !page) window.__PRINT_ERROR__ = `нет листа ${sheet} ${pageIndex}`
+  }, [data, page, sheet, pageIndex])
 
-  return data.status === 'ok' ? <Sheets data={data.data} kind={part} only={only} /> : null
+  if (!d || !page) return null
+  const kind: PageKind = sheet === 'page' ? 'page' : 'cover'
+  return <Sheet data={d} page={page} kind={kind} />
 }
 
-function Sheets({ data, kind, only }: { data: PrintData; kind: PageKind; only: number | null }) {
-  const all = kind === 'cover' ? [data.cover] : data.pages
-  const pages = only === null ? all : all.slice(only, only + 1)
+function Sheet({ data, page, kind }: { data: PrintData; page: Page; kind: PageKind }) {
   const margin = sheetMarginMm(data.format, kind)
   const widthMm = data.format.widthMm + 2 * margin
   const heightMm = data.format.heightMm + 2 * margin
@@ -56,21 +58,18 @@ function Sheets({ data, kind, only }: { data: PrintData; kind: PageKind; only: n
       <style>{`
         @page { size: ${widthMm}mm ${heightMm}mm; margin: 0; }
         html, body { margin: 0; padding: 0; background: #fff; }
-        .print-sheet { width: ${widthMm}mm; height: ${heightMm}mm; overflow: hidden; break-after: page; }
-        .print-sheet:last-child { break-after: auto; }
+        .print-sheet { width: ${widthMm}mm; height: ${heightMm}mm; overflow: hidden; }
       `}</style>
-      {pages.map((page) => (
-        <div key={page.id} className="print-sheet">
-          <PageView
-            page={page}
-            format={data.format}
-            imageSrc={(id) => data.images[id]}
-            variant="print"
-            showBleed
-            kind={kind}
-          />
-        </div>
-      ))}
+      <div className="print-sheet">
+        <PageView
+          page={page}
+          format={data.format}
+          imageSrc={(id) => data.images[id]}
+          variant="print"
+          showBleed
+          kind={kind}
+        />
+      </div>
     </>
   )
 }

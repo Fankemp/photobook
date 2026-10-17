@@ -31,7 +31,7 @@ class AutoSaver {
     // «Есть несохранённое» сравнивает объекты, а не содержимое, поэтому без
     // черновика doc и saved должны быть одним и тем же объектом.
     const { doc, fromDraft } = restoreDoc(book)
-    this.saved = fromDraft ? { cover: book.cover, pages: book.pages } : doc
+    this.saved = fromDraft ? { cover: book.cover, pages: book.pages, backCover: book.backCover } : doc
     this.doc = doc
   }
 

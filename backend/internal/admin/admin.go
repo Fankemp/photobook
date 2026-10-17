@@ -195,20 +195,25 @@ func (h *handler) changeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// pdf отдаёт печатный PDF (cover — обложка, block — страницы) через временную
-// ссылку в хранилище. Имя файла при скачивании: photobook-1001-cover.pdf.
+// pdf отдаёт печатный PDF (book — вся книга одним файлом; cover и block —
+// обложки и страницы по отдельности) через временную ссылку в хранилище.
+// Имя файла при скачивании: photobook-1001.pdf или photobook-1001-cover.pdf.
 func (h *handler) pdf(w http.ResponseWriter, r *http.Request) {
 	d, ok := h.order(w, r)
 	if !ok {
 		return
 	}
 	part := r.PathValue("part")
-	key := map[string]string{"cover": d.CoverPDFKey, "block": d.BlockPDFKey}[part]
+	key := map[string]string{"book": d.BookPDFKey, "cover": d.CoverPDFKey, "block": d.BlockPDFKey}[part]
 	if key == "" {
 		http.Error(w, "PDF для этой заявки ещё не собран", http.StatusNotFound)
 		return
 	}
-	link, err := h.Storage.PresignDownload(r.Context(), key, fmt.Sprintf("photobook-%d-%s.pdf", d.Number, part), 15*time.Minute)
+	name := fmt.Sprintf("photobook-%d-%s.pdf", d.Number, part)
+	if part == "book" {
+		name = fmt.Sprintf("photobook-%d.pdf", d.Number)
+	}
+	link, err := h.Storage.PresignDownload(r.Context(), key, name, 15*time.Minute)
 	if err != nil {
 		h.fail(w, err)
 		return

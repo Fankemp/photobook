@@ -24,6 +24,7 @@ export const ru = {
     copied: 'Скопировано',
     toCatalog: 'К шаблонам',
     cover: 'Обложка',
+    backCover: 'Задняя обложка',
     page: (n: number) => `Страница ${n}`,
   },
 
@@ -77,6 +78,7 @@ export const ru = {
     prevPage: 'Предыдущая страница',
     nextPage: 'Следующая страница',
     coverShort: 'Обл.',
+    backShort: 'Зад.',
     pageOf: (n: number, total: number) => `Страница ${n} из ${total}`,
     status: {
       saved: 'Сохранено',
@@ -106,6 +108,7 @@ export const ru = {
     lowDpi: 'Фото маленькое и на печати будет нечётким:',
     emptySlots: 'Пустые рамки, на печати на их месте будет фон:',
     coverLink: 'обложка',
+    backLink: 'задняя обложка',
     pageLink: (n: number) => `стр. ${n}`,
     order: 'Оформить заявку',
     orderPlaced: (n: number) => `Заявка №${n} оформлена, посмотреть статус`,

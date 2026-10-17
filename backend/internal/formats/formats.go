@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,6 +25,41 @@ type Format struct {
 	PriceKZT  int     `json:"priceKzt"`
 	SpineMM   float64 `json:"spineMm"` // корешок обложки (пока 0 — даст типография)
 	WrapMM    float64 `json:"wrapMm"`  // загиб обложки на картон с каждой стороны
+	// Печатный PDF: single — один файл, split — cover.pdf и block.pdf.
+	PDFMode string `json:"pdfMode"`
+	// Порядок частей через запятую: front — передняя обложка, pages — страницы,
+	// back — задняя обложка. По умолчанию front,pages,back.
+	PDFOrder string `json:"pdfOrder"`
+}
+
+// PDF-части, из которых состоит печатная книга.
+const (
+	PartFront = "front"
+	PartPages = "pages"
+	PartBack  = "back"
+)
+
+// Order — порядок частей печатного PDF из настройки формата. Проверяется
+// при старте сервера (ошибка в настройке — сервер не запустится).
+func (f Format) Order() ([]string, error) {
+	var out []string
+	for _, p := range strings.Split(f.PDFOrder, ",") {
+		p = strings.TrimSpace(p)
+		if p != PartFront && p != PartPages && p != PartBack {
+			return nil, fmt.Errorf("format %s: pdf_order: unknown part %q (front, pages, back)", f.ID, p)
+		}
+		if slices.Contains(out, p) {
+			return nil, fmt.Errorf("format %s: pdf_order: %q twice", f.ID, p)
+		}
+		out = append(out, p)
+	}
+	if !slices.Contains(out, PartPages) {
+		return nil, fmt.Errorf("format %s: pdf_order must contain pages", f.ID)
+	}
+	if f.PDFMode != "single" && f.PDFMode != "split" {
+		return nil, fmt.Errorf("format %s: pdf_mode %q (single or split)", f.ID, f.PDFMode)
+	}
+	return out, nil
 }
 
 var ErrNotFound = errors.New("format not found")
@@ -35,12 +72,13 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
-const columns = `id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, spine_mm, wrap_mm`
+const columns = `id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, spine_mm, wrap_mm,
+	pdf_mode, pdf_order`
 
 func scan(row pgx.Row) (Format, error) {
 	var f Format
 	err := row.Scan(&f.ID, &f.Name, &f.WidthMM, &f.HeightMM, &f.BleedMM, &f.SafeMM,
-		&f.Pages, &f.MinDPI, &f.TargetDPI, &f.PriceKZT, &f.SpineMM, &f.WrapMM)
+		&f.Pages, &f.MinDPI, &f.TargetDPI, &f.PriceKZT, &f.SpineMM, &f.WrapMM, &f.PDFMode, &f.PDFOrder)
 	return f, err
 }
 

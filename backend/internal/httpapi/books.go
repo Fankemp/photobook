@@ -117,9 +117,10 @@ func (a *API) getBook(w http.ResponseWriter, r *http.Request) {
 }
 
 type saveBookRequest struct {
-	Version int          `json:"version"` // версия, которую клиент загрузил или сохранил последней
-	Cover   pages.Page   `json:"cover"`
-	Pages   []pages.Page `json:"pages"`
+	Version   int          `json:"version"` // версия, которую клиент загрузил или сохранил последней
+	Cover     pages.Page   `json:"cover"`
+	Pages     []pages.Page `json:"pages"`
+	BackCover *pages.Page  `json:"backCover"` // обязательна; указатель — чтобы отличить «не прислали»
 }
 
 type saveBookResponse struct {
@@ -134,7 +135,7 @@ func (a *API) saveBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req saveBookRequest
-	if err := readJSON(w, r, &req); err != nil {
+	if err := readJSON(w, r, &req); err != nil || req.BackCover == nil {
 		writeError(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -144,7 +145,7 @@ func (a *API) saveBook(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	all := append([]pages.Page{req.Cover}, req.Pages...)
+	all := append(append([]pages.Page{req.Cover}, req.Pages...), *req.BackCover)
 	if len(req.Pages) != f.Pages || pages.ValidateAll(all, a.Fonts) != nil {
 		writeError(w, http.StatusBadRequest, "invalid_pages")
 		return
@@ -168,7 +169,7 @@ func (a *API) saveBook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	version, updatedAt, err := a.Books.SavePages(r.Context(), b.ID, req.Version, req.Cover, req.Pages)
+	version, updatedAt, err := a.Books.SavePages(r.Context(), b.ID, req.Version, req.Cover, req.Pages, *req.BackCover)
 	if errors.Is(err, books.ErrLocked) {
 		writeError(w, http.StatusConflict, "book_locked")
 		return

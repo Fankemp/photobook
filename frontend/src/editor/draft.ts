@@ -30,8 +30,10 @@ export function writeDraft(token: string, draft: Draft) {
 // и отличается от неё. Иначе сервер новее (сохранили с другого устройства),
 // и устаревший черновик удаляем. Общая логика для редактора и превью.
 export function restoreDoc(book: Book): { doc: Doc; fromDraft: boolean } {
-  const server: Doc = { cover: book.cover, pages: book.pages }
-  const draft = readDraft(book.token)
+  const server: Doc = { cover: book.cover, pages: book.pages, backCover: book.backCover }
+  const raw = readDraft(book.token)
+  // Черновик, сохранённый до появления задней обложки, — дополняем ею с сервера.
+  const draft = raw && { ...raw, doc: { ...raw.doc, backCover: raw.doc.backCover ?? book.backCover } }
   if (draft && draft.baseVersion === book.version && JSON.stringify(draft.doc) !== JSON.stringify(server)) {
     return { doc: draft.doc, fromDraft: true }
   }

@@ -1,5 +1,6 @@
 // Сквозной тест печатного PDF (шаг 8): книга с настоящими фото и текстом →
-// заявка → сервис рендера собирает cover.pdf и block.pdf → проверка.
+// заявка → сервис рендера собирает PDF по настройке формата (по умолчанию —
+// один book.pdf: передняя обложка, страницы, задняя обложка) → проверка.
 // Запуск: make e2e (нужен ADMIN_PASSWORD в .env — PDF скачиваем через админку).
 import { chromium } from 'playwright'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -110,9 +111,11 @@ setSlot(book.pages[1], 1, ids[3])
 setSlot(book.pages[2], 0, ids[2], { zoom: 2, offsetX: 1, offsetY: 1 })
 Object.assign(book.pages[2].elements.find((e) => e.type === 'text'), { text: 'Съешь же ещё этих мягких французских булок', font: 'caveat', size: 16 })
 for (let i = 0; i < 4; i++) setSlot(book.pages[6], i, ids[i])
+// Свой текст на задней обложке (по умолчанию она пустая, с фоном обложки).
+book.backCover.elements.push({ type: 'text', id: 'ut-back1', x: 8, y: 82, w: 84, h: 10, text: 'Спасибо за путешествие!', font: 'lora', size: 14, color: '#000000', align: 'center' })
 const saved = await api(`/books/${token}`, {
   method: 'PUT',
-  body: JSON.stringify({ version: book.version, cover: book.cover, pages: book.pages }),
+  body: JSON.stringify({ version: book.version, cover: book.cover, pages: book.pages, backCover: book.backCover }),
 })
 check(saved.version === book.version + 1, 'book with photos and text saved')
 
@@ -127,7 +130,7 @@ check(order.number > 0, `order №${order.number} placed`)
 async function waitPdf(number) {
   for (let i = 0; i < 120; i++) {
     const html = await (await admin(`/orders/${number}`)).text()
-    if (html.includes('cover.pdf (обложка)')) return html.replace(/&#43;/g, '+').replace(/<[^>]+>/g, ' ')
+    if (html.includes('.pdf (')) return html.replace(/&#43;/g, '+').replace(/<[^>]+>/g, ' ')
     if (html.includes('не собран (попыток')) return html.replace(/<[^>]+>/g, ' ')
     await new Promise((r) => setTimeout(r, 1000))
   }
@@ -136,20 +139,20 @@ async function waitPdf(number) {
 const started = Date.now()
 let page = await waitPdf(order.number)
 log(`  pdf built in ~${((Date.now() - started) / 1000).toFixed(0)} s`)
-const pdfInfo = /обложка: [^<]*?(?=\s{2,}|$)/.exec(page)?.[0] ?? page.slice(0, 300)
+const pdfInfo = /book\.pdf — [^<]*?(?=\s{2,}|$)/.exec(page)?.[0] ?? page.slice(0, 300)
 log('  ' + pdfInfo)
-check(page.includes('обложка: 1 стр., 206×206 мм') && page.includes('блок: 20 стр., 206×206 мм'), 'cover 1 page and block 20 pages, 206×206 mm (200 + 2×3 bleed)')
+check(page.includes('book.pdf — 22 стр.: передняя обложка, страницы 1–20, задняя обложка; 206×206 мм'), 'one book.pdf: front cover, pages 1–20, back cover, all 206×206 mm (200 + 2×3 bleed)')
 check(page.includes('цвет фото: RGB'), 'photos are RGB (PDF_CMYK=false)')
 check(/фото: \d+ JPEG без пересжатия, 0 разжато/.test(page), 'every photo embedded as JPEG without recompression (rotated one via its upright print copy)')
-check(/шрифты встроены:[^.]*Caveat/.test(page) && /шрифты встроены:[^.]*Montserrat-Bold/.test(page), 'fonts embedded: Caveat (caption) and Montserrat-Bold (cover title)')
+check(/шрифты встроены:[^.]*Caveat/.test(page) && /шрифты встроены:[^.]*Montserrat-Bold/.test(page) && /шрифты встроены:[^.]*Lora/.test(page), 'fonts embedded: Caveat (caption), Montserrat-Bold (cover title), Lora (back cover)')
 
-// 5. Скачивание из админки: два файла, правильные имена.
-for (const part of ['cover', 'block']) {
-  const r = await admin(`/orders/${order.number}/pdf/${part}`)
+// 5. Скачивание из админки: один файл, правильное имя.
+{
+  const r = await admin(`/orders/${order.number}/pdf/book`)
   const buf = Buffer.from(await r.arrayBuffer())
-  writeFileSync(`${out}/pr-${part}.pdf`, buf)
+  writeFileSync(`${out}/pr-book.pdf`, buf)
   const cd = r.headers.get('content-disposition') ?? ''
-  check(r.ok && buf.subarray(0, 5).toString() === '%PDF-' && cd.includes(`photobook-${order.number}-${part}.pdf`), `${part}.pdf downloads as photobook-${order.number}-${part}.pdf (${(buf.length / 1e6).toFixed(1)} MB)`)
+  check(r.ok && buf.subarray(0, 5).toString() === '%PDF-' && cd.includes(`photobook-${order.number}.pdf`), `book.pdf downloads as photobook-${order.number}.pdf (${(buf.length / 1e6).toFixed(1)} MB)`)
 }
 
 // 6. Печатная страница с оригиналами — только по подписи backend.
@@ -162,7 +165,7 @@ check(badSig === 403, 'print data with a forged signature → 403')
 const re = await admin(`/orders/${order.number}/render`, { method: 'POST', redirect: 'manual' })
 check(re.status === 303, 're-render requested from admin')
 page = await waitPdf(order.number)
-check(page.includes('блок: 20 стр.'), 'PDF rebuilt')
+check(page.includes('book.pdf — 22 стр.'), 'PDF rebuilt')
 
 await browser.close()
 log(problems.length ? '\nPROBLEMS:\n' + problems.join('\n') : '\nALL PRINT CHECKS PASSED')

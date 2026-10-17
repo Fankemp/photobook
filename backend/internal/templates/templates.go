@@ -28,7 +28,12 @@ type Template struct {
 	FormatID      string       `json:"formatId"`
 	Cover         pages.Page   `json:"cover"`
 	Pages         []pages.Page `json:"pages"`
+	// Задняя обложка. Необязательна: без неё — пустая страница с фоном обложки.
+	BackCover pages.Page `json:"backCover"`
 }
+
+// BackCoverID — id задней обложки, если шаблон её не задаёт.
+const BackCoverID = "back"
 
 // Occasions — допустимые поводы. Подписи для них — во фронтенде (словарь),
 // поэтому новый повод = строка здесь + перевод в ru.ts.
@@ -80,6 +85,9 @@ func loadFile(path string, fmts map[string]formats.Format, fonts pages.Fonts) (T
 	if err := dec.Decode(&t); err != nil {
 		return Template{}, fmt.Errorf("parse: %w", err)
 	}
+	if t.BackCover.ID == "" {
+		t.BackCover = pages.Page{ID: BackCoverID, Background: t.Cover.Background, Elements: []pages.Element{}}
+	}
 	return t, t.validate(fmts, fonts)
 }
 
@@ -103,7 +111,7 @@ func (t Template) validate(fmts map[string]formats.Format, fonts pages.Fonts) er
 	if len(t.Pages) != f.Pages {
 		return fmt.Errorf("has %d pages, format %q needs exactly %d", len(t.Pages), f.ID, f.Pages)
 	}
-	all := append([]pages.Page{t.Cover}, t.Pages...)
+	all := append(append([]pages.Page{t.Cover}, t.Pages...), t.BackCover)
 	if err := pages.ValidateAll(all, fonts); err != nil {
 		return err
 	}

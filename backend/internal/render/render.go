@@ -23,15 +23,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"photobook/internal/formats"
 	"photobook/internal/storage"
 )
 
 const (
 	maxAttempts   = 3
 	idlePoll      = time.Minute
-	linkTTL       = 15 * time.Minute
-	renderTimeout = 5 * time.Minute // 20 страниц с оригиналами фото — обычно секунды, берём с запасом
-	sizeTolerMM   = 0.5             // допуск на размер страницы PDF (округление pt ↔ мм)
+	linkTTL       = time.Hour        // ссылки нужны до последнего листа книги
+	renderTimeout = 15 * time.Minute // книга печатается по листу; обычно минута, берём с запасом
+	sizeTolerMM   = 0.5              // допуск на размер страницы PDF (округление pt ↔ мм)
 )
 
 // Config — где сервис рендера и как собирать PDF. Всё из переменных окружения.
@@ -105,6 +106,63 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
+// sheetSpec — лист печатного PDF: что на нём и какого он размера.
+type sheetSpec struct {
+	Kind string  // front (передняя обложка), back (задняя), page (страница блока)
+	Page int     // номер страницы блока с 0 (для page)
+	W, H float64 // размер листа в мм
+}
+
+// fileSpec — печатный файл: имя (book, cover, block → book.pdf, …) и листы по порядку.
+type fileSpec struct {
+	Name   string
+	Sheets []sheetSpec
+}
+
+// Plan — какие файлы собрать и какие листы в каком порядке в них положить.
+// Всё из настройки формата (pdf_mode, pdf_order), а не из кода:
+//
+//	single — один book.pdf: части в порядке order (по умолчанию front, pages, back);
+//	split  — cover.pdf: обложки в порядке order; block.pdf: страницы.
+func Plan(mode string, order []string, pageCount int, s Sheet) []fileSpec {
+	coverW, coverH := s.Cover()
+	pageW, pageH := s.Page()
+	expand := func(part string) []sheetSpec {
+		switch part {
+		case formats.PartFront:
+			return []sheetSpec{{Kind: "front", W: coverW, H: coverH}}
+		case formats.PartBack:
+			return []sheetSpec{{Kind: "back", W: coverW, H: coverH}}
+		}
+		out := make([]sheetSpec, pageCount)
+		for i := range out {
+			out[i] = sheetSpec{Kind: "page", Page: i, W: pageW, H: pageH}
+		}
+		return out
+	}
+
+	if mode == "split" {
+		var cover, block []sheetSpec
+		for _, part := range order {
+			if part == formats.PartPages {
+				block = append(block, expand(part)...)
+			} else {
+				cover = append(cover, expand(part)...)
+			}
+		}
+		var files []fileSpec
+		if len(cover) > 0 {
+			files = append(files, fileSpec{Name: "cover", Sheets: cover})
+		}
+		return append(files, fileSpec{Name: "block", Sheets: block})
+	}
+	var all []sheetSpec
+	for _, part := range order {
+		all = append(all, expand(part)...)
+	}
+	return []fileSpec{{Name: "book", Sheets: all}}
+}
+
 type job struct {
 	orderID     string
 	number      int64
@@ -112,8 +170,9 @@ type job struct {
 	bookVer     int
 	pages       int
 	sheet       Sheet
-	coverKey    string
-	blockKey    string
+	format      formats.Format // только pdf_mode и pdf_order — для плана файлов
+	keys        map[string]string
+	files       []string // описание файлов для админки
 	fontsUsed   []string
 	colorspaces []string
 	jpegImages  int // фото, вложенные как есть (без пересжатия)
@@ -147,10 +206,9 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 	var j job
 	err := w.db.QueryRow(ctx, `
 		SELECT o.id, o.number, o.book_version, b.version, f.pages,
-		       f.width_mm, f.height_mm, f.bleed_mm, f.wrap_mm, f.spine_mm
+		       f.width_mm, f.height_mm, f.bleed_mm, f.wrap_mm, f.spine_mm, f.id, f.pdf_mode, f.pdf_order
 		FROM orders o JOIN books b ON b.id = o.book_id JOIN formats f ON f.id = b.format_id
-		WHERE o.status <> 'cancelled' AND (o.cover_pdf_key IS NULL OR o.block_pdf_key IS NULL)
-		  AND o.render_attempts < $1
+		WHERE o.status <> 'cancelled' AND o.rendered_at IS NULL AND o.render_attempts < $1
 		  -- Ждём, пока фото книги обработаны (миниатюра и, если нужно, повёрнутая
 		  -- печатная копия), но не дольше 10 минут после загрузки.
 		  AND NOT EXISTS (SELECT 1 FROM assets a WHERE a.book_id = o.book_id AND a.status = 'uploaded'
@@ -159,7 +217,8 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 		ORDER BY o.render_attempts, o.created_at
 		LIMIT 1`, maxAttempts,
 	).Scan(&j.orderID, &j.number, &j.orderVer, &j.bookVer, &j.pages,
-		&j.sheet.WidthMM, &j.sheet.HeightMM, &j.sheet.BleedMM, &j.sheet.WrapMM, &j.sheet.SpineMM)
+		&j.sheet.WidthMM, &j.sheet.HeightMM, &j.sheet.BleedMM, &j.sheet.WrapMM, &j.sheet.SpineMM,
+		&j.format.ID, &j.format.PDFMode, &j.format.PDFOrder)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -178,17 +237,16 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 		return false, errors.Join(fmt.Errorf("order %d: %w", j.number, renderErr), err)
 	}
 
-	coverW, coverH := j.sheet.Cover()
-	pageW, pageH := j.sheet.Page()
-	info := fmt.Sprintf("обложка: 1 стр., %s мм; блок: %d стр., %s мм; цвет фото: %s; фото: %d JPEG без пересжатия, %d разжато; шрифты встроены: %s",
-		mm(coverW, coverH), j.pages, mm(pageW, pageH), colorList(j.colorspaces), j.jpegImages, j.otherImages, fontList(j.fontsUsed))
+	info := fmt.Sprintf("%s; цвет фото: %s; фото: %d JPEG без пересжатия, %d разжато; шрифты встроены: %s",
+		strings.Join(j.files, ". "), colorList(j.colorspaces), j.jpegImages, j.otherImages, fontList(j.fontsUsed))
 	_, err = w.db.Exec(ctx, `
-		UPDATE orders SET cover_pdf_key = $2, block_pdf_key = $3, rendered_at = now(), render_error = NULL, pdf_info = $4
-		WHERE id = $1`, j.orderID, j.coverKey, j.blockKey, info)
+		UPDATE orders SET book_pdf_key = $2, cover_pdf_key = $3, block_pdf_key = $4,
+		                  rendered_at = now(), render_error = NULL, pdf_info = $5
+		WHERE id = $1`, j.orderID, nullIfEmpty(j.keys["book"]), nullIfEmpty(j.keys["cover"]), nullIfEmpty(j.keys["block"]), info)
 	if err != nil {
 		return true, err
 	}
-	w.log.Info("pdf rendered", "number", j.number, "took", time.Since(started).Round(time.Millisecond))
+	w.log.Info("pdf rendered", "number", j.number, "files", len(j.keys), "took", time.Since(started).Round(time.Millisecond))
 	return true, nil
 }
 
@@ -198,36 +256,29 @@ func (w *Worker) renderOrder(ctx context.Context, j *job) error {
 	if j.bookVer != j.orderVer {
 		return fmt.Errorf("книга изменилась после заявки (версия %d, в заявке %d)", j.bookVer, j.orderVer)
 	}
-	coverW, coverH := j.sheet.Cover()
-	pageW, pageH := j.sheet.Page()
-	parts := []struct {
-		name   string
-		pages  int
-		w, h   float64
-		target *string
-	}{
-		{"cover", 1, coverW, coverH, &j.coverKey},
-		{"block", j.pages, pageW, pageH, &j.blockKey},
+	order, err := j.format.Order() // настройку могли поменять в базе после старта
+	if err != nil {
+		return err
 	}
-	for _, p := range parts {
-		res, err := w.renderPart(ctx, j.orderID, p.name, p.pages, p.w, p.h)
+	j.keys = map[string]string{}
+	for _, f := range Plan(j.format.PDFMode, order, j.pages, j.sheet) {
+		res, err := w.renderFile(ctx, j.orderID, f)
 		if err != nil {
-			return fmt.Errorf("%s.pdf: %w", p.name, err)
+			return fmt.Errorf("%s.pdf: %w", f.Name, err)
 		}
-		// Проверяем результат, а не верим на слово: страниц и размер — как заказано.
-		if res.pages != p.pages {
-			return fmt.Errorf("%s.pdf: %d стр., ожидалось %d", p.name, res.pages, p.pages)
-		}
-		if math.Abs(res.widthMM-p.w) > sizeTolerMM || math.Abs(res.heightMM-p.h) > sizeTolerMM {
-			return fmt.Errorf("%s.pdf: страница %s мм, ожидалось %s мм", p.name, mm(res.widthMM, res.heightMM), mm(p.w, p.h))
-		}
-		key := fmt.Sprintf("orders/%d/%s.pdf", j.number, p.name)
-		if err := w.storage.Upload(ctx, key, res.path, "application/pdf"); err != nil {
+		// Проверяем результат, а не верим на слово: листов и размеры — как в плане.
+		if err := checkSheets(f, res); err != nil {
 			os.Remove(res.path)
 			return err
 		}
+		key := fmt.Sprintf("orders/%d/%s.pdf", j.number, f.Name)
+		err = w.storage.Upload(ctx, key, res.path, "application/pdf")
 		os.Remove(res.path)
-		*p.target = key
+		if err != nil {
+			return err
+		}
+		j.keys[f.Name] = key
+		j.files = append(j.files, fmt.Sprintf("%s.pdf — %d стр.: %s; %s мм", f.Name, len(f.Sheets), describe(f.Sheets), sizes(f.Sheets)))
 		j.fontsUsed = append(j.fontsUsed, res.fonts...)
 		j.jpegImages += res.jpegImages
 		j.otherImages += res.otherImages
@@ -238,22 +289,75 @@ func (w *Worker) renderOrder(ctx context.Context, j *job) error {
 	return nil
 }
 
-type partResult struct {
-	path              string
-	pages             int
-	widthMM, heightMM float64
-	fonts             []string
-	color             string
-	jpegImages        int
-	otherImages       int
+func checkSheets(f fileSpec, res partResult) error {
+	if res.pages != len(f.Sheets) || len(res.sizes) != len(f.Sheets) {
+		return fmt.Errorf("%s.pdf: %d стр., ожидалось %d", f.Name, res.pages, len(f.Sheets))
+	}
+	for i, s := range f.Sheets {
+		got := res.sizes[i]
+		if math.Abs(got[0]-s.W) > sizeTolerMM || math.Abs(got[1]-s.H) > sizeTolerMM {
+			return fmt.Errorf("%s.pdf, стр. %d: %s мм, ожидалось %s мм", f.Name, i+1, mm(got[0], got[1]), mm(s.W, s.H))
+		}
+	}
+	return nil
 }
 
-// renderPart просит сервис рендера напечатать одну часть книги в PDF.
-func (w *Worker) renderPart(ctx context.Context, orderID, part string, pages int, widthMM, heightMM float64) (partResult, error) {
+// describe — порядок листов для людей: «передняя обложка, страницы 1–20, задняя обложка».
+func describe(sheets []sheetSpec) string {
+	var parts []string
+	for i := 0; i < len(sheets); i++ {
+		switch sheets[i].Kind {
+		case "front":
+			parts = append(parts, "передняя обложка")
+		case "back":
+			parts = append(parts, "задняя обложка")
+		default:
+			first := sheets[i].Page
+			for i+1 < len(sheets) && sheets[i+1].Kind == "page" {
+				i++
+			}
+			parts = append(parts, fmt.Sprintf("страницы %d–%d", first+1, sheets[i].Page+1))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// sizes — размеры листов без повторов: «206×206» или «236×236, 206×206».
+func sizes(sheets []sheetSpec) string {
+	var out []string
+	for _, s := range sheets {
+		if v := mm(s.W, s.H); !slices.Contains(out, v) {
+			out = append(out, v)
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
+type partResult struct {
+	path        string
+	pages       int
+	sizes       [][2]float64 // размер каждой страницы PDF в мм
+	fonts       []string
+	color       string
+	jpegImages  int
+	otherImages int
+}
+
+// renderFile просит сервис рендера собрать один PDF из листов плана.
+// Каждый лист — печатная страница сайта со своим размером; сервис печатает
+// их по одному (память Chromium) и склеивает.
+func (w *Worker) renderFile(ctx context.Context, orderID string, f fileSpec) (partResult, error) {
 	exp, sig := w.signer.Link(orderID, linkTTL, time.Now())
-	pageURL := fmt.Sprintf("%s/print/%s?part=%s&exp=%s&sig=%s", strings.TrimRight(w.cfg.PrintBaseURL, "/"), orderID, part, exp, sig)
-	// pages: сколько страниц в части — сервис печатает их по одной (память Chromium).
-	body, _ := json.Marshal(map[string]any{"url": pageURL, "widthMm": widthMM, "heightMm": heightMM, "pages": pages, "cmyk": w.cfg.CMYK})
+	base := fmt.Sprintf("%s/print/%s?exp=%s&sig=%s", strings.TrimRight(w.cfg.PrintBaseURL, "/"), orderID, exp, sig)
+	sheets := make([]map[string]any, len(f.Sheets))
+	for i, s := range f.Sheets {
+		u := base + "&sheet=" + s.Kind
+		if s.Kind == "page" {
+			u += "&page=" + strconv.Itoa(s.Page)
+		}
+		sheets[i] = map[string]any{"url": u, "widthMm": s.W, "heightMm": s.H}
+	}
+	body, _ := json.Marshal(map[string]any{"sheets": sheets, "cmyk": w.cfg.CMYK})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(w.cfg.ServiceURL, "/")+"/render", bytes.NewReader(body))
 	if err != nil {
@@ -273,26 +377,37 @@ func (w *Worker) renderPart(ctx context.Context, orderID, part string, pages int
 		return partResult{}, fmt.Errorf("сервис рендера: HTTP %d: %s", resp.StatusCode, e.Error)
 	}
 
-	f, err := os.CreateTemp("", "photobook-*.pdf")
+	tmp, err := os.CreateTemp("", "photobook-*.pdf")
 	if err != nil {
 		return partResult{}, err
 	}
-	defer f.Close()
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		os.Remove(f.Name())
+	defer tmp.Close()
+	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		os.Remove(tmp.Name())
 		return partResult{}, err
 	}
 
-	// Итог проверки PDF (pdfinfo/pdffonts в сервисе рендера) — в заголовках ответа.
-	res := partResult{path: f.Name(), color: resp.Header.Get("X-Pdf-Color")}
+	// Итог проверки PDF (pdfinfo/pdffonts/pdfimages в сервисе рендера) — в заголовках ответа.
+	res := partResult{path: tmp.Name(), color: resp.Header.Get("X-Pdf-Color")}
 	res.pages, _ = strconv.Atoi(resp.Header.Get("X-Pdf-Pages"))
-	res.widthMM, _ = strconv.ParseFloat(resp.Header.Get("X-Pdf-Width-Mm"), 64)
-	res.heightMM, _ = strconv.ParseFloat(resp.Header.Get("X-Pdf-Height-Mm"), 64)
+	for _, sz := range strings.Split(resp.Header.Get("X-Pdf-Page-Sizes"), ";") {
+		var wmm, hmm float64
+		if _, err := fmt.Sscanf(sz, "%fx%f", &wmm, &hmm); err == nil {
+			res.sizes = append(res.sizes, [2]float64{wmm, hmm})
+		}
+	}
 	fmt.Sscanf(resp.Header.Get("X-Pdf-Images"), "jpeg=%d,other=%d", &res.jpegImages, &res.otherImages)
 	if fonts := resp.Header.Get("X-Pdf-Fonts"); fonts != "" {
 		res.fonts = strings.Split(fonts, ",")
 	}
 	return res, nil
+}
+
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func mm(w, h float64) string {

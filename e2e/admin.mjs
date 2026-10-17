@@ -60,7 +60,7 @@ check((await page.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')) 
 check(await page.getByText('сообщение отправлено').isVisible(), 'Telegram notification marked as sent (log sender in dev)')
 // PDF собирается в фоне за секунды: в карточке либо «собирается…», либо уже ссылки на файлы.
 const pdfRow = await page.locator('dt:text-is("PDF") + dd').textContent()
-check(/собирается|cover\.pdf/.test(pdfRow), `PDF row shows build status (${pdfRow.trim().slice(0, 40)})`)
+check(/собирается|\.pdf/.test(pdfRow), `PDF row shows build status (${pdfRow.trim().slice(0, 40)})`)
 
 // 4. Следующий шаг с заметкой → клиент видит новый статус.
 await page.locator('input[name="note"]').first().fill('аванс 50% на Kaspi')
