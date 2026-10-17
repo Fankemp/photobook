@@ -22,9 +22,14 @@
   transition: transform 0.9s cubic-bezier(0.25, 0.7, 0.2, 1);
 }
 
-/* Закрытая книга — это одна обложка справа; сдвигаем её в центр. */
+/* Закрытая книга — одна обложка справа; сдвигаем её в центр. В конце
+   (перевёрнуто всё, страницы справа нет) — задняя обложка слева. */
 .fb.is-closed .fb-book {
   transform: translateX(-25%);
+}
+
+.fb.is-closed-end .fb-book {
+  transform: translateX(25%);
 }
 
 .fb-base,
@@ -63,11 +68,17 @@
   box-shadow:
     0 2px 3px rgb(27 36 64 / 0.12),
     0 22px 34px -20px rgb(27 36 64 / 0.6);
-  transition: left 0.9s cubic-bezier(0.3, 0.1, 0.2, 1);
+  transition:
+    left 0.9s cubic-bezier(0.3, 0.1, 0.2, 1),
+    right 0.9s cubic-bezier(0.3, 0.1, 0.2, 1);
 }
 
 .fb.is-closed .fb-shadow {
   left: 50%;
+}
+
+.fb.is-closed-end .fb-shadow {
+  right: 50%;
 }
 
 .fb-back {
@@ -109,6 +120,10 @@
 
 .fb.is-closed .fb-ribbon {
   left: calc(50% + 34%);
+}
+
+.fb.is-closed-end .fb-ribbon {
+  display: none;
 }
 
 .fb-controls {

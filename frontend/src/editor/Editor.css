@@ -26,7 +26,7 @@
 
 .ed-header h1 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   line-height: 1.25;
   /* На узком телефоне рядом кнопки отмены и превью — название сокращается. */
   white-space: nowrap;
@@ -42,13 +42,17 @@
 /* Узкий телефон: рядом с названием кнопки отмены и превью — шрифт чуть меньше. */
 @media (max-width: 420px) {
   .ed-header h1 {
-    font-size: 1.0625rem;
+    font-size: 1rem;
   }
 }
 
+/* «Превью» — следующий шаг после редактора: залита цветом переплёта. */
 .ed-preview-link {
   display: inline-flex;
   align-items: center;
+  border-color: var(--cloth);
+  background: var(--cloth);
+  color: #ffffff;
   text-decoration: none;
 }
 
@@ -131,7 +135,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #e7e2da;
+  background: #e9ecf2;
 }
 
 .ed-upload img {
@@ -168,8 +172,12 @@
   margin: 12px auto;
 }
 
+/* Листание — круглыми кнопками, как у книги на главной. */
 .ed-pager .btn {
-  min-width: 52px;
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: 50%;
   font-size: 1.25rem;
 }
 
@@ -738,4 +746,73 @@
   margin: 16px -16px -16px;
   padding: 12px 16px;
   background: var(--surface);
+}
+
+/* ---------- Широкий экран: три колонки ----------
+   Слева — лента страниц (вертикально), по центру — страница крупно,
+   справа — панель настроек (не прибита к низу, а стоит колонкой).
+   Порядок элементов в разметке тот же, раскладку задают grid-области. */
+@media (min-width: 1100px) {
+  .editor {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr) 340px;
+    grid-template-areas:
+      'header header header'
+      'banner banner banner'
+      'strip  stage  tools'
+      'strip  pager  tools'
+      'strip  share  tools';
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 32px;
+    max-width: 1440px;
+    padding: 12px 24px 32px;
+  }
+
+  .ed-header { grid-area: header; }
+  .ed-banner { grid-area: banner; }
+  .ed-stage { grid-area: stage; }
+  .ed-pager { grid-area: pager; }
+  .editor > .share { grid-area: share; align-self: start; }
+
+  .ed-page {
+    width: min(100%, calc(100dvh - 190px));
+  }
+
+  .ed-strip {
+    grid-area: strip;
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    flex-direction: column;
+    gap: 12px;
+    max-height: calc(100dvh - 24px);
+    margin: 0;
+    padding: 4px 8px 12px 4px;
+    overflow: hidden auto;
+  }
+
+  .ed-strip li {
+    flex: none;
+  }
+
+  .ed-toolbar {
+    grid-area: tools;
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .ed-toolbar-inner {
+    padding: 16px;
+  }
+
+  /* В колонке кнопки «Добавить текст» и «Добавить стикер» — друг под другом. */
+  .ed-idle .ed-toolbar-row {
+    flex-direction: column;
+  }
 }

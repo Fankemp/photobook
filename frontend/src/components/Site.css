@@ -23,6 +23,22 @@
   letter-spacing: -0.01em;
 }
 
+/* Ленточка-ссылка на главную: зона нажатия 44px, сама ленточка свисает от верха. */
+.home-mark {
+  display: inline-flex;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  flex: none;
+}
+
+.home-mark svg {
+  width: 12px;
+  height: 30px;
+  fill: var(--ribbon);
+}
+
 /* ---------- Шапка ---------- */
 .site-header {
   border-top: 3px solid var(--cloth);

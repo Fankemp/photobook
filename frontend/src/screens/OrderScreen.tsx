@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
-import { ApiError, createOrder, getBook, getOrderInfo, saveBook, toApiError } from '../api.ts'
+import { ApiError, assetImageUrl, createOrder, getBook, getOrderInfo, saveBook, toApiError } from '../api.ts'
+import { PageView } from '../book/PageView.tsx'
 import { findIssues, hasIssues } from '../book/spreads.ts'
 import { BookIssues } from '../components/BookIssues.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
@@ -45,12 +46,28 @@ function OrderPage({ book, info }: { book: Book; info: OrderInfo }) {
         </Link>
         <h1>{order ? t.order.placedTitle(order.number) : t.order.title}</h1>
       </header>
+      <BookSummary book={book} />
       {order ? (
         <OrderStatus order={order} token={book.token} />
       ) : (
         <OrderForm book={book} info={info} onCreated={setOrder} />
       )}
     </main>
+  )
+}
+
+// Что заказываем: обложка книги (тот же PageView) и формат.
+function BookSummary({ book }: { book: Book }) {
+  return (
+    <div className="order-book">
+      <span className="order-book-cover">
+        <PageView page={book.cover} format={book.format} imageSrc={(id) => assetImageUrl(book.token, id)} variant="print" />
+      </span>
+      <div>
+        <p className="order-book-title">{t.book.title}</p>
+        <p className="muted">{t.formatInfo(book.format.name, book.pages.length)}</p>
+      </div>
+    </div>
   )
 }
 

@@ -110,3 +110,37 @@
   align-items: center;
   text-decoration: none;
 }
+
+/* Сводка «что заказываем»: обложка как маленькая книга и формат. */
+.order-book {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.order-book-cover {
+  flex: none;
+  width: 72px;
+  box-shadow:
+    0 1px 1px rgb(27 36 64 / 0.08),
+    0 8px 14px -8px rgb(27 36 64 / 0.5);
+}
+
+.order-book-cover .pv {
+  box-shadow: none;
+}
+
+.order-book p {
+  margin: 0;
+}
+
+.order-book-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.125rem;
+}

@@ -16,6 +16,41 @@
   font-size: 1.25rem;
 }
 
+/* Режимы «Книга» / «Для печати» — сегменты одной кнопки. */
+.pp-modes {
+  display: inline-flex;
+  margin: 4px 0 20px;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.pp-modes button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pp-modes button[aria-pressed='true'] {
+  background: var(--cloth);
+  color: #ffffff;
+}
+
+/* Книга помещается и по ширине, и по высоте окна; поля по 22px — для меток реза. */
+.pp-book {
+  width: min(100%, calc((100dvh - 330px) * 2 + 44px));
+  min-width: 280px;
+  margin: 0 auto;
+  padding: 22px 22px 0;
+}
+
 /* Переключатель подсказок: вся строка нажимается, высота под палец. */
 .pp-toggle {
   display: flex;
@@ -139,4 +174,8 @@
   align-items: center;
   justify-content: center;
   text-decoration: none;
+}
+
+.pp-book + .pp-cta {
+  margin-top: 28px;
 }

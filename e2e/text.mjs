@@ -155,6 +155,7 @@ await page.screenshot({ path: `${out}/tx-4-overflow.png` })
 
 // 8. Превью рисует текст тем же нашим шрифтом (на этом же пойдёт PDF).
 await page.getByRole('link', { name: 'Превью' }).click()
+await page.getByRole('button', { name: 'Для печати' }).click()
 await page.locator('.pp-spread').waitFor()
 const coverTitle = await renderedFonts('.pp-spread .pv-text > div')
 check(coverTitle.length === 1 && coverTitle[0].postScriptName === 'Montserrat-Bold' && coverTitle[0].isCustomFont, `preview renders the bold cover title with our Montserrat-Bold file (got ${coverTitle.map((x) => x.postScriptName)})`)

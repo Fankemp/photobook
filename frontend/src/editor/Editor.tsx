@@ -6,6 +6,7 @@ import { isLowDpi } from '../book/dpi.ts'
 import { PageView } from '../book/PageView.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
+import { HomeMark } from '../components/Site.tsx'
 import { t } from '../i18n/index.ts'
 import type { StickerInfo } from '../book/stickers.ts'
 import type { Book, Crop, Format, Page, PhotoSlotElement, TextElement } from '../types.ts'
@@ -253,7 +254,10 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
       const bar = toolbarRef.current
       if (!node || !bar) return
       const r = node.getBoundingClientRect()
-      const visibleBottom = window.innerHeight - bar.offsetHeight - 12
+      // На телефоне панель прибита к низу экрана и закрывает его часть; на широком
+      // экране она колонкой справа и ничего не закрывает.
+      const barAtBottom = getComputedStyle(bar).position === 'fixed'
+      const visibleBottom = window.innerHeight - (barAtBottom ? bar.offsetHeight : 0) - 12
       if (r.bottom > visibleBottom) window.scrollBy({ top: r.bottom - visibleBottom, behavior: 'smooth' })
       else if (r.top < 8) window.scrollBy({ top: r.top - 8, behavior: 'smooth' })
     })
@@ -270,11 +274,9 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   return (
     <div className="editor" ref={rootRef}>
       <header className="ed-header">
-        <Link to="/" className="ed-back" aria-label={t.editor.back}>
-          ←
-        </Link>
+        <HomeMark label={t.editor.back} />
         <div className="ed-title">
-          <h1>{t.book.title}</h1>
+          <h1>{t.editor.title}</h1>
           <SaveIndicator status={status} />
         </div>
         <div className="ed-history">
@@ -526,11 +528,15 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect }: Str
   const listRef = useRef<HTMLOListElement>(null)
 
   // Текущая миниатюра — по центру ленты. Крутим только саму ленту:
-  // scrollIntoView прокрутил бы ещё и всю страницу.
+  // scrollIntoView прокрутил бы ещё и всю страницу. Лента горизонтальная
+  // на телефоне и вертикальная колонка на широком экране.
   useEffect(() => {
     const list = listRef.current
     const item = list?.children[current] as HTMLElement | undefined
-    if (list && item) {
+    if (!list || !item) return
+    if (list.scrollHeight > list.clientHeight + 1) {
+      list.scrollTo({ top: item.offsetTop - list.clientHeight / 2 + item.clientHeight / 2, behavior: 'smooth' })
+    } else {
       list.scrollTo({ left: item.offsetLeft - list.clientWidth / 2 + item.clientWidth / 2, behavior: 'smooth' })
     }
   }, [current])

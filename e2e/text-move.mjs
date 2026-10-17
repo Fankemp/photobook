@@ -221,6 +221,7 @@ check(undoneX === startX && redoneX === movedX, `Ctrl+Z / Ctrl+Shift+Z undo and 
 
 // 13. Превью — тот же PageView: тот же кегль, положение и поворот.
 await desk.goto(`${base}/b/${token}/preview`)
+await desk.getByRole('button', { name: 'Для печати' }).click()
 await desk.getByRole('button', { name: 'Следующий разворот' }).click()
 await desk.getByRole('button', { name: 'Следующий разворот' }).click()
 await desk.locator('.pv-text').first().waitFor()

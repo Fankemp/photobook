@@ -49,8 +49,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e7e2da;
-  color: #a39d94;
+  /* Пустая рамка (видна только в редакторе) — в тонах бумаги и чернил сайта. */
+  background: #e9ecf2;
+  color: #8f98ab;
 }
 
 .pv-slot svg {

@@ -10,9 +10,13 @@ export type Leaf = { front: Page; back: Page }
 
 type Props = {
   leaves: Leaf[]
-  last: Page // страница справа под всеми листами — видна, когда перевёрнуто всё
+  // Страница справа под всеми листами — видна, когда перевёрнуто всё. null —
+  // её нет: последний лист — задняя обложка, книга в конце снова закрыта.
+  last: Page | null
   format: Format
   imageSrc: (assetId: string) => string
+  label?: (turned: number) => string // подпись под книгой; по умолчанию «Разворот N из M»
+  autoOpen?: boolean // раскрыть книгу при загрузке (витрина на главной)
 }
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -29,8 +33,10 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 // Анимация одна: закрытая книга раскрывается при загрузке (если человек не
 // просил меньше движения — тогда книга сразу открыта). Дальше листает сам:
 // кнопками, тапом по правой/левой половине или свайпом.
-export function Flipbook({ leaves, last, format, imageSrc }: Props) {
-  const [turned, setTurned] = useState(() => (reducedMotion() ? 1 : 0)) // перевёрнуто листов; 0 — закрыта
+export function Flipbook({ leaves, last, format, imageSrc, label, autoOpen = true }: Props) {
+  // Перевёрнуто листов: 0 — закрыта обложкой вверх, leaves.length без last —
+  // закрыта задней обложкой вверх.
+  const [turned, setTurned] = useState(() => (autoOpen && reducedMotion() ? 1 : 0))
   const [flipping, setFlipping] = useState<number | null>(null)
   const interacted = useRef(false)
   const swipe = useRef<{ x: number; swiped: boolean } | null>(null)
@@ -44,14 +50,14 @@ export function Flipbook({ leaves, last, format, imageSrc }: Props) {
   const backward = () => turnTo(turned - 1)
 
   useEffect(() => {
-    if (reducedMotion()) return
+    if (!autoOpen || reducedMotion()) return
     const timer = setTimeout(() => {
       if (interacted.current) return
       setFlipping(0)
       setTurned(1)
     }, 900)
     return () => clearTimeout(timer)
-  }, [])
+  }, [autoOpen])
 
   // Тап: закрытую книгу — открыть; по правой половине — дальше, по левой — назад.
   function onClick(e: MouseEvent<HTMLDivElement>) {
@@ -82,6 +88,8 @@ export function Flipbook({ leaves, last, format, imageSrc }: Props) {
     if (e.propertyName === 'transform' && i === flipping) setFlipping(null)
   }
 
+  const closedEnd = last === null && turned === leaves.length
+  const bookClass = turned === 0 ? 'fb is-closed' : closedEnd ? 'fb is-closed-end' : 'fb'
   const z = (i: number) => (i === flipping ? leaves.length + 1 : i < turned ? i + 1 : leaves.length - i)
   const page = (p: Page) => <PageView page={p} format={format} imageSrc={imageSrc} variant="print" />
 
@@ -91,7 +99,7 @@ export function Flipbook({ leaves, last, format, imageSrc }: Props) {
           лист разворота, как его увидит типография. */}
       <CropMarks>
       <div
-        className={turned === 0 ? 'fb is-closed' : 'fb'}
+        className={bookClass}
         style={{ aspectRatio: `${2 * format.widthMm} / ${format.heightMm}` }}
         aria-hidden="true"
         onClick={onClick}
@@ -101,9 +109,11 @@ export function Flipbook({ leaves, last, format, imageSrc }: Props) {
         <div className="fb-book">
           <span className="fb-shadow" />
           <span className="fb-ribbon" />
-          <div className="fb-base">
-            <div className="fb-face fb-front">{page(last)}</div>
-          </div>
+          {last && (
+            <div className="fb-base">
+              <div className="fb-face fb-front">{page(last)}</div>
+            </div>
+          )}
           {leaves.map((leaf, i) => (
             <div
               key={i}
@@ -123,7 +133,7 @@ export function Flipbook({ leaves, last, format, imageSrc }: Props) {
           <Chevron />
         </button>
         <span className="fb-count" aria-live="polite">
-          {turned === 0 ? t.home.bookClosed : t.home.bookSpread(turned, leaves.length)}
+          {label ? label(turned) : turned === 0 ? t.home.bookClosed : t.home.bookSpread(turned, leaves.length)}
         </span>
         <button className="fb-btn" onClick={forward} disabled={turned === leaves.length} aria-label={t.home.bookNext}>
           <Chevron next />

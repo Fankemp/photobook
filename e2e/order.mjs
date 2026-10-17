@@ -47,7 +47,7 @@ await page.unroute('**/api/books/*')
 
 // 2. Превью → «Оформить заявку».
 await page.getByRole('link', { name: 'Превью' }).click()
-await page.locator('.pp-spread').waitFor()
+await page.locator('.pp-book').waitFor()
 await page.getByRole('link', { name: 'Оформить заявку' }).click()
 await page.waitForURL(/\/order$/)
 await page.locator('form.order-form').waitFor()
@@ -100,7 +100,7 @@ await page.goto(`${base}/b/${token}`)
 await page.waitForURL(/\/order$/)
 check(true, 'book link redirects to the order status')
 await page.goto(`${base}/b/${token}/preview`)
-await page.locator('.pp-spread').waitFor()
+await page.locator('.pp-book').waitFor()
 check(await page.getByRole('link', { name: `Заявка №${number} оформлена, посмотреть статус` }).isVisible(), 'preview shows the order instead of the button')
 
 // 7. Старая вкладка редактора пытается сохранить → понятное сообщение, книга не меняется.

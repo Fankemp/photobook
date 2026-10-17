@@ -17,6 +17,17 @@ export function Logo() {
   )
 }
 
+// Только ленточка (без названия) — ссылка на главную в узких шапках книги.
+export function HomeMark({ label }: { label: string }) {
+  return (
+    <Link to="/" className="home-mark" aria-label={label}>
+      <svg viewBox="0 0 10 24" aria-hidden="true">
+        <path d="M0 0H10V24L5 19L0 24Z" />
+      </svg>
+    </Link>
+  )
+}
+
 export function SiteHeader() {
   return (
     <header className="site-header">
