@@ -21,6 +21,10 @@ export function bookSpreads(pageCount: number): Spread[] {
 // Что мешает напечатать книгу хорошо. Номера страниц: 0 — обложка, 1..N — страницы.
 export type BookIssues = { lowDpi: number[]; emptySlots: number[] }
 
+export function hasIssues(issues: BookIssues) {
+  return issues.lowDpi.length > 0 || issues.emptySlots.length > 0
+}
+
 export function findIssues(cover: Page, pages: Page[], format: Format, sizes: Map<string, ImageSize>): BookIssues {
   const issues: BookIssues = { lowDpi: [], emptySlots: [] }
   ;[cover, ...pages].forEach((page, n) => {

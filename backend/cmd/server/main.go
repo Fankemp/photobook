@@ -20,6 +20,8 @@ import (
 	"photobook/internal/fonts"
 	"photobook/internal/formats"
 	"photobook/internal/httpapi"
+	"photobook/internal/notify"
+	"photobook/internal/orders"
 	"photobook/internal/storage"
 	"photobook/internal/templates"
 )
@@ -91,6 +93,27 @@ func run(log *slog.Logger) error {
 	}
 	bg.Go(func() { assetService.RunCleanup(bgCtx, log) })
 
+	orderService := orders.NewService(pool, cfg.OrderMinLeadDays)
+	var sender notify.Sender = notify.LogSender{Log: log}
+	if cfg.Telegram.Token != "" {
+		sender = notify.Telegram{Token: cfg.Telegram.Token, ChatID: cfg.Telegram.ChatID, APIURL: cfg.Telegram.APIURL}
+	} else {
+		log.Warn("TELEGRAM_BOT_TOKEN is not set: order notifications go to the log")
+	}
+	bg.Go(func() {
+		orderService.RunNotifications(bgCtx, orders.NotifyConfig{
+			Sender:  sender,
+			BaseURL: cfg.AppBaseURL,
+			TemplateName: func(id string) string {
+				if t, ok := catalog.Get(id); ok {
+					return t.Name
+				}
+				return id
+			},
+			Log: log,
+		})
+	})
+
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.New(httpapi.Deps{
@@ -101,6 +124,7 @@ func run(log *slog.Logger) error {
 			Templates: catalog,
 			Books:     books.NewStore(pool),
 			Assets:    assetService,
+			Orders:    orderService,
 			Log:       log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

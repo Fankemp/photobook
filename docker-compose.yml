@@ -61,6 +61,12 @@ services:
       S3_PUBLIC_ENDPOINT: ${PUBLIC_HOST:-localhost}:${S3_PORT:-9000}
       # Адреса сайта, которым хранилище разрешит загружать файлы из браузера (CORS).
       APP_ORIGINS: http://localhost:${FRONTEND_PORT:-5173},http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT:-5173}
+      # Адрес сайта для ссылок в уведомлениях.
+      APP_BASE_URL: http://${PUBLIC_HOST:-localhost}:${FRONTEND_PORT:-5173}
+      ORDER_MIN_LEAD_DAYS: ${ORDER_MIN_LEAD_DAYS:-3}
+      # Telegram-бот для заявок; без токена сообщения пишутся в лог backend.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

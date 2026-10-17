@@ -16,37 +16,6 @@
   font-size: 1.25rem;
 }
 
-.pp-issues,
-.pp-ready {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 0.9375rem;
-}
-
-.pp-issues {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-}
-
-.pp-issues p {
-  margin: 0;
-}
-
-.pp-issues p + p {
-  margin-top: 6px;
-}
-
-.pp-issues a {
-  color: inherit;
-  font-weight: 600;
-}
-
-.pp-ready {
-  background: #e7f4ec;
-  color: #1e6a3f;
-}
-
 /* Переключатель подсказок: вся строка нажимается, высота под палец. */
 .pp-toggle {
   display: flex;
@@ -157,4 +126,17 @@
 
 .pp-swatch.is-safe {
   border-color: #2563eb;
+}
+
+.pp-cta {
+  width: min(100%, 560px);
+  margin: 0 auto 20px;
+  text-align: center;
+}
+
+.pp-cta .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }

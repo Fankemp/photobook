@@ -239,6 +239,14 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           </button>
         </div>
       )}
+      {status === 'locked' && (
+        <div className="ed-banner">
+          <p>{t.editor.locked}</p>
+          <Link className="btn" to={`/b/${book.token}/order`}>
+            {t.editor.toOrder}
+          </Link>
+        </div>
+      )}
       {status === 'error' && (
         <div className="ed-banner">
           <p>{t.editor.saveError}</p>
@@ -385,6 +393,7 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
     saving: t.editor.status.saving,
     offline: t.editor.status.offline,
     conflict: t.editor.status.error,
+    locked: t.editor.status.error,
     error: t.editor.status.error,
   }
   return (

@@ -41,8 +41,10 @@
 - `formats` (id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, created_at). `id` — читаемый slug (`square-200`), на него ссылаются шаблоны; `price_kzt` — целое число в тенге
 - `books` (id, token, format_id, template_id, schema_version, version, cover JSONB, pages JSONB, created_at, updated_at). `version` растёт при каждом сохранении; автосохранение присылает версию, которую видело, и получает 409 при конфликте. `cover` — страница обложки, `pages` — массив внутренних страниц (см. «Формат страницы»), `schema_version` — версия этого формата JSON. `token` — 26 символов base32 (`crypto/rand.Text`)
 - `assets` (id, book_id, status pending|uploaded, original_key, thumb_key, content_type, width_px, height_px, size_bytes, created_at, uploaded_at, thumb_attempts, thumb_error). Размеры — с учётом поворота EXIF, как фото видит человек; после миниатюры их уточняет сервер
-- `orders` (id, book_id, name, phone, address, wanted_date, status, comment, pdf_key, created_at)
+- `orders` (id, number, book_id, book_version, name, phone, address, wanted_date, status, comment, price_kzt, pdf_key, notified_at, notify_attempts, notify_error, created_at, updated_at). `number` — номер для людей с 1001; `phone` — `+7XXXXXXXXXX`; `book_version` и `price_kzt` — на момент заявки; `notified_*` — очередь уведомлений в Telegram
 - `order_events` (id, order_id, status, note, created_at)
+
+Пока у книги есть неотменённая заявка (одна на книгу, уникальный индекс), книга **закрыта для изменений**: автосохранение получает 409 `book_locked` (проверка прямо в UPDATE), загрузка фото тоже. Печатаем ровно заказанное; открыть книгу снова — отменить заявку (админка, шаг 7). Самая ранняя желаемая дата — сегодня по Алматы (UTC+5) + `ORDER_MIN_LEAD_DAYS` (по умолчанию 3).
 
 Статусы заказа: `new → awaiting_prepayment → paid → printing → delivery → done` (+ `cancelled`).
 
@@ -117,7 +119,7 @@
 4. **Загрузка и миниатюры:** миниатюры в фоне (libvips, с поворотом по EXIF), клиенту отдавать миниатюры вместо оригиналов, проверка DPI и предупреждение, уборка незавершённых загрузок. libvips вызывается утилитой `vipsthumbnail` отдельным процессом (без CGO). DPI считает `frontend/src/book/dpi.ts`: `25.4 / (max(слот_мм_ш / фото_px_ш, слот_мм_в / фото_px_в) × zoom)`, предупреждение ниже `formats.min_dpi`.
 5. **Превью:** листание по разворотам, линия реза и безопасная зона. Раскладка: обложка отдельно, затем [_ 1], [2 3] … [20 _] (`frontend/src/book/spreads.ts`) — **сверить с типографией**. Превью показывает несохранённые правки из черновика и сводку: пустые рамки, маленькие фото, со ссылками `/b/<токен>?page=N`.
 5а. **Текст и шрифты:** добавление и редактирование текстовых блоков, выбор шрифта, размера, цвета и выравнивания (см. раздел «Текст и шрифты»). Проверка, что кириллица рисуется именно нашим файлом, — `e2e/text.mjs`.
-6. **Заявка:** форма (имя, телефон, адрес, желаемая дата), создание заказа, сообщение в Telegram.
+6. **Заявка:** форма (имя, телефон, адрес, желаемая дата), создание заказа, сообщение в Telegram. Форма — `/b/<токен>/order` (из превью); перед заявкой несохранённый черновик дохраняется; без `TELEGRAM_BOT_TOKEN` сообщение пишется в лог.
 7. **Админка:** список заказов, смена статуса, скачивание PDF.
 8. **Печатный PDF:** рендер через Chromium с вылетами, очередь, проверка на реальной типографии.
 9. **Стикеры (v1)** и расширение набора шаблонов.

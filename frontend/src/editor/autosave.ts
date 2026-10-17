@@ -4,7 +4,7 @@ import type { Book } from '../types.ts'
 import type { Doc } from './doc.ts'
 import { clearDraft, restoreDoc, writeDraft } from './draft.ts'
 
-export type SaveStatus = 'saved' | 'pending' | 'saving' | 'offline' | 'conflict' | 'error'
+export type SaveStatus = 'saved' | 'pending' | 'saving' | 'offline' | 'conflict' | 'locked' | 'error'
 
 const SAVE_DELAY = 1500 // мс тишины после правки, затем сохраняем
 const RETRY_DELAY = 5000 // повтор, если нет связи
@@ -84,6 +84,11 @@ class AutoSaver {
       if (e.code === 'version_conflict') {
         this.stopped = true
         this.onStatus('conflict')
+      } else if (e.code === 'book_locked') {
+        // По книге оформили заявку (например, с другого устройства) — правки больше не принимаются.
+        this.stopped = true
+        clearDraft(this.book.token)
+        this.onStatus('locked')
       } else if (e.code === 'network' || e.status === 0 || e.status >= 500) {
         this.onStatus('offline') // черновик уже в localStorage, повторим позже
         this.schedule(RETRY_DELAY)

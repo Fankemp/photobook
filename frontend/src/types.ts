@@ -79,8 +79,28 @@ export type Book = {
   version: number // растёт при каждом сохранении; см. автосохранение
   format: Format
   assets: AssetInfo[]
+  order: { number: number; status: OrderStatus } | null // есть заявка — книга закрыта для изменений
   cover: Page
   pages: Page[]
   createdAt: string
   updatedAt: string
 }
+
+export type OrderStatus = 'new' | 'awaiting_prepayment' | 'paid' | 'printing' | 'delivery' | 'done' | 'cancelled'
+
+export type Order = {
+  number: number
+  name: string
+  phone: string // +77001234567
+  address: string
+  wantedDate: string // YYYY-MM-DD
+  comment: string
+  status: OrderStatus
+  priceKzt: number
+  createdAt: string
+}
+
+// Для страницы заявки: заявка (если уже есть) или данные для формы.
+export type OrderInfo = { order: Order | null; minWantedDate: string; priceKzt: number }
+
+export type OrderForm = Pick<Order, 'name' | 'phone' | 'address' | 'wantedDate' | 'comment'> & { version: number }

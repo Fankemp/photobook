@@ -69,12 +69,20 @@ type assetInfo struct {
 	Height int    `json:"height"`
 }
 
+// orderSummary — есть ли по книге заявка (тогда книга закрыта для изменений).
+type orderSummary struct {
+	Number int64  `json:"number"`
+	Status string `json:"status"`
+}
+
 // bookResponse — книга вместе с форматом (фронтенду нужны размеры, чтобы её
-// нарисовать) и списком загруженных фото (размеры нужны редактору кадра).
+// нарисовать), списком загруженных фото (размеры нужны редактору кадра)
+// и заявкой, если она уже есть.
 type bookResponse struct {
 	books.Book
 	Format formats.Format `json:"format"`
 	Assets []assetInfo    `json:"assets"`
+	Order  *orderSummary  `json:"order"`
 }
 
 func (a *API) getBook(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +104,16 @@ func (a *API) getBook(w http.ResponseWriter, r *http.Request) {
 	for _, as := range uploaded {
 		list = append(list, assetInfo{ID: as.ID, Width: as.WidthPx, Height: as.HeightPx})
 	}
-	writeJSON(w, http.StatusOK, bookResponse{Book: b, Format: f, Assets: list})
+	resp := bookResponse{Book: b, Format: f, Assets: list}
+	o, err := a.Orders.ActiveForBook(r.Context(), b.ID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	if o != nil {
+		resp.Order = &orderSummary{Number: o.Number, Status: o.Status}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 type saveBookRequest struct {
@@ -152,6 +169,10 @@ func (a *API) saveBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	version, updatedAt, err := a.Books.SavePages(r.Context(), b.ID, req.Version, req.Cover, req.Pages)
+	if errors.Is(err, books.ErrLocked) {
+		writeError(w, http.StatusConflict, "book_locked")
+		return
+	}
 	if errors.Is(err, books.ErrConflict) {
 		writeError(w, http.StatusConflict, "version_conflict")
 		return

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import { Link, useParams } from 'react-router'
 import { assetImageUrl, getBook } from '../api.ts'
 import { PageView } from '../book/PageView.tsx'
-import { bookSpreads, findIssues, type BookIssues, type Spread } from '../book/spreads.ts'
+import { bookSpreads, findIssues, type Spread } from '../book/spreads.ts'
+import { BookIssues } from '../components/BookIssues.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { restoreDoc } from '../editor/draft.ts'
 import type { Doc } from '../editor/doc.ts'
@@ -74,7 +75,7 @@ function BookPreview({ book }: { book: Book }) {
         <h1>{t.preview.title}</h1>
       </header>
 
-      <IssuesSummary issues={issues} token={book.token} />
+      <BookIssues issues={issues} token={book.token} />
 
       <label className="pp-toggle">
         <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
@@ -99,6 +100,17 @@ function BookPreview({ book }: { book: Book }) {
           ›
         </button>
       </nav>
+
+      {/* Следующий шаг после проверки книги — заявка. Если она уже есть — её статус. */}
+      <div className="pp-cta">
+        {book.order ? (
+          <Link to={`/b/${book.token}/order`}>{t.preview.orderPlaced(book.order.number)}</Link>
+        ) : (
+          <Link to={`/b/${book.token}/order`} className="btn btn-primary">
+            {t.preview.order}
+          </Link>
+        )}
+      </div>
 
       {guides && (
         <ul className="pp-legend">
@@ -164,37 +176,4 @@ function spreadLabel(s: Spread): string {
   if (s.kind === 'cover') return t.book.cover
   const nums = [s.left, s.right].filter((i): i is number => i !== null).map((i) => i + 1)
   return nums.length === 2 ? t.preview.pages(nums[0], nums[1]) : t.book.page(nums[0])
-}
-
-// Перед заказом: что стоит поправить. Номера — ссылки сразу на нужную страницу в редакторе.
-function IssuesSummary({ issues, token }: { issues: BookIssues; token: string }) {
-  if (issues.lowDpi.length === 0 && issues.emptySlots.length === 0) {
-    return <p className="pp-ready">{t.preview.ready}</p>
-  }
-  return (
-    <section className="pp-issues">
-      {issues.lowDpi.length > 0 && <IssueLine text={t.preview.lowDpi} pages={issues.lowDpi} token={token} />}
-      {issues.emptySlots.length > 0 && <IssueLine text={t.preview.emptySlots} pages={issues.emptySlots} token={token} />}
-    </section>
-  )
-}
-
-// Первые несколько страниц ссылками, остальные — числом: на телефоне длинный
-// список занял бы пол-экрана над самим превью.
-const MAX_LINKS = 6
-
-function IssueLine({ text, pages, token }: { text: string; pages: number[]; token: string }) {
-  const rest = pages.length - MAX_LINKS
-  return (
-    <p>
-      {text}{' '}
-      {pages.slice(0, MAX_LINKS).map((n, i) => (
-        <span key={n}>
-          {i > 0 && ', '}
-          <Link to={`/b/${token}?page=${n}`}>{n === 0 ? t.preview.coverLink : t.preview.pageLink(n)}</Link>
-        </span>
-      ))}
-      {rest > 0 && ` ${t.preview.more(rest)}`}
-    </p>
-  )
 }

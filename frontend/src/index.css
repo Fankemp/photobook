@@ -173,6 +173,38 @@ a {
   background: var(--bg);
 }
 
+/* Сводка «что поправить перед печатью» (превью, заявка). */
+.book-issues,
+.book-ready {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+}
+
+.book-issues {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.book-issues p {
+  margin: 0;
+}
+
+.book-issues p + p {
+  margin-top: 6px;
+}
+
+.book-issues a {
+  color: inherit;
+  font-weight: 600;
+}
+
+.book-ready {
+  background: #e7f4ec;
+  color: #1e6a3f;
+}
+
 @media (min-width: 640px) {
   .grid {
     grid-template-columns: repeat(3, 1fr);

@@ -1,5 +1,5 @@
 // Обращения к Go-бэкенду. Пути относительные (/api/...): в dev их проксирует Vite.
-import type { AssetInfo, Book, Template, TemplateSummary } from './types.ts'
+import type { AssetInfo, Book, Order, OrderForm, OrderInfo, Template, TemplateSummary } from './types.ts'
 
 // Ошибка API с машинным кодом ("book_not_found", "network", ...).
 // Текст для человека подбирается по коду из словаря (см. ErrorMessage).
@@ -105,4 +105,16 @@ export function putFile(url: string, file: File, onProgress: (fraction: number) 
 // Постоянный адрес картинки: backend перенаправит на временную ссылку в хранилище.
 export function assetImageUrl(token: string, assetId: string) {
   return `/api/books/${encodeURIComponent(token)}/assets/${assetId}/image`
+}
+
+export function getOrderInfo(token: string, signal?: AbortSignal) {
+  return request<OrderInfo>(`/api/books/${encodeURIComponent(token)}/order`, { signal })
+}
+
+export function createOrder(token: string, form: OrderForm) {
+  return request<Order>(`/api/books/${encodeURIComponent(token)}/order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(form),
+  })
 }

@@ -1,0 +1,112 @@
+.order {
+  max-width: 560px;
+}
+
+.order-form {
+  display: grid;
+  gap: 16px;
+}
+
+.order-form .book-issues,
+.order-form .book-ready {
+  margin: 0;
+}
+
+.order-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.order-confirm input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.order-field {
+  display: grid;
+  gap: 6px;
+}
+
+.order-field label {
+  font-weight: 600;
+}
+
+/* 16px — iPhone не увеличивает страницу при фокусе на поле. */
+.order-field input,
+.order-field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.order-field textarea {
+  resize: vertical;
+}
+
+.order-field.has-error input,
+.order-field.has-error textarea {
+  border-color: var(--error);
+}
+
+.order-hint {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.order-price {
+  margin: 0;
+}
+
+.order-form .btn-primary {
+  width: 100%;
+}
+
+.order-note {
+  margin: -6px 0 0;
+  font-size: 0.875rem;
+}
+
+.order-status-card p {
+  margin: 0;
+}
+
+.order-status-card .order-status-name {
+  margin-bottom: 4px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.order-details {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.order-details dt {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.order-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.order-view {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

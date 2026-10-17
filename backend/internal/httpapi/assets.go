@@ -24,6 +24,14 @@ func (a *API) startUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	if locked, err := a.Books.IsLocked(r.Context(), b.ID); err != nil || locked {
+		if err != nil {
+			a.internalError(w, r, err)
+		} else {
+			writeError(w, http.StatusConflict, "book_locked")
+		}
+		return
+	}
 	as, url, err := a.Assets.StartUpload(r.Context(), b.ID, req.ContentType, req.Size)
 	if err != nil {
 		a.assetError(w, r, err)

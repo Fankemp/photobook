@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -15,7 +16,20 @@ type Config struct {
 	FontsConfig  string // fonts.json — общий конфиг шрифтов с фронтендом
 	// Адреса сайта, с которых браузер может загружать файлы прямо в хранилище (CORS).
 	AppOrigins []string
-	S3         S3Config
+	// Адрес сайта для ссылок в уведомлениях («Превью книги» в Telegram).
+	AppBaseURL string
+	// За сколько дней минимум можно выбрать желаемую дату (время на печать).
+	OrderMinLeadDays int
+	Telegram         TelegramConfig
+	S3               S3Config
+}
+
+// TelegramConfig — бот для уведомлений о заявках. Пустой токен — бот выключен,
+// сообщения пишутся в лог (удобно при разработке).
+type TelegramConfig struct {
+	Token  string
+	ChatID string
+	APIURL string
 }
 
 // S3Config — любое S3-совместимое хранилище (локально RustFS).
@@ -51,6 +65,12 @@ func Load() (Config, error) {
 		TemplatesDir: getenv("TEMPLATES_DIR", "../templates"),
 		FontsConfig:  getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
 		AppOrigins:   strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
+		AppBaseURL:   getenv("APP_BASE_URL", "http://localhost:5173"),
+		Telegram: TelegramConfig{
+			Token:  os.Getenv("TELEGRAM_BOT_TOKEN"),
+			ChatID: os.Getenv("TELEGRAM_CHAT_ID"),
+			APIURL: os.Getenv("TELEGRAM_API_URL"),
+		},
 		S3: S3Config{
 			Endpoint:  required("S3_ENDPOINT"),
 			AccessKey: required("S3_ACCESS_KEY"),
@@ -62,6 +82,15 @@ func Load() (Config, error) {
 	}
 	cfg.S3.PublicEndpoint = getenv("S3_PUBLIC_ENDPOINT", cfg.S3.Endpoint)
 	cfg.S3.PublicUseSSL = getenv("S3_PUBLIC_USE_SSL", fmt.Sprint(cfg.S3.UseSSL)) == "true"
+
+	lead, err := strconv.Atoi(getenv("ORDER_MIN_LEAD_DAYS", "3"))
+	if err != nil || lead < 0 {
+		return Config{}, fmt.Errorf("ORDER_MIN_LEAD_DAYS must be a non-negative number")
+	}
+	cfg.OrderMinLeadDays = lead
+	if cfg.Telegram.Token != "" && cfg.Telegram.ChatID == "" {
+		missing = append(missing, "TELEGRAM_CHAT_ID")
+	}
 
 	if len(missing) > 0 {
 		return Config{}, fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))

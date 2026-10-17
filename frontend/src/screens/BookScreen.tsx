@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router'
 import { getBook } from '../api.ts'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { Editor } from '../editor/Editor.tsx'
@@ -19,6 +19,10 @@ export function BookScreen() {
     if (book.status === 'error' && book.error.code === 'book_not_found') forgetLastBook(token)
   }, [book, token])
 
+  if (book.status === 'ok' && book.data.order) {
+    // По книге есть заявка — она закрыта для изменений, показываем статус заявки.
+    return <Navigate to={`/b/${token}/order`} replace />
+  }
   if (book.status === 'ok') {
     // key: другая книга — новый редактор с чистым состоянием.
     return <Editor key={token} book={book.data} initialPage={Number(search.get('page')) || 0} />
