@@ -3,44 +3,78 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"photobook/internal/config"
 )
 
+var ErrNotFound = errors.New("object not found")
+
 type Storage struct {
-	client *minio.Client
-	bucket string
+	client  *minio.Client // для запросов самого backend
+	presign *minio.Client // только для подписи ссылок, которые откроет браузер
+	bucket  string
 }
 
 func New(cfg config.S3Config) (*Storage, error) {
-	client, err := minio.New(cfg.Endpoint, &minio.Options{
+	client, err := newClient(cfg.Endpoint, cfg.UseSSL, cfg)
+	if err != nil {
+		return nil, err
+	}
+	presign, err := newClient(cfg.PublicEndpoint, cfg.PublicUseSSL, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Storage{client: client, presign: presign, bucket: cfg.Bucket}, nil
+}
+
+func newClient(endpoint string, useSSL bool, cfg config.S3Config) (*minio.Client, error) {
+	c, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
+		Secure: useSSL,
+		// Регион задан явно: подпись ссылки — локальное вычисление, и клиент
+		// не должен ради неё ходить в хранилище (публичный адрес backend'у
+		// внутри Docker недоступен).
+		Region: cfg.Region,
 		// Self-hosted S3 по умолчанию понимает только адреса вида host/bucket/key,
 		// а не bucket.host/key.
 		BucketLookup: minio.BucketLookupPath,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create s3 client: %w", err)
+		return nil, fmt.Errorf("create s3 client for %s: %w", endpoint, err)
 	}
-	return &Storage{client: client, bucket: cfg.Bucket}, nil
+	return c, nil
 }
 
-// EnsureBucket создаёт бакет, если его ещё нет.
-func (s *Storage) EnsureBucket(ctx context.Context) error {
+// EnsureBucket создаёт бакет, если его ещё нет, и разрешает браузеру
+// с адресов сайта загружать и читать файлы напрямую (CORS).
+func (s *Storage) EnsureBucket(ctx context.Context, appOrigins []string) error {
 	exists, err := s.client.BucketExists(ctx, s.bucket)
 	if err != nil {
 		return fmt.Errorf("check bucket %q: %w", s.bucket, err)
 	}
-	if exists {
-		return nil
+	if !exists {
+		if err := s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
+			return fmt.Errorf("create bucket %q: %w", s.bucket, err)
+		}
 	}
-	if err := s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
-		return fmt.Errorf("create bucket %q: %w", s.bucket, err)
+	rules := cors.NewConfig([]cors.Rule{{
+		AllowedOrigin: appOrigins,
+		AllowedMethod: []string{http.MethodGet, http.MethodPut, http.MethodHead},
+		AllowedHeader: []string{"*"},
+		ExposeHeader:  []string{"ETag"},
+		MaxAgeSeconds: 3600,
+	}})
+	if err := s.client.SetBucketCors(ctx, s.bucket, rules); err != nil {
+		return fmt.Errorf("set bucket cors: %w", err)
 	}
 	return nil
 }
@@ -53,6 +87,56 @@ func (s *Storage) Ping(ctx context.Context) error {
 	}
 	if !exists {
 		return fmt.Errorf("bucket %q not found", s.bucket)
+	}
+	return nil
+}
+
+// PresignPut — ссылка, по которой браузер загрузит файл методом PUT.
+func (s *Storage) PresignPut(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	u, err := s.presign.PresignedPutObject(ctx, s.bucket, key, ttl)
+	if err != nil {
+		return "", fmt.Errorf("presign put %s: %w", key, err)
+	}
+	return u.String(), nil
+}
+
+// PresignGet — временная ссылка на просмотр файла.
+func (s *Storage) PresignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	u, err := s.presign.PresignedGetObject(ctx, s.bucket, key, ttl, nil)
+	if err != nil {
+		return "", fmt.Errorf("presign get %s: %w", key, err)
+	}
+	return u.String(), nil
+}
+
+type ObjectInfo struct {
+	Size        int64
+	ContentType string
+}
+
+func (s *Storage) Stat(ctx context.Context, key string) (ObjectInfo, error) {
+	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).StatusCode == http.StatusNotFound {
+			return ObjectInfo{}, ErrNotFound
+		}
+		return ObjectInfo{}, fmt.Errorf("stat %s: %w", key, err)
+	}
+	return ObjectInfo{Size: info.Size, ContentType: info.ContentType}, nil
+}
+
+// Open открывает файл на чтение. Закрыть — задача вызывающего.
+func (s *Storage) Open(ctx context.Context, key string) (io.ReadCloser, error) {
+	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", key, err)
+	}
+	return obj, nil
+}
+
+func (s *Storage) Remove(ctx context.Context, key string) error {
+	if err := s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("remove %s: %w", key, err)
 	}
 	return nil
 }

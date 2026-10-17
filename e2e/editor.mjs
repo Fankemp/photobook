@@ -1,0 +1,158 @@
+// Сквозной тест в настоящем браузере (Chromium через Playwright).
+// Запуск: make e2e (сервисы должны быть запущены через make up).
+// Проходит путь клиента: шаблон → книга → загрузка фото → кадр → автосохранение,
+// плюс обрыв сети, конфликт двух вкладок, неподходящий файл.
+// Скриншоты — в e2e/shots/. Тестовые книги остаются в dev-базе.
+import { chromium, devices } from 'playwright'
+import { mkdirSync, writeFileSync } from 'node:fs'
+
+const base = process.env.BASE_URL ?? 'http://localhost:5173'
+const apiBase = process.env.API_URL ?? 'http://localhost:8080'
+const out = 'shots'
+mkdirSync(out, { recursive: true })
+const browser = await chromium.launch()
+const problems = []
+const log = (...a) => console.log(...a)
+const check = (cond, msg) => { if (!cond) problems.push('FAIL: ' + msg); log((cond ? 'ok   ' : 'FAIL ') + msg) }
+
+// 1. JPEG 1200x800 из canvas, затем вставляем EXIF Orientation=6 («повернуть на 90°»),
+//    как у фото, снятого телефоном вертикально.
+{
+  const p = await browser.newPage()
+  const dataUrl = await p.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = 1200; c.height = 800
+    const g = c.getContext('2d')
+    const grd = g.createLinearGradient(0, 0, 1200, 800); grd.addColorStop(0, '#2b6cb0'); grd.addColorStop(1, '#f6ad55')
+    g.fillStyle = grd; g.fillRect(0, 0, 1200, 800)
+    g.fillStyle = '#fff'; g.font = 'bold 160px sans-serif'; g.fillText('ВЕРХ →', 120, 450)
+    return c.toDataURL('image/jpeg', 0.9)
+  })
+  await p.close()
+  const jpg = Buffer.from(dataUrl.split(',')[1], 'base64')
+  const tiff = Buffer.from([0x4d,0x4d,0x00,0x2a,0x00,0x00,0x00,0x08, 0x00,0x01, 0x01,0x12,0x00,0x03,0x00,0x00,0x00,0x01,0x00,0x06,0x00,0x00, 0x00,0x00,0x00,0x00])
+  const payload = Buffer.concat([Buffer.from('Exif\0\0', 'binary'), tiff])
+  const app1 = Buffer.concat([Buffer.from([0xff, 0xe1, (payload.length + 2) >> 8, (payload.length + 2) & 0xff]), payload])
+  writeFileSync('shots/rotated.jpg', Buffer.concat([jpg.subarray(0, 2), app1, jpg.subarray(2)]))
+}
+
+const ctx = await browser.newContext({ ...devices['iPhone 13'] })
+const page = await ctx.newPage()
+page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('409') && !m.text().includes('ERR_FAILED')) problems.push('console: ' + m.text()) })
+page.on('pageerror', (e) => problems.push('pageerror: ' + e.message))
+const status = () => page.locator('.ed-status').textContent()
+const waitSaved = () => page.locator('.ed-status', { hasText: 'Сохранено' }).waitFor({ timeout: 10000 })
+const api = async (token) => (await (await fetch(`${apiBase}/api/books/${token}`)).json())
+
+// 2. Создаём книгу и открываем редактор.
+await page.goto(base + '/templates/travel-minimal')
+await page.getByRole('button', { name: 'Создать книгу по этому шаблону' }).click()
+await page.waitForURL(/\/b\/[A-Z2-7]{26}$/)
+const token = page.url().split('/b/')[1]
+await page.locator('.ed-page').waitFor()
+check((await status()) === 'Сохранено', 'editor opens, status "Сохранено"')
+await page.screenshot({ path: `${out}/ed-1-cover.png` })
+
+// 3. Страница 1 (фото на всю страницу): тап по пустому слоту → выбор файла.
+await page.getByRole('button', { name: 'Следующая страница' }).click()
+check((await page.locator('.ed-pager span').textContent()) === 'Страница 1 из 20', 'pager shows "Страница 1 из 20"')
+const chooser = page.waitForEvent('filechooser')
+await page.locator('.ed-slot').first().click()
+await (await chooser).setFiles('shots/rotated.jpg')
+await page.locator('.ed-slot.is-selected').waitFor({ timeout: 15000 })
+check(true, 'photo uploaded, slot selected for adjusting')
+await waitSaved()
+let b = await api(token)
+const slot = b.pages[0].elements[0]
+check(!!slot.assetId, 'assetId saved on server')
+check(b.assets.length === 1 && b.assets[0].width === 800 && b.assets[0].height === 1200, `rotated size 800x1200 stored (got ${b.assets[0]?.width}x${b.assets[0]?.height})`)
+await page.screenshot({ path: `${out}/ed-2-uploaded.png` })
+
+// 4. Двигаем кадр мышью и увеличиваем ползунком.
+const box = await page.locator('.ed-slot.is-selected').boundingBox()
+await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+await page.mouse.down()
+await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 120, { steps: 8 })
+await page.mouse.up()
+await page.locator('.ed-zoom input').fill('2')
+await waitSaved()
+b = await api(token)
+const crop = b.pages[0].elements[0].crop
+check(crop.zoom === 2 && crop.offsetY < 0 && crop.offsetX === 0, `crop saved after drag down + zoom (got ${JSON.stringify(crop)})`)
+await page.screenshot({ path: `${out}/ed-3-adjusted.png` })
+
+// 5. Перезагрузка: фото приходит с сервера (через редирект в хранилище), кадр тот же.
+await page.reload()
+await page.locator('.ed-page').waitFor()
+await page.getByRole('button', { name: 'Следующая страница' }).click()
+const img = page.locator('.ed-page .pv-slot img').first()
+await img.waitFor()
+await page.waitForFunction(() => { const i = document.querySelector('.ed-page .pv-slot img'); return i && i.complete && i.naturalWidth > 0 })
+const nat = await img.evaluate((i) => [i.naturalWidth, i.naturalHeight, i.style.transform])
+check(nat[0] === 800 && nat[1] === 1200 && nat[2] === 'scale(2)', `after reload image loads from storage, oriented 800x1200, zoom kept (got ${nat})`)
+await page.screenshot({ path: `${out}/ed-4-reloaded.png` })
+
+// 6. Нет связи: сохранение падает → статус «Нет связи», правка живёт в черновике;
+//    перезагружаем страницу (сохранения всё ещё блокируются) — правка на месте.
+await page.route('**/api/books/*', (r) => (r.request().method() === 'PUT' ? r.abort() : r.continue()))
+await page.locator('.ed-slot').first().click()
+await page.locator('.ed-zoom input').fill('3')
+await page.locator('.ed-status', { hasText: 'Нет связи' }).waitFor({ timeout: 10000 })
+check(true, 'save fails offline → status "Нет связи — сохраним позже"')
+await page.screenshot({ path: `${out}/ed-5-offline.png` })
+await page.reload()
+await page.locator('.ed-page').waitFor()
+await page.getByRole('button', { name: 'Следующая страница' }).click()
+const zoomAfterReload = await page.locator('.ed-page .pv-slot img').first().evaluate((i) => i.style.transform)
+check(zoomAfterReload === 'scale(3)', `draft restored from localStorage after reload (got ${zoomAfterReload})`)
+await page.unroute('**/api/books/*')
+await page.evaluate(() => window.dispatchEvent(new Event('online')))
+await waitSaved()
+b = await api(token)
+check(b.pages[0].elements[0].crop.zoom === 3, 'draft reaches server when connection is back')
+
+// 7. Конфликт: вторая вкладка с той же книгой сохраняет первой — первая видит предупреждение.
+const page2 = await ctx.newPage()
+await page2.goto(page.url())
+await page2.locator('.ed-page').waitFor()
+await page2.getByRole('button', { name: 'Следующая страница' }).click()
+await page2.locator('.ed-slot').first().click()
+await page2.locator('.ed-zoom input').fill('1.5')
+await page2.locator('.ed-status', { hasText: 'Сохранено' }).waitFor({ timeout: 10000 })
+await page.locator('.ed-slot').first().click()
+await page.locator('.ed-zoom input').fill('2.5')
+await page.locator('.ed-banner').waitFor({ timeout: 10000 })
+check(true, 'stale tab gets conflict banner instead of overwriting')
+await page.screenshot({ path: `${out}/ed-6-conflict.png` })
+b = await api(token)
+check(b.pages[0].elements[0].crop.zoom === 1.5, 'server kept the newer save from the other tab')
+await page2.close()
+
+// 8. Убрать фото.
+await page.reload()
+await page.locator('.ed-page').waitFor()
+await page.getByRole('button', { name: 'Следующая страница' }).click()
+await page.locator('.ed-slot').first().click()
+await page.getByRole('button', { name: 'Убрать' }).click()
+await waitSaved()
+b = await api(token)
+check(!b.pages[0].elements[0].assetId, 'photo removed from slot')
+
+// 9. Неподходящий файл: сообщение, а не падение.
+writeFileSync('shots/note.gif', Buffer.from('GIF89a'))
+const chooser2 = page.waitForEvent('filechooser')
+await page.locator('.ed-slot').first().click()
+await (await chooser2).setFiles('shots/note.gif')
+check((await page.locator('.ed-toolbar .error').textContent()).includes('JPG или PNG'), 'unsupported file → friendly error')
+
+// 10. Компьютер: вид редактора.
+const desk = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+await desk.goto(page.url())
+await desk.locator('.ed-page').waitFor()
+await desk.keyboard.press('ArrowRight')
+await desk.keyboard.press('ArrowRight')
+check((await desk.locator('.ed-pager span').textContent()) === 'Страница 2 из 20', 'arrow keys switch pages on desktop')
+await desk.screenshot({ path: `${out}/ed-7-desktop.png` })
+
+await browser.close()
+log(problems.length ? '\nPROBLEMS:\n' + problems.join('\n') : '\nALL CHECKS PASSED, no unexpected console errors')
+process.exit(problems.length ? 1 : 0)

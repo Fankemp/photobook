@@ -22,6 +22,7 @@ type ElementBase = {
   h: number
 }
 
+// Кадр фото в слоте, подробности — в book/crop.ts.
 export type Crop = { zoom: number; offsetX: number; offsetY: number }
 
 export type PhotoSlotElement = ElementBase & {
@@ -67,12 +68,17 @@ export type TemplateSummary = {
 
 export type Template = TemplateSummary & { pages: Page[] }
 
+// Загруженное фото. Размеры — с учётом поворота, как фото видит человек.
+export type AssetInfo = { id: string; width: number; height: number }
+
 export type Book = {
   token: string
   templateId: string
   formatId: string
   schemaVersion: number
+  version: number // растёт при каждом сохранении; см. автосохранение
   format: Format
+  assets: AssetInfo[]
   cover: Page
   pages: Page[]
   createdAt: string

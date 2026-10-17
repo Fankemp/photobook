@@ -1,11 +1,24 @@
-import type { CSSProperties } from 'react'
+import { memo } from 'react'
 import type { Format, Page, PageElement } from '../types.ts'
+import { cropStyle } from './crop.ts'
 import { fontFamily } from './fonts.ts'
+import { box } from './geometry.ts'
 import './PageView.css'
 
-// Один компонент рисует страницу везде: в каталоге, в книге, дальше — в редакторе,
-// превью и PDF (правило «превью = печать»). Все размеры — из формата книги.
-export function PageView({ page, format }: { page: Page; format: Format }) {
+type Props = {
+  page: Page
+  format: Format
+  // Откуда брать картинку по id фото. Нет функции — слоты рисуются пустыми
+  // (например, в каталоге шаблонов).
+  imageSrc?: (assetId: string) => string
+}
+
+// Один компонент рисует страницу везде: в каталоге, в редакторе, дальше —
+// в превью и PDF (правило «превью = печать»). Все размеры — из формата книги.
+//
+// memo: страница перерисовывается, только если изменились её данные. Пока
+// двигаешь фото на одной странице, остальные 20 в ленте не трогаются.
+export const PageView = memo(function PageView({ page, format, imageSrc }: Props) {
   return (
     <div
       className="pv"
@@ -15,21 +28,22 @@ export function PageView({ page, format }: { page: Page; format: Format }) {
       }}
     >
       {page.elements.map((el) => (
-        <ElementView key={el.id} el={el} format={format} />
+        <ElementView key={el.id} el={el} format={format} imageSrc={imageSrc} />
       ))}
     </div>
   )
-}
+})
 
-function ElementView({ el, format }: { el: PageElement; format: Format }) {
+function ElementView({ el, format, imageSrc }: { el: PageElement; format: Format; imageSrc?: (id: string) => string }) {
   switch (el.type) {
-    case 'photo_slot':
-      // Фото появятся на шаге 3; пока любой слот рисуется как пустой.
+    case 'photo_slot': {
+      const src = el.assetId && imageSrc ? imageSrc(el.assetId) : undefined
       return (
         <div className="pv-el pv-slot" style={box(el)}>
-          <PhotoIcon />
+          {src ? <img src={src} alt="" draggable={false} style={cropStyle(el.crop)} /> : <PhotoIcon />}
         </div>
       )
+    }
     case 'text':
       return (
         <div
@@ -49,11 +63,6 @@ function ElementView({ el, format }: { el: PageElement; format: Format }) {
     case 'sticker':
       return null // стикеры — шаг 9
   }
-}
-
-// Координаты в процентах → абсолютное позиционирование внутри страницы.
-function box(el: PageElement): CSSProperties {
-  return { left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%` }
 }
 
 // Кегль задан в пунктах на бумаге (1 pt = 25.4/72 мм). Переводим в долю ширины

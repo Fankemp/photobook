@@ -1,5 +1,5 @@
 // Обращения к Go-бэкенду. Пути относительные (/api/...): в dev их проксирует Vite.
-import type { Book, Template, TemplateSummary } from './types.ts'
+import type { AssetInfo, Book, Template, TemplateSummary } from './types.ts'
 
 // Ошибка API с машинным кодом ("book_not_found", "network", ...).
 // Текст для человека подбирается по коду из словаря (см. ErrorMessage).
@@ -55,4 +55,54 @@ export function createBook(templateId: string) {
 
 export function getBook(token: string, signal?: AbortSignal) {
   return request<Book>(`/api/books/${encodeURIComponent(token)}`, { signal })
+}
+
+export type SaveBookBody = Pick<Book, 'version' | 'cover' | 'pages'>
+
+// keepalive: запрос доживёт, даже если вкладку закрывают (тело до 64 КБ).
+export function saveBook(token: string, body: SaveBookBody, keepalive = false) {
+  return request<{ version: number; updatedAt: string }>(`/api/books/${encodeURIComponent(token)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    keepalive,
+  })
+}
+
+// Загрузка фото: 1) просим ссылку, 2) кладём файл прямо в хранилище,
+// 3) подтверждаем. Подробнее — backend/internal/assets.
+export function startUpload(token: string, contentType: string, size: number) {
+  return request<{ assetId: string; uploadUrl: string }>(`/api/books/${encodeURIComponent(token)}/assets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contentType, size }),
+  })
+}
+
+export function completeUpload(token: string, assetId: string, width: number, height: number) {
+  return request<AssetInfo>(`/api/books/${encodeURIComponent(token)}/assets/${assetId}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ width, height }),
+  })
+}
+
+// fetch не умеет сообщать прогресс отправки, поэтому здесь XMLHttpRequest.
+export function putFile(url: string, file: File, onProgress: (fraction: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', url)
+    xhr.setRequestHeader('Content-Type', file.type)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total)
+    }
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new ApiError('upload_failed', xhr.status)))
+    xhr.onerror = () => reject(new ApiError('upload_failed', 0))
+    xhr.send(file)
+  })
+}
+
+// Постоянный адрес картинки: backend перенаправит на временную ссылку в хранилище.
+export function assetImageUrl(token: string, assetId: string) {
+  return `/api/books/${encodeURIComponent(token)}/assets/${assetId}/image`
 }

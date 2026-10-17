@@ -13,6 +13,7 @@
 }
 
 .pv-slot {
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,6 +24,18 @@
 .pv-slot svg {
   width: min(40%, 12cqw);
   height: auto;
+}
+
+/* Фото заполняет слот; какая часть видна и масштаб — inline-стилем из crop.ts.
+   pointer-events: none — жесты обрабатывает слой редактора, а не картинка. */
+.pv-slot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
 }
 
 /* Текст центрируется по вертикали внутри блока; длинный переносится,

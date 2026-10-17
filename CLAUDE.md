@@ -39,8 +39,8 @@
 
 ## Модель данных
 - `formats` (id, name, width_mm, height_mm, bleed_mm, safe_mm, pages, min_dpi, target_dpi, price_kzt, created_at). `id` — читаемый slug (`square-200`), на него ссылаются шаблоны; `price_kzt` — целое число в тенге
-- `books` (id, token, format_id, template_id, schema_version, cover JSONB, pages JSONB, created_at, updated_at). `cover` — страница обложки, `pages` — массив внутренних страниц (см. «Формат страницы»), `schema_version` — версия этого формата JSON. `token` — 26 символов base32 (`crypto/rand.Text`)
-- `assets` (id, book_id, original_key, thumb_key, width_px, height_px, size_bytes)
+- `books` (id, token, format_id, template_id, schema_version, version, cover JSONB, pages JSONB, created_at, updated_at). `version` растёт при каждом сохранении; автосохранение присылает версию, которую видело, и получает 409 при конфликте. `cover` — страница обложки, `pages` — массив внутренних страниц (см. «Формат страницы»), `schema_version` — версия этого формата JSON. `token` — 26 символов base32 (`crypto/rand.Text`)
+- `assets` (id, book_id, status pending|uploaded, original_key, thumb_key, content_type, width_px, height_px, size_bytes, created_at, uploaded_at). Размеры — с учётом поворота EXIF, как фото видит человек
 - `orders` (id, book_id, name, phone, address, wanted_date, status, comment, pdf_key, created_at)
 - `order_events` (id, order_id, status, note, created_at)
 
@@ -71,6 +71,7 @@
 - Ключи JSON — camelCase везде (страницы, шаблоны, ответы API).
 - `size` текста — кегль в пунктах на напечатанной странице; на экране переводится в `cqw` (доля ширины страницы).
 - `font` — id шрифта в kebab-case (`playfair-display`, `caveat`).
+- `crop` фото: фото вписывается в слот с заполнением (как `object-fit: cover`), затем `zoom` (1–4); `offsetX`/`offsetY` от −1 до 1 выбирают видимую часть (−1 левый/верхний край, 0 центр, 1 правый/нижний). Рендер — чистый CSS (`object-position` + `transform: scale` с тем же `transform-origin`), без пикселей. Код: `frontend/src/book/crop.ts`.
 - Go-модель и проверка: `backend/internal/pages`, TS-типы: `frontend/src/types.ts`, отрисовка: `frontend/src/book/PageView.tsx`.
 
 ## Текст и шрифты
@@ -108,8 +109,8 @@
 
 1. **Каркас:** репозиторий, Docker Compose (Go, Postgres, S3/RustFS, фронтенд), health-check, миграции.
 2. **Книга и шаблоны:** создать книгу по токену, загрузить 2–3 тестовых шаблона, отдать их на фронтенд.
-3. **Редактор v0:** выбор шаблона → тап по слоту → загрузка фото → подвинуть/масштабировать кадр внутри слота. Автосохранение.
-4. **Загрузка и миниатюры:** presigned upload, миниатюры в фоне, проверка DPI и предупреждение.
+3. **Редактор v0:** выбор шаблона → тап по слоту → загрузка фото → подвинуть/масштабировать кадр внутри слота. Автосохранение. (Загрузка сразу сделана через presigned URL, чтобы не писать временный вариант.)
+4. **Загрузка и миниатюры:** миниатюры в фоне (libvips, с поворотом по EXIF), клиенту отдавать миниатюры вместо оригиналов, проверка DPI и предупреждение, уборка незавершённых загрузок.
 5. **Превью:** листание по разворотам, линия реза и безопасная зона.
 5а. **Текст и шрифты:** добавление и редактирование текстовых блоков, выбор шрифта, размера, цвета и выравнивания (см. раздел «Текст и шрифты»).
 6. **Заявка:** форма (имя, телефон, адрес, желаемая дата), создание заказа, сообщение в Telegram.

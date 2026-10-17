@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"photobook/internal/assets"
 	"photobook/internal/books"
 	"photobook/internal/config"
 	"photobook/internal/db"
@@ -52,7 +53,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if err := store.EnsureBucket(ctx); err != nil {
+	if err := store.EnsureBucket(ctx, cfg.AppOrigins); err != nil {
 		return err
 	}
 
@@ -75,6 +76,7 @@ func run(log *slog.Logger) error {
 			Formats:   formatStore,
 			Templates: catalog,
 			Books:     books.NewStore(pool),
+			Assets:    assets.NewService(pool, store),
 			Log:       log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

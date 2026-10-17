@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"photobook/internal/assets"
 	"photobook/internal/books"
 	"photobook/internal/formats"
 	"photobook/internal/templates"
@@ -24,6 +25,7 @@ type Deps struct {
 	Formats   *formats.Store
 	Templates *templates.Catalog
 	Books     *books.Store
+	Assets    *assets.Service
 	Log       *slog.Logger
 }
 
@@ -40,6 +42,10 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/templates/{id}", a.getTemplate)
 	mux.HandleFunc("POST /api/books", a.createBook)
 	mux.HandleFunc("GET /api/books/{token}", a.getBook)
+	mux.HandleFunc("PUT /api/books/{token}", a.saveBook)
+	mux.HandleFunc("POST /api/books/{token}/assets", a.startUpload)
+	mux.HandleFunc("POST /api/books/{token}/assets/{id}/complete", a.completeUpload)
+	mux.HandleFunc("GET /api/books/{token}/assets/{id}/image", a.assetImage)
 	return mux
 }
 
