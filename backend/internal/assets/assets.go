@@ -100,7 +100,7 @@ func (s *Service) StartUpload(ctx context.Context, bookID, contentType string, s
 		return Asset{}, "", fmt.Errorf("insert asset: %w", err)
 	}
 
-	url, err := s.storage.PresignPut(ctx, a.OriginalKey, uploadURLTTL)
+	url, err := s.storage.PresignPut(ctx, a.OriginalKey, size, uploadURLTTL)
 	if err != nil {
 		return Asset{}, "", err
 	}

@@ -97,7 +97,8 @@ class AutoSaver {
         this.stopped = true
         clearDraft(this.book.token)
         this.onStatus('locked')
-      } else if (e.code === 'network' || e.status === 0 || e.status >= 500) {
+      } else if (e.code === 'network' || e.status === 0 || e.status >= 500 || e.status === 429) {
+        // 429 — сервер просит притормозить (ограничение частоты): тоже просто повторим позже.
         this.onStatus('offline') // черновик уже в localStorage, повторим позже
         this.schedule(RETRY_DELAY)
       } else {

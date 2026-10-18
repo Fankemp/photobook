@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -93,8 +94,14 @@ func (s *Storage) Ping(ctx context.Context) error {
 }
 
 // PresignPut — ссылка, по которой браузер загрузит файл методом PUT.
-func (s *Storage) PresignPut(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	u, err := s.presign.PresignedPutObject(ctx, s.bucket, key, ttl)
+// PresignPut — ссылка, по которой браузер загрузит в хранилище ровно size байт.
+// Размер входит в подпись (заголовок Content-Length, его браузер ставит сам по
+// файлу): файл другого размера хранилище отклонит. Без этого по ссылке можно
+// было бы залить сколько угодно — проверка при подтверждении была бы уже после.
+func (s *Storage) PresignPut(ctx context.Context, key string, size int64, ttl time.Duration) (string, error) {
+	h := http.Header{}
+	h.Set("Content-Length", strconv.FormatInt(size, 10))
+	u, err := s.presign.PresignHeader(ctx, http.MethodPut, s.bucket, key, ttl, nil, h)
 	if err != nil {
 		return "", fmt.Errorf("presign put %s: %w", key, err)
 	}

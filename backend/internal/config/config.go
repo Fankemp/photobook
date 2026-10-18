@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ type Config struct {
 	HTTPAddr       string
 	DatabaseURL    string
 	TemplatesDir   string
+	Production     bool   // APP_ENV=production: строгие проверки паролей при запуске
 	FontsConfig    string // fonts.json — общий конфиг шрифтов с фронтендом
 	StickersConfig string // stickers.json — общий конфиг стикеров с фронтендом
 	// Адреса сайта, с которых браузер может загружать файлы прямо в хранилище (CORS).
@@ -116,7 +118,41 @@ func Load() (Config, error) {
 	if len(missing) > 0 {
 		return Config{}, fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))
 	}
+	cfg.Production = os.Getenv("APP_ENV") == "production"
+	if cfg.Production {
+		if err := checkProduction(cfg); err != nil {
+			return Config{}, err
+		}
+	}
 	return cfg, nil
+}
+
+// Пароли из .env.example — для разработки. В боевом режиме с ними сервер не запустится.
+var examplePasswords = map[string]bool{"photobook": true, "photobooksecret": true}
+
+// checkProduction — в боевом режиме (APP_ENV=production) не запускаемся
+// со слабыми паролями и без HTTPS: лучше упасть при запуске, чем открыть
+// базу или админку паролем из примера.
+func checkProduction(cfg Config) error {
+	var problems []string
+	if cfg.AdminPassword != "" && len(cfg.AdminPassword) < 16 {
+		problems = append(problems, "ADMIN_PASSWORD must be at least 16 characters")
+	}
+	if examplePasswords[cfg.S3.SecretKey] || len(cfg.S3.SecretKey) < 16 {
+		problems = append(problems, "S3_SECRET_KEY must be at least 16 characters and not the example one")
+	}
+	if u, err := url.Parse(cfg.DatabaseURL); err == nil {
+		if pass, _ := u.User.Password(); examplePasswords[pass] || len(pass) < 16 {
+			problems = append(problems, "the database password must be at least 16 characters and not the example one")
+		}
+	}
+	if !strings.HasPrefix(cfg.AppBaseURL, "https://") {
+		problems = append(problems, "APP_BASE_URL must be https://")
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("APP_ENV=production: %s", strings.Join(problems, "; "))
+	}
+	return nil
 }
 
 func getenv(key, fallback string) string {

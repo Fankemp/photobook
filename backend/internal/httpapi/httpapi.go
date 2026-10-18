@@ -8,12 +8,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"photobook/internal/assets"
 	"photobook/internal/books"
 	"photobook/internal/formats"
 	"photobook/internal/orders"
 	"photobook/internal/pages"
+	"photobook/internal/ratelimit"
 	"photobook/internal/render"
 	"photobook/internal/templates"
 )
@@ -44,24 +46,49 @@ type API struct {
 func New(d Deps) http.Handler {
 	a := &API{Deps: d}
 
+	// Сколько запросов можно с одного адреса (см. internal/ratelimit) — с запасом
+	// для живого человека: книгу создают раз-два, фото грузят пачками до сотни,
+	// автосохранение — не чаще раза в 1,5 с, заявка на книгу одна.
+	var (
+		books   = ratelimit.New(20, time.Hour, 10)
+		uploads = ratelimit.New(600, time.Hour, 100)
+		saves   = ratelimit.New(120, time.Minute, 60)
+		orders  = ratelimit.New(5, time.Hour, 3) // каждая заявка — сообщение в Telegram
+		all     = ratelimit.New(1200, time.Minute, 300)
+	)
+	limit := func(l *ratelimit.Limiter, h http.HandlerFunc) http.Handler { return l.Middleware(h) }
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", a.health)
 	mux.HandleFunc("GET /api/templates", a.listTemplates)
 	mux.HandleFunc("GET /api/templates/{id}", a.getTemplate)
-	mux.HandleFunc("POST /api/books", a.createBook)
+	mux.Handle("POST /api/books", limit(books, a.createBook))
 	mux.HandleFunc("GET /api/books/{token}", a.getBook)
-	mux.HandleFunc("PUT /api/books/{token}", a.saveBook)
-	mux.HandleFunc("POST /api/books/{token}/assets", a.startUpload)
-	mux.HandleFunc("POST /api/books/{token}/assets/{id}/complete", a.completeUpload)
+	mux.Handle("PUT /api/books/{token}", limit(saves, a.saveBook))
+	mux.Handle("POST /api/books/{token}/assets", limit(uploads, a.startUpload))
+	mux.Handle("POST /api/books/{token}/assets/{id}/complete", limit(uploads, a.completeUpload))
 	mux.HandleFunc("GET /api/books/{token}/assets/{id}/image", a.assetImage)
 	mux.HandleFunc("GET /api/books/{token}/order", a.getOrder)
-	mux.HandleFunc("POST /api/books/{token}/order", a.createOrder)
+	mux.Handle("POST /api/books/{token}/order", limit(orders, a.createOrder))
 	mux.HandleFunc("GET /api/print/{order}", a.printData)
 	if d.Admin != nil {
 		mux.Handle("/admin/", d.Admin)
 		mux.Handle("GET /admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently))
 	}
-	return mux
+	return secureHeaders(all.Middleware(mux))
+}
+
+// secureHeaders — заголовки безопасности для всех ответов API и админки:
+// браузер не угадывает тип содержимого, страницы нельзя встроить в чужой
+// сайт (кликджекинг), в Referer уходит только наш адрес.
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "same-origin")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"photobook/internal/orders"
+	"photobook/internal/ratelimit"
 	"photobook/internal/storage"
 )
 
@@ -41,11 +42,15 @@ type handler struct {
 	Deps
 	cfg   Config
 	pages map[string]*template.Template
+	// Неверные пароли с одного адреса: 10 подряд — и вход закрыт; одна попытка
+	// возвращается раз в 1,5 минуты (10 за 15 минут). Подбор пароля становится
+	// безнадёжным, а свой человек, ошибившийся пару раз, не заметит.
+	failures *ratelimit.Limiter
 }
 
 // New собирает админку по адресам /admin/…
 func New(cfg Config, d Deps) http.Handler {
-	h := &handler{Deps: d, cfg: cfg, pages: parsePages()}
+	h := &handler{Deps: d, cfg: cfg, pages: parsePages(), failures: ratelimit.New(10, 15*time.Minute, 10)}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /admin/{$}", h.list)
@@ -79,12 +84,22 @@ func (h *handler) auth(next http.Handler) http.Handler {
 	wantUser := sha256.Sum256([]byte(h.cfg.User))
 	wantPass := sha256.Sum256([]byte(h.cfg.Password))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Строгая политика для страниц админки: скриптов в ней нет, стили — свои,
+		// встраивать её в чужие страницы нельзя.
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		ip := ratelimit.ClientIP(r).String()
+		if h.failures.Blocked(ip) {
+			ratelimit.TooMany(w, int((15 * time.Minute).Seconds()))
+			return
+		}
 		user, pass, ok := r.BasicAuth()
 		u := sha256.Sum256([]byte(user))
 		p := sha256.Sum256([]byte(pass))
 		if !ok || subtle.ConstantTimeCompare(u[:], wantUser[:])&subtle.ConstantTimeCompare(p[:], wantPass[:]) != 1 {
 			if ok {
-				time.Sleep(500 * time.Millisecond) // неверный пароль — отвечаем медленно, подбор дорожает
+				h.failures.Allow(ip)               // неверная попытка тратит жетон
+				time.Sleep(500 * time.Millisecond) // и ответ медленный — подбор дорожает
 			}
 			w.Header().Set("WWW-Authenticate", `Basic realm="Photobook admin", charset="UTF-8"`)
 			http.Error(w, "Нужен пароль администратора", http.StatusUnauthorized)

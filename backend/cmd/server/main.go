@@ -175,7 +175,12 @@ func run(log *slog.Logger) error {
 			Signer:    signer,
 			Log:       log,
 		}),
+		// Таймауты: медленный клиент не держит соединение бесконечно (slowloris).
+		// Тела запросов маленькие (JSON до 1 МБ), фото идут мимо сервера — в хранилище.
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       2 * time.Minute,
 	}
 
 	errc := make(chan error, 1)
