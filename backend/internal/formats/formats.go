@@ -94,6 +94,15 @@ func (f Format) Price(n int) int {
 	return max(0, f.PriceKZT+f.PricePerPageKZT*(n-f.Pages))
 }
 
+// JSONSQL — выражение SQL, собирающее строку formats (под псевдонимом f) в JSON
+// с теми же ключами, что у Format: так формат сохраняется в снимке заказа
+// и читается обратно через encoding/json. Колонки — как в columns.
+const JSONSQL = `jsonb_build_object('id', f.id, 'name', f.name, 'widthMm', f.width_mm, 'heightMm', f.height_mm,
+	'bleedMm', f.bleed_mm, 'safeMm', f.safe_mm, 'pages', f.pages, 'minPages', f.min_pages,
+	'maxPages', f.max_pages, 'pageStep', f.page_step, 'minDpi', f.min_dpi, 'targetDpi', f.target_dpi,
+	'priceKzt', f.price_kzt, 'pricePerPageKzt', f.price_per_page_kzt, 'spineMm', f.spine_mm,
+	'wrapMm', f.wrap_mm, 'pdfMode', f.pdf_mode, 'pdfOrder', f.pdf_order)`
+
 var ErrNotFound = errors.New("format not found")
 
 type Store struct {

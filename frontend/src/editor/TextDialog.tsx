@@ -52,6 +52,10 @@ export function TextDialog({ el, page, format, imageSrc, onChange, onClose }: Pr
         rows={3}
         value={el.text}
         maxLength={MAX_TEXT_LENGTH}
+        // Проверка орфографии браузера: опечатки подчёркиваются красным.
+        // lang="ru" — словарь русского языка (на телефоне — клавиатуры).
+        spellCheck
+        lang="ru"
         placeholder={t.editor.textPlaceholder}
         onChange={(e) => onChange(e.target.value)}
       />

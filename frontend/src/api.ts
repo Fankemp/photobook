@@ -71,11 +71,13 @@ export function saveBook(token: string, body: SaveBookBody, keepalive = false) {
 
 // Загрузка фото: 1) просим ссылку, 2) кладём файл прямо в хранилище,
 // 3) подтверждаем. Подробнее — backend/internal/assets.
-export function startUpload(token: string, contentType: string, size: number) {
-  return request<{ assetId: string; uploadUrl: string }>(`/api/books/${encodeURIComponent(token)}/assets`, {
+// sha256 и takenAt (дата съёмки) необязательны. duplicate — такое фото в книге
+// уже есть (assetId — его id), загружать файл не нужно.
+export function startUpload(token: string, body: { contentType: string; size: number; sha256?: string; takenAt?: string }) {
+  return request<{ assetId: string; uploadUrl?: string; duplicate?: boolean }>(`/api/books/${encodeURIComponent(token)}/assets`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contentType, size }),
+    body: JSON.stringify(body),
   })
 }
 
@@ -88,11 +90,11 @@ export function completeUpload(token: string, assetId: string, width: number, he
 }
 
 // fetch не умеет сообщать прогресс отправки, поэтому здесь XMLHttpRequest.
-export function putFile(url: string, file: File, onProgress: (fraction: number) => void): Promise<void> {
+export function putFile(url: string, file: File, contentType: string, onProgress: (fraction: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', url)
-    xhr.setRequestHeader('Content-Type', file.type)
+    xhr.setRequestHeader('Content-Type', contentType)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total)
     }
@@ -100,6 +102,26 @@ export function putFile(url: string, file: File, onProgress: (fraction: number) 
     xhr.onerror = () => reject(new ApiError('upload_failed', 0))
     xhr.send(file)
   })
+}
+
+// Фото книги (лоток «Мои фото»).
+export function listAssets(token: string) {
+  return request<AssetInfo[]>(`/api/books/${encodeURIComponent(token)}/assets`)
+}
+
+// Удалить фото из лотка и вернуть его («Отменить»). Файл остаётся в хранилище.
+export async function removeAsset(token: string, assetId: string, removed: boolean) {
+  const path = `/api/books/${encodeURIComponent(token)}/assets/${assetId}`
+  let res: Response
+  try {
+    res = await fetch(removed ? path : `${path}/restore`, { method: removed ? 'DELETE' : 'POST' })
+  } catch {
+    throw new ApiError('network', 0)
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new ApiError(typeof body?.error === 'string' ? body.error : 'internal', res.status)
+  }
 }
 
 // Постоянный адрес картинки: backend перенаправит на временную ссылку в хранилище.

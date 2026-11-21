@@ -56,8 +56,47 @@ await submit.waitFor() // «Сохраняем книгу…» → «Отпра�
 let b = await api(`/books/${token}`)
 check(b.pages[0].elements[0].size === 20, `unsaved edit was saved before ordering (size ${b.pages[0].elements[0].size})`)
 check((await page.locator('.book-issues').textContent()).includes('Пустые рамки'), 'form shows what to fix (empty frames)')
-check(await submit.isDisabled(), 'submit is disabled until the "print as is" box is ticked')
-await page.getByLabel('Понимаю: книга будет напечатана так, как сейчас в превью.').check()
+check(await submit.isDisabled(), 'submit is disabled until the book is checked and the box is ticked')
+
+// Без галочки «проверил(а)» сервер заявку не примет.
+const noBox = await fetch(`${apiBase}/api/books/${token}/order`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'Тест', phone: '+77001234567', address: 'Алматы, Абая 10', wantedDate: '2099-01-01', comment: '', version: b.version }),
+})
+check(noBox.status === 400 && (await noBox.json()).error !== undefined && (await api(`/books/${token}`)).order === null, 'order without the confirmation box is refused (no order created)')
+
+// Шаг «Проверьте книгу»: листаем все страницы по порядку, галочка — только в конце.
+const review = page.locator('.order-review')
+const box = review.getByLabel('Я проверил(а) тексты и фото. После печати исправить ничего нельзя.')
+check((await review.locator('.order-review-head').textContent()).startsWith('Обложка'), 'review starts on the cover')
+check(await box.isDisabled(), 'confirmation box is locked until all pages are viewed')
+const total = b.pages.length + 2
+let sawText = false
+let sawEmpty = false
+for (let i = 1; i < total; i++) {
+  await review.getByRole('button', { name: 'Дальше' }).click()
+  const text = await review.textContent()
+  if (i === 1) sawText = text.includes('«Здесь начинается наша история»')
+  sawEmpty ||= text.includes('Пустая рамка') || text.includes('Пустых рамок')
+}
+check(sawText, 'review lists the texts of the page (page 1: «Здесь начинается наша история»)')
+check(sawEmpty, 'review warns about empty frames on the page')
+check((await review.locator('.order-review-head').textContent()).startsWith('Задняя обложка') && (await review.textContent()).includes(`Просмотрено ${total} из ${total}`), `all ${total} pages viewed in order, up to the back cover`)
+await page.screenshot({ path: `${out}/or-0-review.png`, fullPage: true })
+await box.check()
+check(await submit.isEnabled(), 'after the box is ticked the form can be sent')
+
+// «Все подписи книги» — тексты всех страниц списком, со ссылкой на страницу в редакторе.
+const texts = await ctx.newPage()
+await texts.goto(`${base}/b/${token}/texts`)
+await texts.locator('.texts-list').waitFor()
+check((await texts.locator('.texts-list').textContent()).includes('Здесь начинается наша история'), '"Все подписи книги" lists the texts by page')
+await texts.screenshot({ path: `${out}/or-texts.png`, fullPage: true })
+await texts.getByRole('link', { name: 'Страница 1', exact: true }).click()
+await texts.waitForURL(/\?page=1$/)
+check(true, 'page link opens that page in the editor')
+await texts.close()
 
 // 3. Пустая форма → подсказки под полями, фокус на первом поле с ошибкой.
 await submit.click()
@@ -95,19 +134,28 @@ b = await api(`/books/${token}`)
 const info = await api(`/books/${token}/order`)
 check(b.order?.number === number && info.order.phone === '+77001234567' && info.order.wantedDate === minDate, `order stored: №${b.order?.number}, phone normalized, date ${info.order?.wantedDate}`)
 
-// 6. После заявки книга закрыта: ссылка на книгу ведёт на статус, в превью — статус вместо кнопки.
-await page.goto(`${base}/b/${token}`)
-await page.waitForURL(/\/order$/)
-check(true, 'book link redirects to the order status')
+// 6. После заявки книгу ещё можно менять (заказ не в печати): ссылка открывает
+//    редактор с пояснением; в превью — статус заявки вместо кнопки.
+check(await page.getByRole('link', { name: 'Изменить книгу' }).isVisible(), 'order page: "Изменить книгу" while the order is not in print')
+await page.goto(`${base}/b/${token}?page=1`)
+await page.locator('.ed-banner-info', { hasText: `заявка №${number}` }).waitFor()
+check(true, 'after the order the book opens in the editor with "Книгу ещё можно менять"')
+// Поле ввода текста — с проверкой орфографии браузера на русском.
+await page.locator('.ed-text').first().click()
+await page.getByRole('button', { name: 'Изменить текст' }).click()
+const area = page.locator('.ed-dialog textarea')
+check((await area.getAttribute('spellcheck')) === 'true' && (await area.getAttribute('lang')) === 'ru', 'text input has spellcheck on, language ru')
+await page.getByRole('dialog').getByRole('button', { name: 'Готово' }).click()
 await page.goto(`${base}/b/${token}/preview`)
 await page.locator('.pp-book').waitFor()
 check(await page.getByRole('link', { name: `Заявка №${number} оформлена, посмотреть статус` }).isVisible(), 'preview shows the order instead of the button')
 
-// 7. Старая вкладка редактора пытается сохранить → понятное сообщение, книга не меняется.
+// 7. Старая вкладка редактора (открыта до заявки, со старой версией книги)
+//    пытается сохранить → конфликт, книга не перезаписана.
 await stale.locator('.ed-text').first().click()
 await stale.getByRole('button', { name: 'Меньше' }).click()
-await stale.locator('.ed-banner', { hasText: 'уже оформлена заявка' }).waitFor({ timeout: 10000 })
-check(true, 'stale editor tab: save refused with "уже оформлена заявка"')
+await stale.locator('.ed-banner', { hasText: 'Книгу изменили' }).waitFor({ timeout: 10000 })
+check(true, 'stale editor tab: save refused with a conflict banner')
 b = await api(`/books/${token}`)
 check(b.pages[0].elements[0].size === 20, 'ordered book content did not change')
 

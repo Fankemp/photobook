@@ -13,6 +13,11 @@ import (
 // оригиналы фото. Чтобы их не мог получить кто угодно, ссылка подписана:
 // HMAC от id заявки и срока действия. Секрет знает только backend.
 
+// PrintSubject — что подписывает ссылка: заявка и версия (снимок), которую печатаем.
+func PrintSubject(orderID string, version int) string {
+	return orderID + "/v" + strconv.Itoa(version)
+}
+
 // Signer подписывает и проверяет ссылки на печатную страницу.
 type Signer struct {
 	secret []byte

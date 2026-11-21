@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	"photobook/internal/formats"
 	"photobook/internal/orders"
 	"photobook/internal/pages"
+	"photobook/internal/render"
 )
 
 type printResponse struct {
@@ -20,17 +22,20 @@ type printResponse struct {
 	Images    map[string]string `json:"images"` // id фото → ссылка на оригинал
 }
 
-// printData — данные для печатной страницы /print/<id заявки>. Её открывает
+// printData — данные для печатной страницы /print/<id заявки>?v=<версия>. Её открывает
 // только сервис рендера по подписанной ссылке (см. render.Signer): здесь
 // отдаются оригиналы фото, которые клиенту не показываем.
 func (a *API) printData(w http.ResponseWriter, r *http.Request) {
 	orderID := r.PathValue("order")
 	q := r.URL.Query()
-	if uuid.Validate(orderID) != nil || !a.Signer.Verify(orderID, q.Get("exp"), q.Get("sig"), time.Now()) {
+	version, verr := strconv.Atoi(q.Get("v"))
+	if uuid.Validate(orderID) != nil || verr != nil ||
+		!a.Signer.Verify(render.PrintSubject(orderID, version), q.Get("exp"), q.Get("sig"), time.Now()) {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
-	bookID, err := a.Orders.BookOf(r.Context(), orderID)
+	// Печатаем снимок заказа этой версии — ровно то, что было в книге при снимке.
+	sn, err := a.Orders.SnapshotOf(r.Context(), orderID, version)
 	if errors.Is(err, orders.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "order_not_found")
 		return
@@ -39,17 +44,7 @@ func (a *API) printData(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	b, err := a.Books.GetByID(r.Context(), bookID)
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	f, err := a.Formats.Get(r.Context(), b.FormatID)
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	uploaded, err := a.Assets.ListUploaded(r.Context(), b.ID)
+	uploaded, err := a.Assets.ListUploaded(r.Context(), sn.BookID)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -64,5 +59,5 @@ func (a *API) printData(w http.ResponseWriter, r *http.Request) {
 		images[id] = url
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, printResponse{Format: f, Cover: b.Cover, Pages: b.Pages, BackCover: b.BackCover, Images: images})
+	writeJSON(w, http.StatusOK, printResponse{Format: sn.Format, Cover: sn.Cover, Pages: sn.Pages, BackCover: sn.BackCover, Images: images})
 }

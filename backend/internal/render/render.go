@@ -2,6 +2,10 @@
 // (страницы). Сам PDF делает сервис рендера (render/, Chromium через Playwright):
 // он открывает печатную страницу сайта — тот же компонент страницы, что видит
 // клиент, только с оригиналами фото — и печатает её в PDF.
+//
+// Печатается снимок заказа (orders.Snapshot), а не живая книга: каждая сборка —
+// своя версия заказа со своими файлами (orders/<номер>/v<версия>/…), прежние
+// PDF не перезаписываются.
 package render
 
 import (
@@ -24,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"photobook/internal/formats"
+	"photobook/internal/orders"
 	"photobook/internal/storage"
 )
 
@@ -65,6 +70,7 @@ func (s Sheet) Cover() (w, h float64) {
 
 type Worker struct {
 	db      *pgxpool.Pool
+	orders  *orders.Service
 	storage *storage.Storage
 	signer  *Signer
 	cfg     Config
@@ -73,8 +79,8 @@ type Worker struct {
 	queued  chan struct{}
 }
 
-func NewWorker(db *pgxpool.Pool, st *storage.Storage, signer *Signer, cfg Config, log *slog.Logger) *Worker {
-	return &Worker{db: db, storage: st, signer: signer, cfg: cfg, log: log,
+func NewWorker(db *pgxpool.Pool, ord *orders.Service, st *storage.Storage, signer *Signer, cfg Config, log *slog.Logger) *Worker {
+	return &Worker{db: db, orders: ord, storage: st, signer: signer, cfg: cfg, log: log,
 		client: &http.Client{Timeout: renderTimeout}, queued: make(chan struct{}, 1)}
 }
 
@@ -166,8 +172,7 @@ func Plan(mode string, order []string, pageCount int, s Sheet) []fileSpec {
 type job struct {
 	orderID     string
 	number      int64
-	orderVer    int
-	bookVer     int
+	version     orders.Version // какой снимок заказа собираем
 	pages       int
 	sheet       Sheet
 	format      formats.Format // только pdf_mode и pdf_order — для плана файлов
@@ -205,9 +210,7 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 	// строки мешала бы остальным — уведомлению в Telegram и смене статуса в админке.
 	var j job
 	err := w.db.QueryRow(ctx, `
-		SELECT o.id, o.number, o.book_version, b.version, jsonb_array_length(b.pages),
-		       f.width_mm, f.height_mm, f.bleed_mm, f.wrap_mm, f.spine_mm, f.id, f.pdf_mode, f.pdf_order
-		FROM orders o JOIN books b ON b.id = o.book_id JOIN formats f ON f.id = b.format_id
+		SELECT o.id, o.number FROM orders o
 		WHERE o.status <> 'cancelled' AND o.rendered_at IS NULL AND o.render_attempts < $1
 		  -- Ждём, пока фото книги обработаны (миниатюра и, если нужно, повёрнутая
 		  -- печатная копия), но не дольше 10 минут после загрузки.
@@ -216,15 +219,21 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 		                  AND a.uploaded_at > now() - interval '10 minutes')
 		ORDER BY o.render_attempts, o.created_at
 		LIMIT 1`, maxAttempts,
-	).Scan(&j.orderID, &j.number, &j.orderVer, &j.bookVer, &j.pages,
-		&j.sheet.WidthMM, &j.sheet.HeightMM, &j.sheet.BleedMM, &j.sheet.WrapMM, &j.sheet.SpineMM,
-		&j.format.ID, &j.format.PDFMode, &j.format.PDFOrder)
+	).Scan(&j.orderID, &j.number)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
+	// Что печатать: снимок заказа (первая версия или новый снимок после правок).
+	sn, err := w.orders.VersionForRender(ctx, j.orderID)
+	if err != nil {
+		return false, fmt.Errorf("order %d: snapshot: %w", j.number, err)
+	}
+	f := sn.Format
+	j.version, j.pages, j.format = sn.Version, len(sn.Pages), f
+	j.sheet = Sheet{WidthMM: f.WidthMM, HeightMM: f.HeightMM, BleedMM: f.BleedMM, WrapMM: f.WrapMM, SpineMM: f.SpineMM}
 
 	started := time.Now()
 	renderErr := w.renderOrder(ctx, &j)
@@ -239,30 +248,24 @@ func (w *Worker) renderNext(ctx context.Context) (bool, error) {
 
 	info := fmt.Sprintf("%s; цвет фото: %s; фото: %d JPEG без пересжатия, %d разжато; шрифты встроены: %s",
 		strings.Join(j.files, ". "), colorList(j.colorspaces), j.jpegImages, j.otherImages, fontList(j.fontsUsed))
-	_, err = w.db.Exec(ctx, `
-		UPDATE orders SET book_pdf_key = $2, cover_pdf_key = $3, block_pdf_key = $4,
-		                  rendered_at = now(), render_error = NULL, pdf_info = $5
-		WHERE id = $1`, j.orderID, nullIfEmpty(j.keys["book"]), nullIfEmpty(j.keys["cover"]), nullIfEmpty(j.keys["block"]), info)
+	err = w.orders.SaveRenderedPDF(ctx, j.orderID, j.version, orders.PDF{
+		Book: j.keys["book"], Cover: j.keys["cover"], Block: j.keys["block"], Info: info})
 	if err != nil {
 		return true, err
 	}
-	w.log.Info("pdf rendered", "number", j.number, "files", len(j.keys), "took", time.Since(started).Round(time.Millisecond))
+	w.log.Info("pdf rendered", "number", j.number, "version", j.version.Number, "files", len(j.keys),
+		"took", time.Since(started).Round(time.Millisecond))
 	return true, nil
 }
 
 func (w *Worker) renderOrder(ctx context.Context, j *job) error {
-	// Книга закрыта после заявки, так что версия совпадает; если нет — печатать
-	// нельзя: клиент заказывал другое содержимое.
-	if j.bookVer != j.orderVer {
-		return fmt.Errorf("книга изменилась после заявки (версия %d, в заявке %d)", j.bookVer, j.orderVer)
-	}
 	order, err := j.format.Order() // настройку могли поменять в базе после старта
 	if err != nil {
 		return err
 	}
 	j.keys = map[string]string{}
 	for _, f := range Plan(j.format.PDFMode, order, j.pages, j.sheet) {
-		res, err := w.renderFile(ctx, j.orderID, f)
+		res, err := w.renderFile(ctx, j.orderID, j.version.Number, f)
 		if err != nil {
 			return fmt.Errorf("%s.pdf: %w", f.Name, err)
 		}
@@ -271,7 +274,7 @@ func (w *Worker) renderOrder(ctx context.Context, j *job) error {
 			os.Remove(res.path)
 			return err
 		}
-		key := fmt.Sprintf("orders/%d/%s.pdf", j.number, f.Name)
+		key := fmt.Sprintf("orders/%d/v%d/%s.pdf", j.number, j.version.Number, f.Name)
 		err = w.storage.Upload(ctx, key, res.path, "application/pdf")
 		os.Remove(res.path)
 		if err != nil {
@@ -346,9 +349,9 @@ type partResult struct {
 // renderFile просит сервис рендера собрать один PDF из листов плана.
 // Каждый лист — печатная страница сайта со своим размером; сервис печатает
 // их по одному (память Chromium) и склеивает.
-func (w *Worker) renderFile(ctx context.Context, orderID string, f fileSpec) (partResult, error) {
-	exp, sig := w.signer.Link(orderID, linkTTL, time.Now())
-	base := fmt.Sprintf("%s/print/%s?exp=%s&sig=%s", strings.TrimRight(w.cfg.PrintBaseURL, "/"), orderID, exp, sig)
+func (w *Worker) renderFile(ctx context.Context, orderID string, version int, f fileSpec) (partResult, error) {
+	exp, sig := w.signer.Link(PrintSubject(orderID, version), linkTTL, time.Now())
+	base := fmt.Sprintf("%s/print/%s?v=%d&exp=%s&sig=%s", strings.TrimRight(w.cfg.PrintBaseURL, "/"), orderID, version, exp, sig)
 	sheets := make([]map[string]any, len(f.Sheets))
 	for i, s := range f.Sheets {
 		u := base + "&sheet=" + s.Kind
@@ -401,13 +404,6 @@ func (w *Worker) renderFile(ctx context.Context, orderID string, f fileSpec) (pa
 		res.fonts = strings.Split(fonts, ",")
 	}
 	return res, nil
-}
-
-func nullIfEmpty(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }
 
 func mm(w, h float64) string {

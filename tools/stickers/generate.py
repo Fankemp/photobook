@@ -490,8 +490,161 @@ add("decor", "doodle-heart", "Сердечко от руки", [
     f'<path transform="translate(14 14) rotate(-8 46 46) scale(.78)" d="{HEART}" fill="none" stroke="#e2525c" stroke-width="7" stroke-linejoin="round"/>',
 ])
 
+# --- Рамки и бумага: подложки под фото и подписи (полароид, отпечаток, фото-
+# полоска, записка, открытка, карта…). В шаблоне фото-слот кладут поверх рамки
+# в её «окно» — размеры окон ниже (FRAME_WINDOWS) повторяет tools/templates/generate.py.
+# Тень — полупрозрачная копия со сдвигом, без фильтров: в PDF остаётся вектором.
+
+def shadow_rect(x, y, w, h, rx=0, dx=2.5, dy=3.5):
+    return (f'<rect x="{x + dx}" y="{y + dy}" width="{w}" height="{h}" rx="{rx}" fill="#000" opacity=".16"/>'
+            f'<rect x="{x + dx / 2}" y="{y + dy / 2}" width="{w}" height="{h}" rx="{rx}" fill="#000" opacity=".1"/>')
+
+
+def raw(w, h, body, defs=""):
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}">\n{defs}{body}\n</svg>\n'
+
+
+# Полароид 100×120: окно фото 6,6 — 84×84, внизу поле для подписи.
+add("frames", "polaroid", "Полароид", raw=raw(100, 120, shadow_rect(0, 0, 96, 115, 1.5) +
+    '<rect x="0" y="0" width="96" height="115" rx="1.5" fill="#fbfaf6"/>'
+    '<rect x="6" y="6" width="84" height="84" fill="#d9d4cc"/>'), w=100, h=120)
+# Отпечаток с белой каймой: книжный 100×125, альбомный 125×100, квадрат 100×100.
+for name, title, pw, ph in [("print-portrait", "Фото с каймой, книжное", 100, 125),
+                            ("print-landscape", "Фото с каймой, альбомное", 125, 100),
+                            ("print-square", "Фото с каймой, квадрат", 100, 100)]:
+    add("frames", name, title, raw=raw(pw, ph, shadow_rect(0, 0, pw - 4, ph - 5, 1) +
+        f'<rect x="0" y="0" width="{pw - 4}" height="{ph - 5}" rx="1" fill="#fbfaf6"/>'
+        f'<rect x="4.5" y="4.5" width="{pw - 13}" height="{ph - 14}" fill="#d9d4cc"/>'), w=pw, h=ph)
+# Фотополоска из фотобудки 60×200: четыре окна 47×44 с шагом 48.
+add("frames", "strip", "Фотополоска", raw=raw(60, 200, shadow_rect(0, 0, 57, 196, 1) +
+    '<rect x="0" y="0" width="57" height="196" rx="1" fill="#f3eee4" stroke="#1d1b1a" stroke-width="1.4"/>' +
+    "".join(f'<rect x="5" y="{5 + i * 48}" width="47" height="44" fill="#d9d4cc"/>' for i in range(4))), w=60, h=200)
+# Записка — молочная бумага с рваными краями сверху и снизу.
+torn_top = " ".join(f"L {x} {2 + (1.6 if (x // 6) % 2 else 0)}" for x in range(6, 141, 6))
+torn_bottom = " ".join(f"L {x} {92 - (1.8 if (x // 7) % 2 else 0)}" for x in range(140, -1, -7))
+note_d = f"M 0 3 {torn_top} L 140 3 L 140 92 {torn_bottom} Z"
+add("frames", "note", "Записка", raw=raw(145, 100,
+    f'<path d="{note_d}" transform="translate(3 4)" fill="#000" opacity=".15"/><path d="{note_d}" fill="#f4eedd"/>'), w=145, h=100)
+# Лист бумаги (молочный) 100×160 — подложка под две фото-«сердечки» и подписи.
+add("frames", "paper", "Лист бумаги", raw=raw(100, 160, shadow_rect(0, 0, 96, 155) +
+    '<rect x="0" y="0" width="96" height="155" fill="#f4efe4"/>'), w=100, h=160)
+# Малярный скотч — бежевый, полупрозрачный, с рваными концами.
+tape_d = "M 2 0 L 118 2 L 115 8 L 119 15 L 116 22 L 120 30 L 3 34 L 0 26 L 4 18 L 0 10 Z"
+add("frames", "tape", "Малярный скотч", raw=raw(120, 34, f'<path d="{tape_d}" fill="#e6d3ad" opacity=".88"/>'), w=120, h=34)
+
+
+def heart_d(cx, top, w):
+    """Сердце шириной w с верхней точкой выреза на top (как маска фото-сердца 100×92)."""
+    k = w / 100
+    pts = [(50, 90), (22, 70), (2, 52), (2, 28), (2, 12), (14, 2), (28, 2), (38, 2), (46, 8), (50, 17),
+           (54, 8), (62, 2), (72, 2), (86, 2), (98, 12), (98, 28), (98, 52), (78, 70), (50, 90)]
+    q = [(round(cx - 50 * k + x * k, 2), round(top - 2 * k + y * k, 2)) for x, y in pts]
+    return (f"M{q[0][0]} {q[0][1]} C{q[1][0]} {q[1][1]} {q[2][0]} {q[2][1]} {q[3][0]} {q[3][1]} "
+            f"C{q[4][0]} {q[4][1]} {q[5][0]} {q[5][1]} {q[6][0]} {q[6][1]} C{q[7][0]} {q[7][1]} {q[8][0]} {q[8][1]} {q[9][0]} {q[9][1]} "
+            f"C{q[10][0]} {q[10][1]} {q[11][0]} {q[11][1]} {q[12][0]} {q[12][1]} C{q[13][0]} {q[13][1]} {q[14][0]} {q[14][1]} {q[15][0]} {q[15][1]} "
+            f"C{q[16][0]} {q[16][1]} {q[17][0]} {q[17][1]} {q[18][0]} {q[18][1]} Z")
+
+
+# Кружевное сердце 120×110: белое сердце с фестонами и дырочками; в шаблоне
+# поверх него — фото-сердце (окно: центр 60, верх 13, ширина 84).
+lace = []
+for i in range(46):  # фестоны — кружки по контуру большого сердца (кроме самого кончика)
+    t = i / 46 * 2 * math.pi
+    if abs(t - math.pi) < 0.3:
+        continue
+    x = 60 + 56 * (16 * math.sin(t) ** 3) / 16
+    y = 50 - 50 * (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) / 16
+    lace.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.2"/>')
+holes = []
+for i in range(40):  # дырочки по кольцу между краем и фото
+    t = i / 40 * 2 * math.pi
+    x = 60 + 50 * (16 * math.sin(t) ** 3) / 16
+    y = 51 - 45 * (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) / 16
+    holes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.5" fill="#000"/>')
+heart_big = "M60 106 C26 84 2 64 2 36 C2 15 18 3 35 3 C46 3 55 10 60 20 C65 10 74 3 85 3 C102 3 118 15 118 36 C118 64 94 84 60 106 Z"
+add("frames", "lace-heart", "Кружевное сердце", raw=raw(120, 110,
+    '<g mask="url(#m)" fill="#fbf9f5"><path d="' + heart_big + '"/>' + "".join(lace) + '</g>',
+    defs='<defs><mask id="m"><rect width="120" height="110" fill="#fff"/>' + "".join(holes) + '</mask></defs>'), w=120, h=110)
+# Красное «вырезное» сердце 130×118: фестоны по краю и кольцо прорезей-капель
+# (прорези прозрачные — сквозь них виден фон страницы).
+scallops, cuts = [], []
+for i in range(54):
+    t = i / 54 * 2 * math.pi
+    if abs(t - math.pi) < 0.25:
+        continue
+    x = 65 + 59 * (16 * math.sin(t) ** 3) / 16
+    y = 54 - 53 * (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) / 16
+    scallops.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4"/>')
+for i in range(34):
+    t = i / 34 * 2 * math.pi
+    if abs(t - math.pi) < 0.3:
+        continue
+    x = 65 + 52 * (16 * math.sin(t) ** 3) / 16
+    y = 55 - 46 * (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) / 16
+    ang = math.degrees(math.atan2(y - 58, x - 65)) + 90
+    cuts.append(f'<ellipse cx="{x:.1f}" cy="{y:.1f}" rx="1.3" ry="2.6" transform="rotate({ang:.0f} {x:.1f} {y:.1f})" fill="#000"/>')
+red_heart = "M65 110 C30 88 8 68 8 42 C8 22 23 10 40 10 C51 10 60 17 65 27 C70 17 79 10 90 10 C107 10 122 22 122 42 C122 68 100 88 65 110 Z"
+add("frames", "heart-red-lace", "Сердце с кружевом", raw=raw(130, 118,
+    '<g mask="url(#c)" fill="#b5262c">' + "".join(scallops) + f'<path d="{red_heart}"/></g>',
+    defs='<defs><mask id="c"><rect width="130" height="118" fill="#fff"/>' + "".join(cuts) + '</mask></defs>'), w=130, h=118)
+
+
+def letter_a(x, y, s, color):
+    """Буква «A» для угла игральной карты — штрихами (без шрифтов внутри SVG)."""
+    return (f'<path d="M{x} {y + s} L {x + s * .45} {y} L {x + s * .9} {y + s} M{x + s * .2} {y + s * .62} L {x + s * .7} {y + s * .62}" '
+            f'fill="none" stroke="{color}" stroke-width="{s * .13:.2f}" stroke-linejoin="round"/>')
+
+
+small_heart = "M5 9 C2 7 0 5 0 3 C0 1 1.4 0 2.6 0 C3.6 0 4.5 .6 5 1.6 C5.5 .6 6.4 0 7.4 0 C8.6 0 10 1 10 3 C10 5 8 7 5 9 Z"
+add("frames", "card", "Игральная карта", raw=raw(100, 145, shadow_rect(0, 0, 96, 140, 7) +
+    '<rect x="0" y="0" width="96" height="140" rx="7" fill="#fbfaf7"/>' + letter_a(6, 7, 11, "#c0262d") +
+    f'<path d="{small_heart}" transform="translate(7 21) scale(.95)" fill="#c0262d"/>'
+    f'<path d="{small_heart}" transform="translate(89 133) rotate(180) scale(.95)" fill="#c0262d"/>'), w=100, h=145)
+# Конверт (вид сзади) 200×190: клапан и складки.
+add("frames", "envelope", "Конверт", raw=raw(200, 190, shadow_rect(0, 0, 196, 185, 3) +
+    '<rect x="0" y="0" width="196" height="185" rx="3" fill="#f2ecdf"/>'
+    '<path d="M0 185 L 98 92 L 196 185" fill="none" stroke="#d8cdb6" stroke-width="1.6"/>'
+    '<path d="M0 0 L 98 112 Q 104 118 110 112 L 196 0 Z" fill="#f6f1e6" stroke="#d3c7ae" stroke-width="1.6"/>'
+    '<path d="M0 0 L 98 112 Q 104 118 110 112 L 196 0" fill="none" stroke="#fff" stroke-width=".8" opacity=".7" transform="translate(0 -1.6)"/>'), w=200, h=190)
+# Открытка 150×100: черта посередине, строки для адреса, штемпель с сердцем.
+postcard = (shadow_rect(0, 0, 146, 96, 1) + '<rect x="0" y="0" width="146" height="96" rx="1" fill="#f3efe5"/>'
+            '<path d="M84 10 L 84 88" stroke="#4a3b35" stroke-width=".7"/>' +
+            "".join(f'<path d="M90 {y} L 138 {y}" stroke="#bfb3a3" stroke-width=".5"/>' for y in (16, 26)) +
+            '<circle cx="24" cy="66" r="13" fill="none" stroke="#7a2e2c" stroke-width="1.1"/>'
+            '<circle cx="24" cy="66" r="10" fill="none" stroke="#7a2e2c" stroke-width=".5" stroke-dasharray="1.4 1.2"/>'
+            f'<path d="{small_heart}" transform="translate(18.5 61.5) scale(1.1)" fill="#7a2e2c"/>')
+add("frames", "postcard", "Открытка", raw=raw(150, 100, postcard), w=150, h=100)
+# Карточка для цитаты — белая, со скруглением.
+add("frames", "quote-card", "Карточка", raw=raw(130, 90, shadow_rect(0, 0, 126, 86, 8) +
+    '<rect x="0" y="0" width="126" height="86" rx="8" fill="#f1f0ee"/>'), w=130, h=90)
+# Сердце-«отпечаток пальца»: вложенные контуры с разрывами.
+fp = []
+for i, k in enumerate([1, .86, .72, .58, .44, .3, .16]):
+    w = 104 * k
+    d = heart_d(57, 6 + (1 - k) * 34, w)
+    dash = ["", "14 3", "22 2.5", "9 2", "30 3", "12 2", ""][i]
+    fp.append(f'<path d="{d}" fill="none" stroke="#a3262b" stroke-width="2.3" stroke-linecap="round"'
+              + (f' stroke-dasharray="{dash}"' if dash else "") + '/>')
+add("frames", "fingerprint-heart", "Сердце-отпечаток", raw=raw(114, 100, "".join(fp)), w=114, h=100)
+# Моментальная камера 100×112 (общий рисунок, без марки).
+camera = ('<rect x="6" y="10" width="88" height="96" rx="14" fill="#000" opacity=".15" transform="translate(2 3)"/>'
+          '<rect x="6" y="10" width="88" height="96" rx="14" fill="#eceae5"/>'
+          '<rect x="6" y="10" width="88" height="34" rx="14" fill="#f7f6f2"/>'
+          '<rect x="16" y="18" width="20" height="14" rx="3" fill="#c9c6bf"/><rect x="19" y="21" width="14" height="8" rx="2" fill="#f4f3ef"/>'
+          '<rect x="70" y="18" width="14" height="10" rx="3" fill="#2a2a2a"/>'
+          '<circle cx="50" cy="66" r="25" fill="#d8d5ce"/><circle cx="50" cy="66" r="19" fill="#bcb8b0"/>'
+          '<circle cx="50" cy="66" r="13" fill="#2b2b2b"/><circle cx="50" cy="66" r="7" fill="#151515"/>'
+          '<circle cx="46" cy="62" r="2.6" fill="#fff" opacity=".6"/>'
+          '<rect x="80" y="40" width="8" height="10" rx="2" fill="#c9c6bf"/>'
+          '<rect x="6" y="98" width="88" height="8" rx="4" fill="#d7d4ce"/>')
+add("frames", "camera", "Моментальная камера", raw=raw(100, 112, camera), w=100, h=112)
+# Розовая карточка с красным сердцем — клетка в сетке фото.
+add("frames", "pink-card", "Розовая карточка", raw=raw(100, 100,
+    '<rect width="100" height="100" fill="#f3d3cc"/>'
+    f'<path d="{heart_d(50, 22, 76)}" fill="#e2484e"/>'), w=100, h=100)
+
 SET_NAMES = {"love": "Любовь", "party": "Праздник", "travel": "Путешествие", "nature": "Природа",
-             "baby": "Малыш", "almaty": "Алматы", "decor": "Декор"}
+             "baby": "Малыш", "almaty": "Алматы", "decor": "Декор", "frames": "Рамки и бумага"}
 
 config = {"sets": []}
 for set_id, items in STICKERS.items():

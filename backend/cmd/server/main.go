@@ -16,6 +16,7 @@ import (
 
 	"photobook/internal/admin"
 	"photobook/internal/assets"
+	"photobook/internal/backgrounds"
 	"photobook/internal/books"
 	"photobook/internal/config"
 	"photobook/internal/db"
@@ -85,14 +86,22 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	library := pages.Library{Fonts: fontRegistry, Stickers: stickerRegistry}
+	backgroundRegistry, err := backgrounds.Load(cfg.BackgroundsConfig)
+	if err != nil {
+		return err
+	}
+	library := pages.Library{Fonts: fontRegistry, Stickers: stickerRegistry, Backgrounds: backgroundRegistry}
 	catalog, err := templates.LoadDir(cfg.TemplatesDir, fmts, library)
 	if err != nil {
 		return err
 	}
 	log.Info("templates loaded", "count", len(catalog.List()), "dir", cfg.TemplatesDir)
 
-	assetService := assets.NewService(pool, store)
+	uploadLimits, err := assets.LoadLimits(cfg.UploadsConfig)
+	if err != nil {
+		return err
+	}
+	assetService := assets.NewService(pool, store, uploadLimits)
 
 	// Фоновые задачи: миниатюры и уборка незавершённых загрузок.
 	// При выходе из run (остановка или ошибка) отменяем их и ждём завершения.
@@ -117,6 +126,15 @@ func run(log *slog.Logger) error {
 		return id
 	}
 	orderService := orders.NewService(pool, cfg.OrderMinLeadDays)
+	// Версия шаблона (хеш файла) — в снимок заказа.
+	orderService.TemplateVersion = func(id string) string {
+		if t, ok := catalog.Get(id); ok {
+			return t.Version
+		}
+		return ""
+	}
+	// Правки книги после заявки: событие, Telegram и пересборка PDF, когда клиент затих.
+	bg.Go(func() { orderService.RunChanges(bgCtx, cfg.OrderChangeQuiet, log) })
 
 	// Сборка печатных PDF. Секрет подписи ссылок на печатную страницу — случайный
 	// при каждом старте: подписывает и проверяет один и тот же процесс.
@@ -127,11 +145,11 @@ func run(log *slog.Logger) error {
 	signer := render.NewSigner(secret)
 	var renderWake func()
 	if cfg.Render.ServiceURL != "" {
-		worker := render.NewWorker(pool, store, signer, render.Config{
+		worker := render.NewWorker(pool, orderService, store, signer, render.Config{
 			ServiceURL: cfg.Render.ServiceURL, PrintBaseURL: cfg.Render.PrintBaseURL, CMYK: cfg.Render.CMYK,
 		}, log)
 		renderWake = worker.Wake
-		orderService.OnCreate = worker.Wake
+		orderService.WakeRender = worker.Wake
 		bg.Go(func() { worker.Run(bgCtx) })
 	} else {
 		log.Warn("RENDER_URL is not set: print PDFs are not built")
@@ -154,7 +172,7 @@ func run(log *slog.Logger) error {
 	var adminHandler http.Handler
 	if cfg.AdminPassword != "" {
 		adminHandler = admin.New(admin.Config{User: cfg.AdminUser, Password: cfg.AdminPassword}, admin.Deps{
-			Orders: orderService, Storage: store, TemplateName: templateName, RenderWake: renderWake, Log: log,
+			Orders: orderService, Storage: store, Library: library, TemplateName: templateName, RenderWake: renderWake, Log: log,
 		})
 	} else {
 		log.Warn("ADMIN_PASSWORD is not set: admin pages are disabled")

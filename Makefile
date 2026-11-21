@@ -1,4 +1,4 @@
-.PHONY: up down logs ps psql migrate-status migrate-up migrate-down test e2e share unshare
+.PHONY: up down logs ps psql migrate-status migrate-up migrate-down test test-db e2e share unshare
 
 # Создать .env из шаблона, если его ещё нет.
 .env:
@@ -32,6 +32,15 @@ test: ## Тесты backend и frontend, линтер, проверка типо
 	cd backend && go vet ./... && go test ./...
 	cd frontend && npm run lint && npm test && npm run build
 
+# Тесты backend на настоящей базе: окно правок после заявки, блокировка при печати,
+# снимки заказа (их неизменность охраняет триггер). Каждый раз — чистая база
+# photobook_test в том же Postgres (make up), рабочая база не трогается.
+test-db: .env ## Тесты backend на настоящей базе (сервисы должны быть запущены: make up)
+	docker compose exec -T postgres sh -c 'dropdb -U "$$POSTGRES_USER" --if-exists photobook_test && createdb -U "$$POSTGRES_USER" photobook_test'
+	set -a && . ./.env && set +a && cd backend && \
+		TEST_DATABASE_URL="postgres://$$POSTGRES_USER:$$POSTGRES_PASSWORD@localhost:$${POSTGRES_PORT:-5432}/photobook_test?sslmode=disable" \
+		go test -count=1 -run DB ./...
+
 # Браузер (Chromium) в Docker-образе Playwright; первый запуск скачает образ ~3.6 ГБ
 # (он же понадобится для печатного PDF). --network host — чтобы видеть localhost.
 PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v1.64.1-noble
@@ -41,7 +50,7 @@ PLAYWRIGHT_IMAGE := mcr.microsoft.com/playwright:v1.64.1-noble
 e2e: .env ## Сквозные тесты в браузере (сервисы должны быть запущены: make up)
 	docker run --rm --network host -u $$(id -u):$$(id -g) -e HOME=/tmp --env-file .env \
 		-v $(CURDIR):/repo:ro -v $(CURDIR)/e2e:/work -w /work $(PLAYWRIGHT_IMAGE) \
-		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs && node text.mjs && node text-move.mjs && node stickers.mjs && node pages.mjs && node catalog.mjs && node order.mjs && node admin.mjs && node print.mjs"
+		sh -c "npm ci --silent --no-audit --no-fund && node editor.mjs && node text.mjs && node text-move.mjs && node stickers.mjs && node tray.mjs && node pages.mjs && node catalog.mjs && node order.mjs && node order-window.mjs && node admin.mjs && node print.mjs"
 
 share: ## Временная ссылка на сайт из интернета (Cloudflare Tunnel) — показать кому-то
 	./scripts/share.sh

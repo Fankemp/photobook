@@ -93,9 +93,9 @@ class AutoSaver {
         this.stopped = true
         this.onStatus('conflict')
       } else if (e.code === 'book_locked') {
-        // По книге оформили заявку (например, с другого устройства) — правки больше не принимаются.
+        // Заказ ушёл в печать — правки больше не принимаются (сервер ничего не записал).
+        // Черновик с последними правками не удаляем: он пригодится, если заказ отменят.
         this.stopped = true
-        clearDraft(this.book.token)
         this.onStatus('locked')
       } else if (e.code === 'network' || e.status === 0 || e.status >= 500 || e.status === 429) {
         // 429 — сервер просит притормозить (ограничение частоты): тоже просто повторим позже.

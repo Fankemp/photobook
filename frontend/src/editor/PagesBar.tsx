@@ -17,6 +17,8 @@ type BarProps = {
 // на них кнопки «Удалить» нет. Отключённая кнопка объясняет почему (минимум,
 // максимум) — подсказка под кнопками и в title.
 export function PagesBar({ format, count, blockIndex, onDelete, onAdd, children }: BarProps) {
+  // Число страниц фиксировано (min = max = число страниц книги) — кнопок нет.
+  if (format.minPages === format.maxPages && count === format.maxPages) return children ? <div className="ed-pages">{children}</div> : null
   const step = format.pageStep
   const leaf = blockIndex === null ? null : leafOf(blockIndex, step)
   const removable = canRemove(count, format)

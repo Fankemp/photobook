@@ -18,8 +18,9 @@ type testStickers map[string]bool
 func (s testStickers) Has(id string) bool { return s[id] }
 
 var lib = Library{
-	Fonts:    testFonts{"lora": true, "pacifico": false},
-	Stickers: testStickers{"love-heart": true},
+	Fonts:       testFonts{"lora": true, "pacifico": false},
+	Stickers:    testStickers{"love-heart": true},
+	Backgrounds: testStickers{"stripes-wine": true},
 }
 
 func validText() Element {
@@ -42,6 +43,10 @@ func TestPageValidate(t *testing.T) {
 			{Type: PhotoSlot, ID: "s1", X: 33.34, Y: 0, W: 66.67, H: 100},
 		}}, ""},
 		{"empty page id", Page{}, "page id is empty"},
+		{"background pattern from the config", Page{ID: "p1", Background: "#8b2c2a", BackgroundImage: "stripes-wine"}, ""},
+		{"unknown background pattern", Page{ID: "p1", BackgroundImage: "../../etc/passwd"}, "backgrounds config"},
+		{"heart-shaped photo frame", Page{ID: "p1", Elements: []Element{{Type: PhotoSlot, ID: "s1", W: 40, H: 37, Shape: "heart"}}}, ""},
+		{"unknown frame shape", Page{ID: "p1", Elements: []Element{{Type: PhotoSlot, ID: "s1", W: 40, H: 40, Shape: "star"}}}, "shape"},
 		{"bad background", Page{ID: "p1", Background: "white"}, "background"},
 		{"duplicate element id", Page{ID: "p1", Elements: []Element{
 			{Type: PhotoSlot, ID: "s1", W: 10, H: 10},

@@ -1,0 +1,35 @@
+{{define "title"}}Тексты книги — заявка №{{.O.Number}}{{end}}
+{{define "styles"}}
+<style>
+  textarea { width: 100%; min-height: 64px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); font: inherit; resize: vertical; }
+  .item { display: grid; gap: 4px; margin-bottom: 12px; }
+  .item span { font-size: 0.875rem; }
+  button:disabled { opacity: 0.5; cursor: default; }
+</style>
+{{end}}
+{{define "content"}}
+<p><a href="/admin/orders/{{.O.Number}}">← Заявка №{{.O.Number}}</a></p>
+<h1>Тексты книги</h1>
+{{if .Error}}<p class="flash err" role="alert">{{.Error}}</p>{{end}}
+{{if .O.Editable}}
+<p class="muted">Правка по просьбе клиента. После сохранения в истории заявки появится «изменено администратором», а PDF пересоберётся. Если клиент сейчас открыл книгу, его редактор попросит обновить страницу.</p>
+<form method="post" action="/admin/orders/{{.O.Number}}/texts">
+  {{range .Pages}}
+  <section class="card">
+    <h2>{{.Name}}</h2>
+    {{range .Items}}
+    <label class="item">
+      <span class="muted">Блок {{.ElementID}}</span>
+      <textarea name="t:{{.PageID}}:{{.ElementID}}" maxlength="1000" spellcheck="true" lang="ru">{{.Text}}</textarea>
+    </label>
+    {{end}}
+  </section>
+  {{else}}
+  <p class="card muted">В книге нет текстовых блоков.</p>
+  {{end}}
+  <button class="primary">Сохранить тексты</button>
+</form>
+{{else}}
+<p class="flash err">Заказ уже в печати (или отменён) — тексты здесь не меняются.</p>
+{{end}}
+{{end}}

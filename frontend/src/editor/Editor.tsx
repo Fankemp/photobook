@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link } from 'react-router'
-import { ApiError, assetImageUrl, toApiError } from '../api.ts'
+import { ApiError, assetImageUrl, listAssets, removeAsset, toApiError } from '../api.ts'
 import { DEFAULT_CROP, MAX_ZOOM, zoomCrop } from '../book/crop.ts'
 import { isLowDpi } from '../book/dpi.ts'
 import { PageView } from '../book/PageView.tsx'
@@ -9,7 +9,7 @@ import { ShareLink } from '../components/ShareLink.tsx'
 import { HomeMark } from '../components/Site.tsx'
 import { t } from '../i18n/index.ts'
 import type { StickerInfo } from '../book/stickers.ts'
-import type { Book, Crop, Format, Page, PhotoSlotElement, TextElement } from '../types.ts'
+import type { AssetInfo, Book, Crop, Format, Page, PhotoSlotElement, TextElement } from '../types.ts'
 import { useBookDoc, type SaveStatus } from './autosave.ts'
 import {
   addElement,
@@ -18,6 +18,7 @@ import {
   duplicateText,
   elKey,
   findElement,
+  findSlot,
   MAX_ELEMENTS_PER_PAGE,
   moveSticker,
   newStickerElement,
@@ -32,7 +33,8 @@ import {
   type ElRef,
   type SlotRef,
 } from './doc.ts'
-import { SlotOverlay, type UploadState } from './SlotOverlay.tsx'
+import { PhotoTray, type TrayMode } from './PhotoTray.tsx'
+import { SlotOverlay } from './SlotOverlay.tsx'
 import { StickerOverlay } from './StickerOverlay.tsx'
 import { StickerPanel } from './StickerPanel.tsx'
 import { StickerPicker } from './StickerPicker.tsx'
@@ -42,12 +44,22 @@ import { TextPanel } from './TextPanel.tsx'
 import { nearCutLine, type Guides } from './transform.ts'
 import { canAdd, canRemove, hasContent, insertLeaf, leafOf, removeLeaf, restoreLeaf, type Removed } from './pages.ts'
 import { ConfirmDialog, PagesBar, Toast } from './PagesBar.tsx'
-import { ACCEPT, checkFile, readImageSize, uploadPhoto, type Size } from './upload.ts'
+import { autoLayout, emptySlotsOf, freeAssets, pagesUsing, placePhotos, restorePlacements, trayPhotos, unplace, usageCounts, type Placement } from './tray.ts'
+import { ACCEPT, LIMITS, checkFile, fileHash, isHeif, localPreview, uploadPhoto, type Size } from './upload.ts'
+import { UploadQueue, type QueueItem } from './uploadQueue.ts'
 import './Editor.css'
 
 type LocalImage = Size & { url: string }
 
-// Редактор: листаем страницы, тап по пустому слоту — выбор фото,
+// Прозрачная картинка 1×1 — пока у HEIC готовится миниатюра (в рамке виден фон).
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
+
+// Рамка «пол-страницы» без вылета: по ней лоток предупреждает о маленьком фото,
+// которое ещё не стоит в книге (совсем маленькое будет нечётким почти в любой рамке).
+const HALF_SLOT: PhotoSlotElement = { type: 'photo_slot', id: '', x: 25, y: 25, w: 50, h: 50 }
+
+// Редактор: листаем страницы, тап по пустому слоту — лоток «Мои фото» (фото
+// книги загружаются туда пачкой и раскладываются по рамкам, см. PhotoTray),
 // тап по фото — выделение, затем двигаем и масштабируем кадр;
 // тап по тексту — выделение: тянем, меняем размер и поворачиваем ручками,
 // панель шрифта, размера, цвета; повторный тап — окно ввода текста;
@@ -66,12 +78,23 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null) // спрашиваем про удаление листа этой страницы
   const [toast, setToast] = useState<{ id: number; text: string; removed?: Removed } | null>(null)
   const [overflow, setOverflow] = useState<Record<string, boolean>>({}) // текст не влезает
-  const [uploads, setUploads] = useState<Record<string, UploadState>>({})
   const [localImages, setLocalImages] = useState<Record<string, LocalImage>>({})
   const [error, setError] = useState<ApiError | null>(null)
+  // Лоток «Мои фото»: фото книги (в порядке загрузки), шторка на телефоне,
+  // режим выбора фото для рамок, очередь загрузки и сообщения о ней.
+  const [assets, setAssets] = useState<AssetInfo[]>(book.assets)
+  const [trayOpen, setTrayOpen] = useState(false)
+  const [trayMode, setTrayMode] = useState<TrayMode>({ kind: 'browse' })
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([])
+  const [notices, setNotices] = useState<string[]>([])
+  const [repeated, setRepeated] = useState(0) // пропущено как повтор при добавлении
+  const [fresh, setFresh] = useState<string[]>([]) // загружены в режиме выбора — отметить
+  const [trayToast, setTrayToast] = useState<{ id: number; text: string; onUndo?: () => void } | null>(null)
+  const [confirmRemove, setConfirmRemove] = useState<string[] | null>(null) // спрашиваем про удаление фото
   const fileInput = useRef<HTMLInputElement>(null)
-  const pickTarget = useRef<SlotRef | null>(null)
   const objectUrls = useRef<string[]>([])
+  const pickingRef = useRef(false) // для загрузчика: открыт ли выбор фото для рамок
+  const placeFresh = useRef<(id: string) => boolean>(() => false)
   const rootRef = useRef<HTMLDivElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
 
@@ -101,12 +124,15 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
 
   // Только что загруженные фото показываем прямо из памяти устройства
   // (мгновенно, без скачивания обратно), остальные — с сервера.
+  const serverSizes = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   const imageSrc = useCallback(
-    (id: string) => localImages[id]?.url ?? assetImageUrl(book.token, id),
-    [localImages, book.token],
+    (id: string) => localImages[id]?.url ?? (serverSizes.get(id)?.viewable === false ? BLANK : assetImageUrl(book.token, id)),
+    [localImages, serverSizes, book.token],
   )
-  const serverSizes = useMemo(() => new Map(book.assets.map((a) => [a.id, a])), [book.assets])
-  const sizeOf = (id: string): Size | undefined => localImages[id] ?? serverSizes.get(id)
+  const sizeOf = (id: string): Size | undefined => {
+    const s = localImages[id] ?? serverSizes.get(id)
+    return s && s.width > 0 ? s : undefined // HEIC: размеры появятся после обработки на сервере
+  }
 
   // Хватит ли пикселей фото для печати этого слота при текущем увеличении.
   const lowDpi = (el: PhotoSlotElement) => {
@@ -144,7 +170,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   // Ctrl+Shift+Z или Ctrl+Y — повторить (⌘ на Mac). Смотрим e.code — физическую
   // клавишу: в русской раскладке e.key у Z — «я».
   const onKey = useEffectEvent((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker || confirmDelete !== null) return
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingText || pickingSticker || confirmDelete !== null || confirmRemove !== null) return
     if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY')) {
       e.preventDefault()
       if (e.code === 'KeyY' || e.shiftKey) onRedo()
@@ -160,54 +186,238 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  function pickPhoto(target: SlotRef) {
-    pickTarget.current = target
-    fileInput.current?.click() // открыть галерею/файлы; должно быть прямо в обработчике тапа
-  }
+  // ---------- Лоток «Мои фото» и загрузка ----------
+  // Очередь одна на редактор: загружает по LIMITS.parallel файлов, повторяет при сбое.
+  const [queue] = useState(
+    () =>
+      new UploadQueue(
+        {
+          parallel: LIMITS.parallel,
+          retries: LIMITS.retries,
+          hash: fileHash,
+          upload: async (file, sha, onProgress, key) => {
+            // Превью и размеры — сразу, до загрузки. HEIC браузер может не открыть:
+            // тогда размеры узнает сервер, а картинка появится, когда он сделает миниатюру.
+            const preview = await localPreview(file)
+            if (!preview && !isHeif(file)) throw new ApiError('bad_image', 0)
+            if (preview) {
+              objectUrls.current.push(preview.url)
+              queue.setPreview(key, preview.url)
+            }
+            const res = await uploadPhoto(book.token, file, preview, sha, onProgress)
+            const id = res.info.id
+            if (!res.duplicate) {
+              if (preview) setLocalImages((m) => ({ ...m, [id]: preview }))
+              setAssets((list) => (list.some((a) => a.id === id) ? list : [...list, res.info]))
+              if (pickingRef.current && !placeFresh.current(id)) setFresh((f) => [...f, id])
+            }
+            return { assetId: id, duplicate: res.duplicate }
+          },
+        },
+        book.assets.filter((a) => !a.removed),
+      ),
+  )
+  useEffect(() => queue.subscribe(setQueueItems), [queue])
 
-  function onFileChosen(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = '' // чтобы тот же файл можно было выбрать ещё раз
-    if (file && pickTarget.current) void addPhoto(pickTarget.current, file)
-  }
+  // Закрывают вкладку, пока фото грузятся, — браузер переспросит.
+  useEffect(() => {
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (!queue.busy) return
+      e.preventDefault()
+      e.returnValue = '' // для старых браузеров; текст вопроса браузер пишет свой
+    }
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [queue])
 
-  async function addPhoto(target: SlotRef, file: File) {
+  // HEIC: миниатюру сервер делает несколько секунд — спрашиваем, готова ли.
+  const waitingThumbs = assets.some((a) => !a.viewable && !a.removed && !localImages[a.id])
+  useEffect(() => {
+    if (!waitingThumbs) return
+    const timer = setInterval(() => {
+      listAssets(book.token).then(setAssets, () => {}) // сбой — спросим в следующий раз
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [waitingThumbs, book.token])
+
+  const usage = useMemo(() => usageCounts(doc), [doc])
+  const photos = useMemo(() => trayPhotos(assets, usage), [assets, usage])
+
+  // Выбрали файлы (в одном окне — сколько угодно фото): проверка формата
+  // и размера, лимиты, затем в очередь. Повторы очередь пропустит сама.
+  function onFilesChosen(e: ChangeEvent<HTMLInputElement>) {
+    const files = [...(e.target.files ?? [])]
+    e.target.value = '' // чтобы те же файлы можно было выбрать ещё раз
+    if (files.length === 0) return
     setError(null)
-    const bad = checkFile(file)
-    if (bad) {
-      setError(new ApiError(bad, 0))
-      return
+    queue.clearFinished()
+    const notes: string[] = []
+    const ok = files.filter((f) => !checkFile(f))
+    if (ok.length < files.length) notes.push(t.tray.rejected(files.length - ok.length))
+    // Сервер считает все фото книги, и удалённые из лотка тоже (их файлы хранятся).
+    const inFlight = queue.items.filter((i) => i.status === 'waiting' || i.status === 'uploading').length
+    const room = Math.max(0, LIMITS.maxPerBook - assets.length - inFlight)
+    const cap = Math.min(room, LIMITS.maxFilesPerBatch)
+    let take = ok
+    if (ok.length > 0 && room === 0) {
+      notes.push(t.tray.bookFull(LIMITS.maxPerBook))
+      take = []
+    } else if (ok.length > cap) {
+      notes.push(cap < LIMITS.maxFilesPerBatch ? t.tray.bookAlmostFull(cap, LIMITS.maxPerBook) : t.tray.tooManyAtOnce(cap, ok.length - cap))
+      take = ok.slice(0, cap)
     }
-    const key = slotKey(target)
-    const previewUrl = URL.createObjectURL(file)
-    try {
-      const size = await readImageSize(previewUrl)
-      // Превью показываем сразу, пока файл ещё грузится.
-      setUploads((u) => ({ ...u, [key]: { previewUrl, progress: 0 } }))
-      const assetId = await uploadPhoto(book.token, file, size, (progress) =>
-        setUploads((u) => (u[key] ? { ...u, [key]: { previewUrl, progress } } : u)),
-      )
-      objectUrls.current.push(previewUrl)
-      setLocalImages((m) => ({ ...m, [assetId]: { url: previewUrl, ...size } }))
-      update((d) => updateSlot(d, target, (el) => ({ ...el, assetId, crop: DEFAULT_CROP })))
-      setSelected(target) // сразу можно подвинуть кадр
-    } catch (err) {
-      URL.revokeObjectURL(previewUrl)
-      setError(toApiError(err))
-    } finally {
-      setUploads((u) => without(u, key))
-    }
+    setNotices(notes)
+    setRepeated(queue.add(take).repeated)
+  }
+
+  const duplicates = repeated + queueItems.filter((i) => i.status === 'duplicate').length
+  const trayNotices = duplicates > 0 ? [...notices, t.tray.duplicates(duplicates)] : notices
+
+  // Выбор фото для рамок: тап по пустой рамке — она и остальные пустые рамки
+  // страницы по порядку; «Заменить» — одна рамка.
+  function openPick(targets: SlotRef[]) {
+    setTrayMode({ kind: 'pick', targets })
+    pickingRef.current = true
+    setFresh([])
+    setTrayOpen(true)
+    setSelected(null)
+    // На компьютере лоток — колонка справа: докручиваем, чтобы он был виден.
+    requestAnimationFrame(() => rootRef.current?.querySelector('.ed-tray')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+  }
+
+  function closeTray() {
+    setTrayOpen(false)
+    setTrayMode({ kind: 'browse' })
+    pickingRef.current = false
   }
 
   function onTapSlot(el: PhotoSlotElement) {
     const target = { pageId: page.id, elId: el.id }
-    if (uploads[slotKey(target)]) return
     if (el.assetId) {
       setSelected(target)
-    } else {
-      setSelected(null)
-      pickPhoto(target)
+      return
     }
+    openPick([target, ...emptySlotsOf(page).filter((r) => r.elId !== el.id)])
+  }
+
+  // Фото из лотка — в рамки режима выбора или в пустые рамки открытой страницы.
+  function placeFromTray(ids: string[]) {
+    const targets = trayMode.kind === 'pick' ? trayMode.targets : emptySlotsOf(page)
+    const out: { placed: Placement[] } = { placed: [] }
+    update((d) => {
+      const r = placePhotos(d, targets, ids)
+      out.placed = r.placed
+      return r.doc
+    })
+    closeTray()
+    const first = out.placed[0]
+    if (first) {
+      setPageIndex(allPages.findIndex((p) => p.id === first.pageId))
+      setSelected(first) // сразу можно подвинуть кадр
+    }
+  }
+
+  // Выбирали фото для одной рамки и загрузили новое — оно сразу встаёт в рамку
+  // (как раньше: тап по рамке → «Добавить фото» → фото на месте). Загрузчик
+  // вызывает это из очереди, поэтому функция в ref — всегда свежая.
+  useEffect(() => {
+    placeFresh.current = (id: string) => {
+      if (!pickingRef.current || trayMode.kind !== 'pick' || trayMode.targets.length !== 1) return false
+      placeFromTray([id]) // закрывает выбор: следующие фото останутся в лотке
+      return true
+    }
+  })
+
+  // Перетащили миниатюру в рамку (компьютер): пустая — заполняется, с фото — замена.
+  function dropPhoto(target: SlotRef, assetId: string) {
+    if (!assets.some((a) => a.id === assetId)) return
+    update((d) => placePhotos(d, [target], [assetId]).doc)
+    setSelected(target)
+  }
+
+  function runAutoLayout() {
+    const out: { r?: ReturnType<typeof autoLayout> } = {}
+    update((d) => {
+      out.r = autoLayout(d, assets)
+      return out.r.placed.length > 0 ? out.r.doc : d
+    })
+    const r = out.r!
+    if (r.placed.length === 0) {
+      const anyEmpty = allPages.some((p) => emptySlotsOf(p).length > 0)
+      setTrayToast({ id: Date.now(), text: anyEmpty ? t.tray.nothingToPlace : t.tray.noEmptySlots })
+      return
+    }
+    setTrayToast({
+      id: Date.now(),
+      text: t.tray.laidOut(r.placed.length) + (r.leftover > 0 ? ` ${t.tray.leftover(r.leftover)}` : ''),
+      onUndo: () => {
+        update((d) => unplace(d, r.placed))
+        setTrayToast(null)
+      },
+    })
+  }
+
+  // Удаление из лотка: если фото стоит в книге — сначала спросить.
+  function askRemovePhotos(ids: string[]) {
+    if (ids.some((id) => usage.has(id))) setConfirmRemove(ids)
+    else void removePhotos(ids)
+  }
+
+  async function removePhotos(ids: string[]) {
+    setConfirmRemove(null)
+    const gone = new Set(ids)
+    const out: { freed: Placement[] } = { freed: [] }
+    update((d) => {
+      const r = freeAssets(d, gone)
+      out.freed = r.freed
+      return r.freed.length > 0 ? r.doc : d
+    })
+    const freed = out.freed
+    // Удалённое фото можно загрузить снова: очередь перестаёт считать его повтором.
+    const mark = (removed: boolean) => {
+      setAssets((list) => list.map((a) => (gone.has(a.id) ? { ...a, removed } : a)))
+      for (const a of assets) if (gone.has(a.id)) queue.known(a.id, a.sha256, !removed)
+    }
+    mark(true)
+    try {
+      await Promise.all(ids.map((id) => removeAsset(book.token, id, true)))
+    } catch (err) {
+      mark(false)
+      update((d) => restorePlacements(d, freed))
+      setError(toApiError(err))
+      return
+    }
+    setTrayToast({
+      id: Date.now(),
+      text: t.tray.deleted(ids.length),
+      onUndo: () => {
+        setTrayToast(null)
+        mark(false)
+        update((d) => restorePlacements(d, freed))
+        Promise.all(ids.map((id) => removeAsset(book.token, id, false))).catch((err) => setError(toApiError(err)))
+      },
+    })
+  }
+
+  // Предупреждение «маленькое фото» в лотке: в режиме выбора — для рамки, куда
+  // ставим; фото в книге — по его рамкам; остальные — для рамки в пол-страницы.
+  function photoLowRes(a: AssetInfo): boolean {
+    const size = sizeOf(a.id)
+    if (!size) return false
+    if (trayMode.kind === 'pick') {
+      const el = findSlot(doc, trayMode.targets[0])
+      return !!el && isLowDpi({ ...el, crop: DEFAULT_CROP }, book.format, size)
+    }
+    if (usage.has(a.id)) {
+      return allPages.some((p) => p.elements.some((el) => el.type === 'photo_slot' && el.assetId === a.id && lowDpi(el)))
+    }
+    return isLowDpi(HALF_SLOT, book.format, size)
+  }
+
+  // «обложка, стр. 3, задняя обложка» — где стоят удаляемые фото.
+  function usedOnPages(ids: string[]): string {
+    const nums = [...new Set(ids.flatMap((id) => pagesUsing(doc, id)))].sort((a, b) => a - b)
+    return nums.map((n) => (n === 0 ? t.preview.coverLink : n === lastIndex ? t.preview.backLink : t.preview.pageLink(n))).join(', ')
   }
 
   // Подряд идущие сдвиги и масштаб кадра одного фото — один шаг «Отменить».
@@ -388,6 +598,15 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           </Link>
         </div>
       )}
+      {/* Заявка уже есть, но заказ ещё не в печати: менять можно, мы пересоберём макет. */}
+      {book.order && status !== 'locked' && (
+        <div className="ed-banner ed-banner-info" role="status">
+          <p>{t.editor.orderOpen(book.order.number)}</p>
+          <Link className="btn" to={`/b/${book.token}/order`}>
+            {t.editor.orderLink}
+          </Link>
+        </div>
+      )}
       {status === 'error' && (
         <div className="ed-banner">
           <p>{t.editor.saveError}</p>
@@ -437,11 +656,11 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
                 el={el}
                 selected={sameEl(selected, ref)}
                 imageSize={el.assetId ? sizeOf(el.assetId) : undefined}
-                upload={uploads[slotKey(ref)]}
                 lowDpi={lowDpi(el)}
                 label={el.assetId ? t.editor.slotFilled : t.editor.slotEmpty}
                 onTap={() => onTapSlot(el)}
                 onCrop={(crop) => setCrop(ref, crop)}
+                onDropPhoto={(id) => dropPhoto(ref, id)}
               />
             )
           })}
@@ -485,6 +704,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
         imageSrc={imageSrc}
         warnings={allPages.map(pageHasLowDpi)}
         onSelect={goTo}
+        showAddEnd={fmt.minPages !== fmt.maxPages}
         canAddEnd={canAdd(count, fmt)}
         addEndLabel={canAdd(count, fmt) ? t.editor.addPagesToEnd(fmt.pageStep) : t.editor.maxPagesReached(fmt.maxPages)}
         onAddEnd={() => addPages('end')}
@@ -493,7 +713,9 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
       {/* Чистая ссылка на книгу, без ?page= и прочего из адресной строки. */}
       <ShareLink url={`${window.location.origin}/b/${book.token}`} />
 
-      {/* Панель внизу экрана: подсказка или управление выбранным фото. */}
+      {/* Панель внизу экрана: подсказка или управление выбранным фото. На широком
+          экране вместе с лотком «Мои фото» — колонка справа (ed-side). */}
+      <div className="ed-side">
       <div className="ed-toolbar" ref={toolbarRef}>
         <div className="ed-toolbar-inner">
           {error && <ErrorMessage error={error} />}
@@ -534,7 +756,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
                 />
               </label>
               <div className="ed-toolbar-row">
-                <button className="btn" onClick={() => pickPhoto(active)}>
+                <button className="btn" onClick={() => openPick([active])}>
                   {t.editor.replace}
                 </button>
                 <button className="btn" onClick={() => removePhoto(active)}>
@@ -549,6 +771,10 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
           ) : (
             <div className="ed-idle">
               <p className="muted ed-hint">{t.editor.hint}</p>
+              {/* На телефоне лоток открывается шторкой; на компьютере он виден всегда. */}
+              <button className="btn ed-tray-open" onClick={() => setTrayOpen(true)}>
+                {t.editor.myPhotos(photos.length)}
+              </button>
               <div className="ed-toolbar-row">
                 <button className="btn" onClick={addText} disabled={pageFull}>
                   {t.editor.addText}
@@ -563,7 +789,45 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
         </div>
       </div>
 
-      <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={onFileChosen} />
+      <PhotoTray
+        open={trayOpen}
+        mode={trayMode}
+        photos={photos}
+        usage={usage}
+        lowRes={photoLowRes}
+        imageSrc={imageSrc}
+        queue={queueItems}
+        emptyOnPage={emptySlotsOf(page).length}
+        notices={trayNotices}
+        fresh={fresh}
+        disabled={status === 'locked'}
+        onAdd={() => fileInput.current?.click()}
+        onAutoLayout={runAutoLayout}
+        onPlace={placeFromTray}
+        onDelete={askRemovePhotos}
+        onRetry={(key) => queue.retry(key)}
+        onRetryAll={() => queue.retryAll()}
+        onCancelPick={closeTray}
+        onClose={closeTray}
+      >
+        {trayToast && (
+          <Toast key={trayToast.id} text={trayToast.text} onUndo={trayToast.onUndo} onClose={() => setTrayToast(null)} />
+        )}
+      </PhotoTray>
+      </div>
+
+      {/* Выбор фото: сразу много (multiple), на телефоне — галерея с отметками. */}
+      <input ref={fileInput} type="file" accept={ACCEPT} multiple hidden onChange={onFilesChosen} />
+
+      {confirmRemove && (
+        <ConfirmDialog
+          title={t.tray.confirmDeleteTitle(confirmRemove.length)}
+          text={t.tray.confirmDeleteText(usedOnPages(confirmRemove))}
+          confirm={t.tray.confirmDelete}
+          onConfirm={() => void removePhotos(confirmRemove)}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      )}
 
       {pickingSticker && <StickerPicker onPick={addSticker} onClose={() => setPickingSticker(false)} />}
 
@@ -629,6 +893,7 @@ type StripProps = {
   imageSrc: (id: string) => string
   warnings: boolean[] // на странице есть фото с низким разрешением
   onSelect: (i: number) => void
+  showAddEnd: boolean // число страниц можно менять (иначе плитки «+» нет)
   canAddEnd: boolean
   addEndLabel: string // «Добавить 2 страницы в конец» или почему нельзя
   onAddEnd: () => void
@@ -636,7 +901,7 @@ type StripProps = {
 
 // Лента миниатюр всех страниц для быстрого перехода. Перед задней обложкой —
 // плитка «+»: добавить лист в конец книги.
-function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, canAddEnd, addEndLabel, onAddEnd }: StripProps) {
+function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, showAddEnd, canAddEnd, addEndLabel, onAddEnd }: StripProps) {
   const listRef = useRef<HTMLOListElement>(null)
 
   // Текущая миниатюра — по центру ленты. Крутим только саму ленту:
@@ -657,7 +922,7 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, canAd
     <ol className="ed-strip" ref={listRef}>
       {pages.map((p, i) => (
         <Fragment key={p.id}>
-          {i === pages.length - 1 && (
+          {i === pages.length - 1 && showAddEnd && (
             <li className="ed-strip-add">
               <button onClick={onAddEnd} disabled={!canAddEnd} aria-label={addEndLabel} title={addEndLabel}>
                 <span className="ed-strip-plus" style={{ aspectRatio: `${format.widthMm} / ${format.heightMm}` }} aria-hidden="true">
@@ -690,10 +955,4 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, canAd
 // Название страницы по номеру в ленте (всего — count, с обеими обложками).
 function pageName(i: number, count: number) {
   return i === 0 ? t.book.cover : i === count - 1 ? t.book.backCover : t.book.page(i)
-}
-
-function without<T>(obj: Record<string, T>, key: string): Record<string, T> {
-  const copy = { ...obj }
-  delete copy[key]
-  return copy
 }

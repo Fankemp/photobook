@@ -10,11 +10,15 @@ package assets
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg" // регистрирует декодеры для image.DecodeConfig
 	_ "image/png"
+	"os"
+	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,18 +29,48 @@ import (
 )
 
 const (
-	MaxSizeBytes   = 25 << 20 // 25 МБ: фото с телефона обычно 3–12 МБ
-	MaxPerBook     = 300      // защита от бесконечных загрузок в одну книгу
-	MaxDimensionPx = 20000    // пикселей по стороне
+	MaxDimensionPx = 20000 // пикселей по стороне
 	uploadURLTTL   = 15 * time.Minute
 )
 
-// Поддерживаемые форматы. HEIC с iPhone браузер при выборе файла сам
-// превращает в JPEG, поэтому отдельно его не поддерживаем.
-var allowedTypes = map[string]string{
-	"image/jpeg": "jpg",
-	"image/png":  "png",
+// Limits — ограничения загрузки из общего с фронтендом конфига
+// (frontend/src/editor/uploads.json): фронтенд проверяет файлы до загрузки
+// и показывает понятное сообщение, сервер — то же самое ещё раз.
+type Limits struct {
+	MaxFileMB  int               `json:"maxFileMb"`  // размер одного файла
+	MaxPerBook int               `json:"maxPerBook"` // фото в одной книге (защита от бесконечных загрузок)
+	Types      map[string]string `json:"types"`      // тип файла → расширение в хранилище
 }
+
+func (l Limits) MaxBytes() int64 { return int64(l.MaxFileMB) << 20 }
+
+var extRe = regexp.MustCompile(`^[a-z0-9]{2,5}$`)
+
+// LoadLimits читает и проверяет конфиг загрузки.
+func LoadLimits(path string) (Limits, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Limits{}, fmt.Errorf("read uploads config: %w", err)
+	}
+	var l Limits
+	if err := json.Unmarshal(data, &l); err != nil {
+		return Limits{}, fmt.Errorf("parse uploads config %s: %w", path, err)
+	}
+	if l.MaxFileMB < 1 || l.MaxFileMB > 200 || l.MaxPerBook < 1 || len(l.Types) == 0 {
+		return Limits{}, fmt.Errorf("uploads config %s: need maxFileMb 1–200, maxPerBook ≥ 1 and types", path)
+	}
+	for typ, ext := range l.Types {
+		if !extRe.MatchString(ext) {
+			return Limits{}, fmt.Errorf("uploads config: bad extension %q for %s", ext, typ)
+		}
+	}
+	return l, nil
+}
+
+// browserTypes — форматы, которые умеет показать любой браузер (и Chromium
+// в печатном PDF). HEIC/HEIF (фото с iPhone) — не любой: такое фото печатается
+// с JPEG-копии, а на экране видна миниатюра (их делает libvips с поддержкой HEIF).
+var browserTypes = map[string]bool{"image/jpeg": true, "image/png": true}
 
 var (
 	ErrNotFound        = errors.New("asset not found")
@@ -45,6 +79,7 @@ var (
 	ErrTooMany         = errors.New("too many files in book")
 	ErrNotUploaded     = errors.New("file was not uploaded")
 	ErrBadImage        = errors.New("file is not a valid image")
+	ErrDuplicate       = errors.New("same file is already in the book")
 )
 
 type Asset struct {
@@ -58,49 +93,88 @@ type Asset struct {
 	SizeBytes   int64
 	WidthPx     int
 	HeightPx    int
+	SHA256      string     // хеш файла; пусто — браузер не прислал
+	TakenAt     *time.Time // дата съёмки из EXIF (местное время камеры)
+	Removed     bool       // удалено из лотка «Мои фото» (файл остаётся)
+	CreatedAt   time.Time  // порядок загрузки
 }
+
+// Ready — миниатюра готова (до неё на экране показывается оригинал, а HEIC — никак).
+func (a Asset) Ready() bool { return a.ThumbKey != "" }
 
 type Service struct {
 	db      *pgxpool.Pool
 	storage *storage.Storage
+	limits  Limits
 	// Сигнал обработчику миниатюр «в очереди новое фото» (см. RunThumbnails).
 	// Буфер 1: несколько сигналов подряд схлопываются в один — обработчик всё равно
 	// заберёт из базы всё, что накопилось.
 	thumbsQueued chan struct{}
 }
 
-func NewService(db *pgxpool.Pool, st *storage.Storage) *Service {
-	return &Service{db: db, storage: st, thumbsQueued: make(chan struct{}, 1)}
+func NewService(db *pgxpool.Pool, st *storage.Storage, limits Limits) *Service {
+	return &Service{db: db, storage: st, limits: limits, thumbsQueued: make(chan struct{}, 1)}
 }
 
+func (s *Service) Limits() Limits { return s.limits }
+
+// Upload — что браузер сообщает о файле до загрузки.
+type Upload struct {
+	ContentType string
+	Size        int64
+	SHA256      string     // необязательно: хеш файла (64 hex)
+	TakenAt     *time.Time // необязательно: дата съёмки из EXIF
+}
+
+var sha256Re = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
 // StartUpload создаёт запись pending и ссылку, по которой браузер загрузит файл.
-func (s *Service) StartUpload(ctx context.Context, bookID, contentType string, size int64) (Asset, string, error) {
-	ext, ok := allowedTypes[contentType]
+// Если такой же файл (по хешу) уже есть в лотке книги, возвращает его
+// и ErrDuplicate: второй раз не загружаем.
+func (s *Service) StartUpload(ctx context.Context, bookID string, up Upload) (Asset, string, error) {
+	ext, ok := s.limits.Types[up.ContentType]
 	if !ok {
 		return Asset{}, "", ErrUnsupportedType
 	}
-	if size <= 0 || size > MaxSizeBytes {
+	if up.Size <= 0 || up.Size > s.limits.MaxBytes() {
 		return Asset{}, "", ErrTooLarge
+	}
+	if up.SHA256 != "" && !sha256Re.MatchString(up.SHA256) {
+		up.SHA256 = "" // необязательное поле: кривое просто не сохраняем
+	}
+
+	if up.SHA256 != "" {
+		var id string
+		err := s.db.QueryRow(ctx, `
+			SELECT id FROM assets
+			WHERE book_id = $1 AND sha256 = $2 AND status = 'uploaded' AND removed_at IS NULL
+			LIMIT 1`, bookID, up.SHA256).Scan(&id)
+		if err == nil {
+			return Asset{ID: id, BookID: bookID}, "", ErrDuplicate
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return Asset{}, "", fmt.Errorf("find duplicate: %w", err)
+		}
 	}
 
 	var count int
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM assets WHERE book_id = $1`, bookID).Scan(&count); err != nil {
 		return Asset{}, "", fmt.Errorf("count assets: %w", err)
 	}
-	if count >= MaxPerBook {
+	if count >= s.limits.MaxPerBook {
 		return Asset{}, "", ErrTooMany
 	}
 
-	a := Asset{ID: uuid.NewString(), BookID: bookID, Status: "pending", ContentType: contentType}
+	a := Asset{ID: uuid.NewString(), BookID: bookID, Status: "pending", ContentType: up.ContentType, SHA256: up.SHA256, TakenAt: up.TakenAt}
 	a.OriginalKey = fmt.Sprintf("books/%s/originals/%s.%s", bookID, a.ID, ext)
 	_, err := s.db.Exec(ctx, `
-		INSERT INTO assets (id, book_id, original_key, content_type) VALUES ($1, $2, $3, $4)`,
-		a.ID, a.BookID, a.OriginalKey, a.ContentType)
+		INSERT INTO assets (id, book_id, original_key, content_type, sha256, taken_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+		a.ID, a.BookID, a.OriginalKey, a.ContentType, nullIfEmpty(a.SHA256), a.TakenAt)
 	if err != nil {
 		return Asset{}, "", fmt.Errorf("insert asset: %w", err)
 	}
 
-	url, err := s.storage.PresignPut(ctx, a.OriginalKey, size, uploadURLTTL)
+	url, err := s.storage.PresignPut(ctx, a.OriginalKey, up.Size, uploadURLTTL)
 	if err != nil {
 		return Asset{}, "", err
 	}
@@ -110,7 +184,9 @@ func (s *Service) StartUpload(ctx context.Context, bookID, contentType string, s
 // CompleteUpload проверяет загруженный файл и помечает его готовым.
 // width/height присылает браузер: он знает размеры с учётом поворота фото
 // (EXIF). Сервер сверяет их с заголовком файла — совпасть должны с точностью
-// до поворота на 90°. (На шаге 4 размеры будет считать libvips.)
+// до поворота на 90°. HEIC не всякий браузер умеет открыть: тогда он присылает
+// 0×0, и размеры берутся из файла (libvips). Окончательные размеры уточнит
+// обработчик миниатюр.
 func (s *Service) CompleteUpload(ctx context.Context, bookID, assetID string, width, height int) (Asset, error) {
 	a, err := s.Get(ctx, bookID, assetID)
 	if err != nil {
@@ -127,12 +203,20 @@ func (s *Service) CompleteUpload(ctx context.Context, bookID, assetID string, wi
 	if err != nil {
 		return Asset{}, err
 	}
-	if info.Size > MaxSizeBytes {
+	if info.Size > s.limits.MaxBytes() {
 		s.discard(ctx, a)
 		return Asset{}, ErrTooLarge
 	}
 
-	rawW, rawH, err := s.imageSize(ctx, a.OriginalKey)
+	var rawW, rawH int
+	if browserTypes[a.ContentType] {
+		rawW, rawH, err = s.imageSize(ctx, a.OriginalKey)
+	} else {
+		rawW, rawH, err = s.heifSize(ctx, a.OriginalKey)
+		if err == nil && width == 0 && height == 0 {
+			width, height = rawW, rawH // libvips уже применил поворот из файла
+		}
+	}
 	if err != nil {
 		s.discard(ctx, a)
 		return Asset{}, ErrBadImage
@@ -173,6 +257,25 @@ func (s *Service) imageSize(ctx context.Context, key string) (int, int, error) {
 	return cfg.Width, cfg.Height, nil
 }
 
+// heifSize — размеры HEIC/HEIF по самому файлу. Go их не читает, поэтому
+// файл скачивается целиком (несколько мегабайт) и читается утилитой libvips.
+func (s *Service) heifSize(ctx context.Context, key string) (int, int, error) {
+	dir, err := os.MkdirTemp("", "heif-")
+	if err != nil {
+		return 0, 0, err
+	}
+	defer os.RemoveAll(dir)
+	src := filepath.Join(dir, "original")
+	if err := s.storage.Download(ctx, key, src); err != nil {
+		return 0, 0, err
+	}
+	h, err := VipsThumbnailer{}.Header(ctx, src)
+	if err != nil {
+		return 0, 0, err
+	}
+	return h.Width, h.Height, nil
+}
+
 // discard удаляет плохой файл и запись о нём. Ошибки игнорируем:
 // клиенту важен отказ, а остатки подчистит будущая фоновая уборка.
 func (s *Service) discard(ctx context.Context, a Asset) {
@@ -186,13 +289,16 @@ func (s *Service) Get(ctx context.Context, bookID, assetID string) (Asset, error
 		return Asset{}, ErrNotFound
 	}
 	var a Asset
-	var thumb *string
+	var thumb, sha *string
 	var size *int64
 	var w, h *int
+	var removed *time.Time
 	err := s.db.QueryRow(ctx, `
-		SELECT id, book_id, status, original_key, thumb_key, content_type, size_bytes, width_px, height_px
+		SELECT id, book_id, status, original_key, thumb_key, content_type, size_bytes, width_px, height_px,
+			sha256, taken_at, removed_at, created_at
 		FROM assets WHERE id = $1 AND book_id = $2`, assetID, bookID,
-	).Scan(&a.ID, &a.BookID, &a.Status, &a.OriginalKey, &thumb, &a.ContentType, &size, &w, &h)
+	).Scan(&a.ID, &a.BookID, &a.Status, &a.OriginalKey, &thumb, &a.ContentType, &size, &w, &h,
+		&sha, &a.TakenAt, &removed, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Asset{}, ErrNotFound
 	}
@@ -208,28 +314,62 @@ func (s *Service) Get(ctx context.Context, bookID, assetID string) (Asset, error
 	if w != nil && h != nil {
 		a.WidthPx, a.HeightPx = *w, *h
 	}
+	if sha != nil {
+		a.SHA256 = *sha
+	}
+	a.Removed = removed != nil
 	return a, nil
 }
 
-// ListUploaded — готовые фото книги, ключ — id.
-func (s *Service) ListUploaded(ctx context.Context, bookID string) (map[string]Asset, error) {
+// List — загруженные фото книги в порядке загрузки, вместе с удалёнными
+// из лотка (Removed): на них ещё могут ссылаться страницы (например, после
+// «Отменить»), и такие фото печатаются как обычно.
+func (s *Service) List(ctx context.Context, bookID string) ([]Asset, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT id, original_key, coalesce(print_key, ''), content_type, size_bytes, width_px, height_px
-		FROM assets WHERE book_id = $1 AND status = 'uploaded'`, bookID)
+		SELECT id, original_key, coalesce(thumb_key, ''), coalesce(print_key, ''), content_type, size_bytes,
+			width_px, height_px, coalesce(sha256, ''), taken_at, removed_at IS NOT NULL, created_at
+		FROM assets WHERE book_id = $1 AND status = 'uploaded'
+		ORDER BY created_at, id`, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("list assets: %w", err)
 	}
-	defer rows.Close()
-
-	out := map[string]Asset{}
-	for rows.Next() {
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (Asset, error) {
 		a := Asset{BookID: bookID, Status: "uploaded"}
-		if err := rows.Scan(&a.ID, &a.OriginalKey, &a.PrintKey, &a.ContentType, &a.SizeBytes, &a.WidthPx, &a.HeightPx); err != nil {
-			return nil, fmt.Errorf("scan asset: %w", err)
-		}
+		err := r.Scan(&a.ID, &a.OriginalKey, &a.ThumbKey, &a.PrintKey, &a.ContentType, &a.SizeBytes,
+			&a.WidthPx, &a.HeightPx, &a.SHA256, &a.TakenAt, &a.Removed, &a.CreatedAt)
+		return a, err
+	})
+}
+
+// ListUploaded — то же, что List, ключ — id.
+func (s *Service) ListUploaded(ctx context.Context, bookID string) (map[string]Asset, error) {
+	list, err := s.List(ctx, bookID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]Asset, len(list))
+	for _, a := range list {
 		out[a.ID] = a
 	}
-	return out, rows.Err()
+	return out, nil
+}
+
+// SetRemoved убирает фото из лотка (removed = true) или возвращает его
+// («Отменить»). Файл не удаляется: удаление из лотка можно отменить.
+func (s *Service) SetRemoved(ctx context.Context, bookID, assetID string, removed bool) error {
+	if uuid.Validate(assetID) != nil {
+		return ErrNotFound
+	}
+	tag, err := s.db.Exec(ctx, `
+		UPDATE assets SET removed_at = CASE WHEN $3 THEN coalesce(removed_at, now()) END
+		WHERE id = $1 AND book_id = $2 AND status = 'uploaded'`, assetID, bookID, removed)
+	if err != nil {
+		return fmt.Errorf("set removed: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // OriginalURLForPrint — ссылка на фото для печати (внутренний адрес хранилища,
@@ -243,6 +383,9 @@ func (s *Service) OriginalURLForPrint(ctx context.Context, a Asset) (string, err
 	return s.storage.PresignGetInternal(ctx, key, time.Hour)
 }
 
+// ErrNotReady — миниатюры ещё нет, а оригинал браузер не покажет (HEIC).
+var ErrNotReady = errors.New("thumbnail is not ready")
+
 // ImageURL — временная ссылка на картинку для показа в браузере: миниатюра,
 // а пока она не готова (первые секунды после загрузки) — оригинал.
 // final = false значит «это временная замена», и браузеру нельзя её запоминать.
@@ -250,6 +393,9 @@ func (s *Service) ImageURL(ctx context.Context, a Asset) (url string, final bool
 	if a.ThumbKey != "" {
 		url, err = s.storage.PresignGet(ctx, a.ThumbKey, time.Hour)
 		return url, true, err
+	}
+	if !browserTypes[a.ContentType] {
+		return "", false, ErrNotReady
 	}
 	url, err = s.storage.PresignGet(ctx, a.OriginalKey, time.Hour)
 	return url, false, err

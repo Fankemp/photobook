@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"photobook/internal/backgrounds"
 	"photobook/internal/fonts"
 	"photobook/internal/formats"
 	"photobook/internal/pages"
@@ -15,7 +16,7 @@ import (
 
 // Формат как в миграции 00001 — тестам не нужна база.
 var testFormats = map[string]formats.Format{
-	"square-200": {ID: "square-200", WidthMM: 200, HeightMM: 200, BleedMM: 3, SafeMM: 5, Pages: 20, MinDPI: 200, TargetDPI: 300},
+	"square-200": {ID: "square-200", WidthMM: 200, HeightMM: 200, BleedMM: 3, SafeMM: 5, Pages: 16, MinDPI: 200, TargetDPI: 300},
 }
 
 // Все шаблоны из репозитория должны проходить проверку: битый шаблон
@@ -30,7 +31,11 @@ func TestShippedTemplatesAreValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := LoadDir("../../../templates", testFormats, pages.Library{Fonts: fontReg, Stickers: stickerReg})
+	bgReg, err := backgrounds.Load("../../../frontend/src/book/backgrounds.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadDir("../../../templates", testFormats, pages.Library{Fonts: fontReg, Stickers: stickerReg, Backgrounds: bgReg})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +89,9 @@ func TestLoadDirErrors(t *testing.T) {
 		{"text too close to the edge", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(textAt(1)) + `}`, "safe zone"},
 		{"photos side by side", tpl(pageWith(photoAt("s1", 5) + `, ` + photoAt("s2", 45))), ""},
 		{"photos overlap", tpl(pageWith(photoAt("s1", 5) + `, ` + photoAt("s2", 40))), "photo_slot s1 overlaps s2"},
+		// Снимок целиком внутри большого фото — «вставка», так задумано; наполовину — ошибка.
+		{"inset photo inside a big photo", tpl(pageWith(`{"type": "photo_slot", "id": "big", "x": 0, "y": 0, "w": 100, "h": 100}, ` + photoAt("s1", 30))), ""},
+		{"photo half over another", tpl(pageWith(`{"type": "photo_slot", "id": "big", "x": 0, "y": 0, "w": 50, "h": 100}, ` + photoAt("s1", 30))), "photo_slot big overlaps s1"},
 		{"texts overlap", tpl(pageWith(textWithID("t1", 10) + `, ` + textWithID("t2", 40))), "text t1 overlaps t2"},
 		{"caption over a photo, sticker on top", tpl(pageWith(photoAt("s1", 5) + `, ` + textAt(10) + `, ` + heart)), ""},
 		{"unknown font", `{"schemaVersion": 1, "id": "ok", "name": "Ok", "occasion": "other", "formatId": "f1", ` + cover + `, ` + pageWith(strings.Replace(textAt(10), "lora", "comic-sans", 1)) + `}`, "fonts config"},

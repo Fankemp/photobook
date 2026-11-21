@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "id": "you-and-me",
+  "name": "Ты и я",
+  "occasion": "love",
+  "formatId": "square-200",
+  "cover": {"id": "cover", "background": "#7a1c1e", "elements": [
+      {"type": "text", "id": "t1", "x": 12, "y": 20, "w": 46, "h": 16, "text": "ТЫ", "font": "playfair-display", "size": 56, "color": "#ffffff", "align": "left"},
+      {"type": "text", "id": "t2", "x": 12, "y": 41, "w": 46, "h": 16, "text": "МОЁ", "font": "playfair-display", "size": 56, "color": "#ffffff", "align": "left"},
+      {"type": "text", "id": "t3", "x": 12, "y": 62, "w": 46, "h": 16, "text": "СЧАСТЬЕ", "font": "playfair-display", "size": 56, "color": "#ffffff", "align": "left"},
+      {"type": "sticker", "id": "st1", "x": 58, "y": 19, "w": 18, "h": 60, "stickerId": "frames-strip"},
+      {"type": "photo_slot", "id": "s1", "x": 59.5, "y": 20.5, "w": 14.1, "h": 13.2, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+      {"type": "photo_slot", "id": "s2", "x": 59.5, "y": 34.9, "w": 14.1, "h": 13.2, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+      {"type": "photo_slot", "id": "s3", "x": 59.5, "y": 49.3, "w": 14.1, "h": 13.2, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+      {"type": "photo_slot", "id": "s4", "x": 59.5, "y": 63.7, "w": 14.1, "h": 13.2, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+  ]},
+  "pages": [
+    {"id": "p1", "background": "#2b1614", "backgroundImage": "pinstripe-cocoa", "elements": [
+        {"type": "text", "id": "t1", "x": 9, "y": 22, "w": 82, "h": 56, "text": "С тобой всё становится чуточку светлее: обычные дни — особенными, трудные — легче, а счастливые — ещё счастливее. Спасибо за каждый день рядом и за жизнь, которую мы строим вместе.\n\nКак же мне с тобой повезло.", "font": "caveat", "size": 30, "color": "#ffffff", "align": "left", "rotation": -4}
+    ]},
+    {"id": "p2", "background": "#7a1c1e", "backgroundImage": "stripes-wine", "elements": [
+        {"type": "sticker", "id": "st1", "x": 27, "y": 6, "w": 32, "h": 38.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s1", "x": 28.92, "y": 7.92, "w": 26.88, "h": 26.88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 30, "y": 35.76, "w": 23, "h": 6, "text": "Имя", "font": "caveat", "size": 18, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st2", "x": 27, "y": 55, "w": 32, "h": 38.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s2", "x": 28.92, "y": 56.92, "w": 26.88, "h": 26.88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t2", "x": 30, "y": 84.76, "w": 23, "h": 6, "text": "Имя", "font": "caveat", "size": 18, "color": "#2a2422", "align": "center"},
+        {"type": "text", "id": "t3", "x": 36, "y": 43.5, "w": 12, "h": 12, "text": "+", "font": "caveat", "size": 64, "color": "#ffffff", "align": "center"},
+        {"type": "text", "id": "t4", "x": 85.5, "y": 43.5, "w": 12, "h": 12, "text": "=", "font": "caveat", "size": 64, "color": "#ffffff", "align": "center"}
+    ]},
+    {"id": "p3", "background": "#7a1c1e", "backgroundImage": "stripes-wine", "elements": [
+        {"type": "sticker", "id": "st1", "x": 13, "y": 8, "w": 74, "h": 67.83, "stickerId": "frames-lace-heart"},
+        {"type": "photo_slot", "id": "s1", "x": 24.1, "y": 17.25, "w": 51.8, "h": 47.66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}, "shape": "heart"},
+        {"type": "text", "id": "t1", "x": 20, "y": 81, "w": 60, "h": 11, "text": "мы — навсегда", "font": "caveat", "size": 34, "color": "#ffffff", "align": "center"}
+    ]},
+    {"id": "p4", "background": "#7a1c1e", "elements": [
+        {"type": "text", "id": "t1", "x": 3, "y": 3, "w": 94, "h": 94, "text": "люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда люблю тебя всегда", "font": "caveat", "size": 36, "color": "#ffffff", "align": "left"},
+        {"type": "sticker", "id": "st1", "x": 27, "y": 11, "w": 21, "h": 70, "stickerId": "frames-strip"},
+        {"type": "photo_slot", "id": "s1", "x": 28.75, "y": 12.75, "w": 16.45, "h": 15.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 28.75, "y": 29.55, "w": 16.45, "h": 15.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 28.75, "y": 46.35, "w": 16.45, "h": 15.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 28.75, "y": 63.15, "w": 16.45, "h": 15.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p5", "background": "#f4efe8", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 33.73, "y": 0, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 67.47, "y": 0, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 0, "y": 33.73, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s5", "x": 33.73, "y": 33.73, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s6", "x": 67.47, "y": 33.73, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s7", "x": 0, "y": 67.47, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "sticker", "id": "st1", "x": 33.73, "y": 67.47, "w": 32.53, "h": 32.53, "stickerId": "frames-pink-card"},
+        {"type": "text", "id": "t1", "x": 36.73, "y": 79.18, "w": 26.53, "h": 13, "text": "ты — моё\nсчастье", "font": "caveat", "size": 22, "color": "#ffffff", "align": "center"},
+        {"type": "photo_slot", "id": "s8", "x": 67.47, "y": 67.47, "w": 32.53, "h": 32.53, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p6", "background": "#33201b", "backgroundImage": "dots-cocoa", "elements": [
+        {"type": "sticker", "id": "st1", "x": 24, "y": 5, "w": 52, "h": 83.2, "stickerId": "frames-paper"},
+        {"type": "sticker", "id": "st2", "x": 35, "y": 2.5, "w": 30, "h": 8.5, "stickerId": "frames-tape", "rotation": -4},
+        {"type": "photo_slot", "id": "s1", "x": 31, "y": 13, "w": 34, "h": 31.28, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}, "shape": "heart"},
+        {"type": "text", "id": "t1", "x": 62, "y": 37, "w": 12, "h": 7, "text": "МОЙ", "font": "caveat", "size": 20, "color": "#2a2422", "align": "left"},
+        {"type": "photo_slot", "id": "s2", "x": 31, "y": 49, "w": 34, "h": 31.28, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}, "shape": "heart"},
+        {"type": "text", "id": "t2", "x": 28, "y": 80.5, "w": 34, "h": 7, "text": "НАВСЕГДА", "font": "caveat", "size": 20, "color": "#2a2422", "align": "left"},
+        {"type": "sticker", "id": "st3", "x": 61, "y": 74, "w": 12, "h": 12, "stickerId": "love-lips", "rotation": 8}
+    ]},
+    {"id": "p7", "background": "#f4efe8", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 50.6, "y": 0, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 0, "y": 50.6, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 50.6, "y": 50.6, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "sticker", "id": "st1", "x": 54, "y": 36, "w": 36, "h": 24.92, "stickerId": "frames-quote-card"},
+        {"type": "text", "id": "t1", "x": 58, "y": 40, "w": 28, "h": 17, "text": "Рядом с тобой —\nя дома", "font": "montserrat", "size": 15, "color": "#2a2422", "align": "left"}
+    ]},
+    {"id": "p8", "background": "#ffffff", "backgroundImage": "dots-white", "elements": [
+        {"type": "sticker", "id": "st1", "x": 5, "y": 4, "w": 78, "h": 70.8, "stickerId": "frames-heart-red-lace"},
+        {"type": "text", "id": "t1", "x": 13, "y": 19, "w": 30, "h": 24, "text": "наш мир\nв кадре", "font": "caveat", "size": 30, "color": "#ffffff", "align": "left", "rotation": -6},
+        {"type": "sticker", "id": "st2", "x": 44, "y": 22, "w": 30, "h": 36, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s1", "x": 45.8, "y": 23.8, "w": 25.2, "h": 25.2, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "sticker", "id": "st3", "x": 27, "y": 54, "w": 40, "h": 44.8, "stickerId": "frames-camera"}
+    ]},
+    {"id": "p9", "background": "#ffffff", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t1", "x": 28, "y": 9.5, "w": 19, "h": 6, "text": "каждый", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "photo_slot", "id": "s2", "x": 50, "y": 0, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t2", "x": 78, "y": 9.5, "w": 19, "h": 6, "text": "миг", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "text", "id": "t3", "x": 3, "y": 34.5, "w": 19, "h": 6, "text": "с тобой", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "photo_slot", "id": "s3", "x": 25, "y": 25, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t4", "x": 53, "y": 34.5, "w": 19, "h": 6, "text": "стал", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "photo_slot", "id": "s4", "x": 75, "y": 25, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s5", "x": 0, "y": 50, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t5", "x": 28, "y": 59.5, "w": 19, "h": 6, "text": "нашим", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "photo_slot", "id": "s6", "x": 50, "y": 50, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t6", "x": 78, "y": 59.5, "w": 19, "h": 6, "text": "маленьким", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "text", "id": "t7", "x": 3, "y": 84.5, "w": 19, "h": 6, "text": "большим", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "photo_slot", "id": "s7", "x": 25, "y": 75, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t8", "x": 53, "y": 84.5, "w": 19, "h": 6, "text": "счастьем", "font": "lora", "size": 11, "color": "#2a2422", "align": "center"},
+        {"type": "photo_slot", "id": "s8", "x": 75, "y": 75, "w": 25, "h": 25, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p10", "background": "#2b1614", "backgroundImage": "pinstripe-cocoa", "elements": [
+        {"type": "text", "id": "t1", "x": 8, "y": 4, "w": 84, "h": 15, "text": "6 причин, почему\nя тебя люблю", "font": "playfair-display", "size": 25, "color": "#ffffff", "align": "left"},
+        {"type": "text", "id": "t2", "x": 8, "y": 19.5, "w": 84, "h": 4.5, "text": "шесть маленьких причин из миллиона", "font": "montserrat", "size": 10, "color": "#ffffff", "align": "left"},
+        {"type": "sticker", "id": "st1", "x": 8, "y": 26, "w": 27, "h": 32.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s1", "x": 9.62, "y": 27.62, "w": 22.68, "h": 22.68, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t3", "x": 9.5, "y": 51.11, "w": 21, "h": 6, "text": "твоя улыбка", "font": "caveat", "size": 12, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st2", "x": 36.5, "y": 26, "w": 27, "h": 32.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s2", "x": 38.12, "y": 27.62, "w": 22.68, "h": 22.68, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t4", "x": 38, "y": 51.11, "w": 21, "h": 6, "text": "твои объятия", "font": "caveat", "size": 12, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st3", "x": 65, "y": 26, "w": 27, "h": 32.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s3", "x": 66.62, "y": 27.62, "w": 22.68, "h": 22.68, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t5", "x": 66.5, "y": 51.11, "w": 21, "h": 6, "text": "наши разговоры до утра", "font": "caveat", "size": 12, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st4", "x": 8, "y": 61, "w": 27, "h": 32.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s4", "x": 9.62, "y": 62.62, "w": 22.68, "h": 22.68, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t6", "x": 9.5, "y": 86.11, "w": 21, "h": 6, "text": "ты всегда рядом", "font": "caveat", "size": 12, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st5", "x": 36.5, "y": 61, "w": 27, "h": 32.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s5", "x": 38.12, "y": 62.62, "w": 22.68, "h": 22.68, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t7", "x": 38, "y": 86.11, "w": 21, "h": 6, "text": "твоя забота", "font": "caveat", "size": 12, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st6", "x": 65, "y": 61, "w": 27, "h": 32.4, "stickerId": "frames-polaroid"},
+        {"type": "photo_slot", "id": "s6", "x": 66.62, "y": 62.62, "w": 22.68, "h": 22.68, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "text", "id": "t8", "x": 66.5, "y": 86.11, "w": 21, "h": 6, "text": "просто ты", "font": "caveat", "size": 12, "color": "#2a2422", "align": "center"}
+    ]},
+    {"id": "p11", "background": "#2b1614", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "sticker", "id": "st1", "x": 58, "y": 5, "w": 34, "h": 42.5, "stickerId": "frames-print-portrait"},
+        {"type": "photo_slot", "id": "s2", "x": 59.53, "y": 6.53, "w": 29.58, "h": 37.74, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "sticker", "id": "st2", "x": 8, "y": 52, "w": 32, "h": 40, "stickerId": "frames-print-portrait"},
+        {"type": "photo_slot", "id": "s3", "x": 9.44, "y": 53.44, "w": 27.84, "h": 35.52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
+    ]},
+    {"id": "p12", "background": "#4e2124", "backgroundImage": "tiles-rose", "elements": [
+        {"type": "sticker", "id": "st1", "x": 13, "y": 22, "w": 56, "h": 38.62, "stickerId": "frames-note"},
+        {"type": "sticker", "id": "st2", "x": 28, "y": 18, "w": 28, "h": 7.93, "stickerId": "frames-tape", "rotation": 2},
+        {"type": "text", "id": "t1", "x": 18, "y": 31, "w": 46, "h": 20, "text": "с тобой я\nдома", "font": "caveat", "size": 30, "color": "#2a2422", "align": "center"}
+    ]},
+    {"id": "p13", "background": "#e8dcc8", "elements": [
+        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s2", "x": 50.6, "y": 0, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s3", "x": 0, "y": 50.6, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "photo_slot", "id": "s4", "x": 50.6, "y": 50.6, "w": 49.4, "h": 49.4, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
+        {"type": "sticker", "id": "st1", "x": 37, "y": 38.5, "w": 26, "h": 22.81, "stickerId": "frames-fingerprint-heart"}
+    ]},
+    {"id": "p14", "background": "#efe7d8", "elements": [
+        {"type": "sticker", "id": "st1", "x": 0, "y": 2.5, "w": 100, "h": 95, "stickerId": "frames-envelope"},
+        {"type": "text", "id": "t1", "x": 14, "y": 27, "w": 72, "h": 13, "text": "от меня — тебе", "font": "caveat", "size": 38, "color": "#5a1e1e", "align": "center", "rotation": -4}
+    ]},
+    {"id": "p15", "background": "#7a1c1e", "backgroundImage": "stripes-wine", "elements": [
+        {"type": "sticker", "id": "st1", "x": 6, "y": 20, "w": 88, "h": 58.67, "stickerId": "frames-postcard"},
+        {"type": "text", "id": "t1", "x": 10, "y": 24, "w": 40, "h": 15, "text": "ПИСЬМО\nС ЛЮБОВЬЮ", "font": "playfair-display", "size": 20, "color": "#2a2422", "align": "left"},
+        {"type": "text", "id": "t2", "x": 59, "y": 23, "w": 32, "h": 4, "text": "КОМУ:", "font": "montserrat", "size": 8, "color": "#2a2422", "align": "left"},
+        {"type": "text", "id": "t3", "x": 59, "y": 29, "w": 32, "h": 4, "text": "ОТ:", "font": "montserrat", "size": 8, "color": "#2a2422", "align": "left"},
+        {"type": "text", "id": "t4", "x": 59, "y": 35, "w": 32, "h": 37, "text": "Мой самый родной человек!\nЕсли бы всё можно было начать сначала — снова ты, каждый раз ты. Спасибо, что ты моё самое тёплое место и самое большое приключение. За все наши воспоминания — и за те, что ещё впереди.\n\nС любовью", "font": "caveat", "size": 14, "color": "#2a2422", "align": "left"}
+    ]},
+    {"id": "p16", "background": "#7a1c1e", "backgroundImage": "stripes-wine", "elements": [
+        {"type": "sticker", "id": "st1", "x": 22, "y": 8, "w": 56, "h": 81.19, "stickerId": "frames-card"},
+        {"type": "photo_slot", "id": "s1", "x": 31, "y": 25, "w": 38, "h": 34.96, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}, "shape": "heart"},
+        {"type": "text", "id": "t1", "x": 26, "y": 70, "w": 48, "h": 8, "text": "моя счастливая карта", "font": "caveat", "size": 20, "color": "#2a2422", "align": "center"},
+        {"type": "sticker", "id": "st2", "x": 58, "y": 11, "w": 13, "h": 13, "stickerId": "love-lips", "rotation": -10}
+    ]}
+  ],
+  "backCover": {"id": "back", "background": "#7a1c1e", "elements": [
+      {"type": "text", "id": "t1", "x": 30, "y": 46.5, "w": 40, "h": 7, "text": "14 · 02 · 2027", "font": "caveat", "size": 18, "color": "#ffffff", "align": "center"}
+  ]}
+}

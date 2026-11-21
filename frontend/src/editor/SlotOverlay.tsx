@@ -1,21 +1,20 @@
-import { useEffect, useEffectEvent, useRef, type MouseEvent, type PointerEvent } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from 'react'
 import { DEFAULT_CROP, panCrop, zoomCrop } from '../book/crop.ts'
 import { box } from '../book/geometry.ts'
 import { t } from '../i18n/index.ts'
 import type { Crop, PhotoSlotElement } from '../types.ts'
+import { DRAG_TYPE } from './PhotoTray.tsx'
 import type { Size } from './upload.ts'
-
-export type UploadState = { previewUrl: string; progress: number }
 
 type Props = {
   el: PhotoSlotElement
   selected: boolean
   imageSize?: Size // размеры фото в слоте (нужны, чтобы двигать его 1:1 за пальцем)
-  upload?: UploadState
   lowDpi: boolean // фото слишком маленькое для этого слота на печати
   label: string
   onTap: () => void
   onCrop: (crop: Crop) => void
+  onDropPhoto: (assetId: string) => void // фото перетащили из лотка (компьютер)
 }
 
 type Point = { x: number; y: number }
@@ -26,8 +25,9 @@ type Point = { x: number; y: number }
 // Жесты (Pointer Events — одинаково для пальца, мыши и стилуса):
 //  - тап — выбрать слот (или открыть выбор фото, если слот пустой);
 //  - в выбранном слоте: тянуть одним пальцем/мышью — сдвиг кадра,
-//    двумя пальцами — масштаб, колесо мыши — масштаб.
-export function SlotOverlay({ el, selected, imageSize, upload, lowDpi, label, onTap, onCrop }: Props) {
+//    двумя пальцами — масштаб, колесо мыши — масштаб;
+//  - на компьютере в слот можно перетащить фото из лотка «Мои фото».
+export function SlotOverlay({ el, selected, imageSize, lowDpi, label, onTap, onCrop, onDropPhoto }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
   // Начало текущего жеста. Пересчитывается, когда меняется число пальцев,
@@ -36,7 +36,8 @@ export function SlotOverlay({ el, selected, imageSize, upload, lowDpi, label, on
   const moved = useRef(false)
 
   const crop = el.crop ?? DEFAULT_CROP
-  const canAdjust = selected && !!el.assetId && !!imageSize && !upload
+  const canAdjust = selected && !!el.assetId && !!imageSize
+  const [dropping, setDropping] = useState(false) // над слотом держат фото из лотка
 
   function restart(target: HTMLElement) {
     const rect = target.getBoundingClientRect()
@@ -95,7 +96,22 @@ export function SlotOverlay({ el, selected, imageSize, upload, lowDpi, label, on
     return () => node.removeEventListener('wheel', handler)
   }, [])
 
-  const className = ['ed-slot', selected && 'is-selected', canAdjust && 'is-adjustable'].filter(Boolean).join(' ')
+  // Перетаскивание из лотка (HTML Drag and Drop): принимаем только наши фото.
+  function onDragOver(e: DragEvent) {
+    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
+    e.preventDefault() // иначе браузер не разрешит бросить сюда
+    e.dataTransfer.dropEffect = 'copy'
+    setDropping(true)
+  }
+  function onDrop(e: DragEvent) {
+    setDropping(false)
+    const id = e.dataTransfer.getData(DRAG_TYPE)
+    if (!id) return
+    e.preventDefault()
+    onDropPhoto(id)
+  }
+
+  const className = ['ed-slot', selected && 'is-selected', canAdjust && 'is-adjustable', dropping && 'is-drop'].filter(Boolean).join(' ')
 
   return (
     <div
@@ -111,20 +127,15 @@ export function SlotOverlay({ el, selected, imageSize, upload, lowDpi, label, on
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
       onClick={onClick}
+      onDragOver={onDragOver}
+      onDragLeave={() => setDropping(false)}
+      onDrop={onDrop}
     >
-      {lowDpi && !upload && (
+      {lowDpi && (
         <span className="ed-dpi-badge">
           <WarningIcon />
           {t.editor.lowDpiShort}
         </span>
-      )}
-      {upload && (
-        <div className="ed-upload">
-          <img src={upload.previewUrl} alt="" />
-          <div className="ed-progress">
-            <span style={{ width: `${Math.round(upload.progress * 100)}%` }} />
-          </div>
-        </div>
       )}
     </div>
   )

@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"photobook/internal/orders"
 	"photobook/internal/pages"
 	"photobook/internal/templates"
 )
@@ -36,7 +38,7 @@ var (
 	// ErrConflict — книгу уже сохранили с другой вкладки/устройства,
 	// версия клиента устарела.
 	ErrConflict = errors.New("book was changed by someone else")
-	// ErrLocked — по книге есть действующая заявка, менять её нельзя.
+	// ErrLocked — заказ книги уже в печати (или дальше), менять её нельзя.
 	ErrLocked = errors.New("book is locked by an order")
 )
 
@@ -98,11 +100,12 @@ func (s *Store) Create(ctx context.Context, b Book) (Book, error) {
 	return b, nil
 }
 
-// IsLocked — есть ли у книги действующая (не отменённая) заявка.
+// IsLocked — книга закрыта: её заказ уже в печати (printing, delivery, done).
+// Пока заказ new, awaiting_prepayment или paid, книгу можно менять.
 func (s *Store) IsLocked(ctx context.Context, bookID string) (bool, error) {
 	var locked bool
-	err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE book_id = $1 AND status <> 'cancelled')`,
-		bookID).Scan(&locked)
+	err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE book_id = $1 AND status = ANY($2))`,
+		bookID, orders.Locked).Scan(&locked)
 	return locked, err
 }
 
@@ -132,29 +135,51 @@ func (s *Store) get(ctx context.Context, column, value string) (Book, error) {
 }
 
 // SavePages сохраняет страницы, если версия в базе всё ещё та, что видел клиент
-// (оптимистичная блокировка) и по книге нет действующей заявки.
-// Проверка заявки — в том же UPDATE: между проверкой и записью заявка
-// не успеет появиться. Возвращает новую версию и время сохранения.
+// (оптимистичная блокировка) и заказ книги (если он есть) ещё не в печати.
+//
+// Сначала блокируется строка заказа (FOR UPDATE): «Отправить в печать» в админке
+// блокирует её же, поэтому правка и печать не пересекутся — либо правка успела
+// и PDF устарел (печать не пустят), либо книга уже закрыта и правка отклонена,
+// ничего не записав. Правка после заявки отмечается в заказе (book_changed_at):
+// по ней команда получит сообщение, а PDF пересоберётся (orders.RunChanges).
 func (s *Store) SavePages(ctx context.Context, bookID string, version int, cover pages.Page, pp []pages.Page, back pages.Page) (int, time.Time, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, time.Time{}, err
+	}
+	defer tx.Rollback(ctx) // после Commit ничего не делает
+
+	var orderID, status string
+	err = tx.QueryRow(ctx, `SELECT id, status FROM orders WHERE book_id = $1 AND status <> 'cancelled' FOR UPDATE`,
+		bookID).Scan(&orderID, &status)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return 0, time.Time{}, fmt.Errorf("lock order: %w", err)
+	}
+	if slices.Contains(orders.Locked, status) {
+		return 0, time.Time{}, ErrLocked
+	}
+
 	var newVersion int
 	var updatedAt time.Time
-	err := s.db.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		UPDATE books SET cover = $3, pages = $4, back_cover = $5, version = version + 1, updated_at = now()
 		WHERE id = $1 AND version = $2
-		  AND NOT EXISTS (SELECT 1 FROM orders WHERE book_id = $1 AND status <> 'cancelled')
 		RETURNING version, updated_at`,
 		bookID, version, cover, pp, back,
 	).Scan(&newVersion, &updatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Книга точно существует (её нашли по токену до вызова): либо она
-		// закрыта заявкой, либо не совпала версия.
-		if locked, lerr := s.IsLocked(ctx, bookID); lerr == nil && locked {
-			return 0, time.Time{}, ErrLocked
-		}
-		return 0, time.Time{}, ErrConflict
+		return 0, time.Time{}, ErrConflict // книга точно есть (нашли по токену) — не совпала версия
 	}
 	if err != nil {
 		return 0, time.Time{}, fmt.Errorf("save book: %w", err)
+	}
+	if orderID != "" {
+		if _, err := tx.Exec(ctx, `UPDATE orders SET book_changed_at = now() WHERE id = $1`, orderID); err != nil {
+			return 0, time.Time{}, fmt.Errorf("mark order changed: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, time.Time{}, err
 	}
 	return newVersion, updatedAt, nil
 }

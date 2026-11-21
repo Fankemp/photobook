@@ -15,9 +15,11 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"photobook/internal/orders"
+	"photobook/internal/pages"
 	"photobook/internal/ratelimit"
 	"photobook/internal/storage"
 )
@@ -33,6 +35,7 @@ type Config struct {
 type Deps struct {
 	Orders       *orders.Service
 	Storage      *storage.Storage
+	Library      pages.Library // шрифты и стикеры — проверка книги после правки текстов
 	TemplateName func(id string) string
 	RenderWake   func() // разбудить сборку PDF (после «Пересобрать»)
 	Log          *slog.Logger
@@ -58,6 +61,10 @@ func New(cfg Config, d Deps) http.Handler {
 	mux.HandleFunc("POST /admin/orders/{number}/status", h.changeStatus)
 	mux.HandleFunc("GET /admin/orders/{number}/pdf/{part}", h.pdf)
 	mux.HandleFunc("POST /admin/orders/{number}/render", h.rerender)
+	mux.HandleFunc("POST /admin/orders/{number}/print", h.sendToPrint)
+	mux.HandleFunc("GET /admin/orders/{number}/texts", h.texts)
+	mux.HandleFunc("POST /admin/orders/{number}/texts", h.saveTexts)
+	mux.HandleFunc("GET /admin/orders/{number}/versions/{version}/pdf/{part}", h.versionPDF)
 
 	// Защита от подделки запросов (CSRF): браузер сам подставляет пароль Basic Auth
 	// в любой запрос к нашему адресу, даже со стороннего сайта. CrossOriginProtection
@@ -70,7 +77,7 @@ func New(cfg Config, d Deps) http.Handler {
 // Ошибка в шаблоне — паника при старте сервера (и в тесте), а не у команды в браузере.
 func parsePages() map[string]*template.Template {
 	pages := map[string]*template.Template{}
-	for _, name := range []string{"list", "detail"} {
+	for _, name := range []string{"list", "detail", "texts"} {
 		pages[name] = template.Must(template.New("layout.html").Funcs(funcs).
 			ParseFS(templatesFS, "templates/layout.html", "templates/"+name+".html"))
 	}
@@ -178,6 +185,7 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 		"Statuses":     orders.Statuses,
 		"Saved":        r.URL.Query().Has("saved"),
 		"Rerender":     r.URL.Query().Has("rerender"),
+		"TextsSaved":   r.URL.Query().Has("texts"),
 		"Error":        r.URL.Query().Get("error"),
 		"WhatsAppLink": "https://wa.me/" + d.Phone[1:], // +77001234567 → 77001234567
 	})
@@ -202,12 +210,128 @@ func (h *handler) changeStatus(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, back+"?error="+url.QueryEscape("Заметка длиннее 500 символов."), http.StatusSeeOther)
 	case errors.Is(err, orders.ErrAlreadyOrdered):
 		http.Redirect(w, r, back+"?error="+url.QueryEscape("По этой книге уже есть другая действующая заявка."), http.StatusSeeOther)
+	case errors.Is(err, orders.ErrPDFNotCurrent):
+		http.Redirect(w, r, back+"?error="+url.QueryEscape(errPDFNotCurrent), http.StatusSeeOther)
 	case err != nil:
 		h.fail(w, err)
 	default:
 		h.Log.Info("order status changed", "number", number, "status", r.FormValue("status"))
 		http.Redirect(w, r, back+"?saved", http.StatusSeeOther)
 	}
+}
+
+const errPDFNotCurrent = "В печать нельзя: PDF не собран из текущей версии книги. Дождитесь пересборки (обновите страницу через минуту)."
+
+// sendToPrint — «Отправить в печать»: статус printing, книга закрывается для
+// клиента. Только когда PDF собран из текущей версии книги (иначе напечатаем не то).
+func (h *handler) sendToPrint(w http.ResponseWriter, r *http.Request) {
+	number, err := strconv.ParseInt(r.PathValue("number"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	back := fmt.Sprintf("/admin/orders/%d", number)
+	err = h.Orders.ChangeStatus(r.Context(), number, orders.StatusPrinting, "Отправлено в печать")
+	switch {
+	case errors.Is(err, orders.ErrNotFound):
+		http.NotFound(w, r)
+	case errors.Is(err, orders.ErrPDFNotCurrent):
+		http.Redirect(w, r, back+"?error="+url.QueryEscape(errPDFNotCurrent), http.StatusSeeOther)
+	case err != nil:
+		h.fail(w, err)
+	default:
+		h.Log.Info("order sent to print", "number", number)
+		http.Redirect(w, r, back+"?saved", http.StatusSeeOther)
+	}
+}
+
+// texts — правка текстов книги по просьбе клиента (пока заказ не в печати).
+func (h *handler) texts(w http.ResponseWriter, r *http.Request) {
+	d, ok := h.order(w, r)
+	if !ok {
+		return
+	}
+	list, err := h.Orders.BookTexts(r.Context(), d.BookToken)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	h.render(w, "texts", map[string]any{"O": d, "Pages": list, "Error": r.URL.Query().Get("error")})
+}
+
+// saveTexts — поля формы называются t:<id страницы>:<id блока>.
+func (h *handler) saveTexts(w http.ResponseWriter, r *http.Request) {
+	number, err := strconv.ParseInt(r.PathValue("number"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Неверная форма", http.StatusBadRequest)
+		return
+	}
+	var edits []orders.TextEdit
+	for key, vals := range r.PostForm {
+		parts := strings.SplitN(key, ":", 3)
+		if len(parts) != 3 || parts[0] != "t" || len(vals) != 1 {
+			continue
+		}
+		// Браузер присылает переводы строк как \r\n — в книге храним \n.
+		edits = append(edits, orders.TextEdit{PageID: parts[1], ElementID: parts[2], Text: strings.ReplaceAll(vals[0], "\r\n", "\n")})
+	}
+	changed, err := h.Orders.EditTexts(r.Context(), number, edits, h.Library)
+	back := fmt.Sprintf("/admin/orders/%d", number)
+	switch {
+	case errors.Is(err, orders.ErrNotFound):
+		http.NotFound(w, r)
+	case errors.Is(err, orders.ErrNotEditable):
+		http.Redirect(w, r, back+"?error="+url.QueryEscape("Заказ уже в печати — книгу менять нельзя."), http.StatusSeeOther)
+	case errors.Is(err, orders.ErrInvalidText):
+		http.Redirect(w, r, back+"/texts?error="+url.QueryEscape("Текст не сохранён: блок длиннее 1000 символов."), http.StatusSeeOther)
+	case err != nil:
+		h.fail(w, err)
+	case len(changed) == 0:
+		http.Redirect(w, r, back+"?error="+url.QueryEscape("Тексты не изменились."), http.StatusSeeOther)
+	default:
+		h.Log.Info("book texts changed by admin", "number", number, "pages", changed)
+		if h.RenderWake != nil {
+			h.RenderWake()
+		}
+		http.Redirect(w, r, back+"?texts", http.StatusSeeOther)
+	}
+}
+
+// versionPDF — PDF конкретной версии заказа (история версий).
+func (h *handler) versionPDF(w http.ResponseWriter, r *http.Request) {
+	d, ok := h.order(w, r)
+	if !ok {
+		return
+	}
+	v, err := strconv.Atoi(r.PathValue("version"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	part := r.PathValue("part")
+	key, err := h.Orders.VersionPDFKey(r.Context(), d.ID, v, part)
+	if errors.Is(err, orders.ErrNotFound) || (err == nil && key == "") {
+		http.Error(w, "PDF этой версии нет", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	name := fmt.Sprintf("photobook-%d-v%d.pdf", d.Number, v)
+	if part != "book" {
+		name = fmt.Sprintf("photobook-%d-v%d-%s.pdf", d.Number, v, part)
+	}
+	link, err := h.Storage.PresignDownload(r.Context(), key, name, 15*time.Minute)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	http.Redirect(w, r, link, http.StatusFound)
 }
 
 // pdf отдаёт печатный PDF (book — вся книга одним файлом; cover и block —
@@ -297,8 +421,17 @@ var statusNames = map[string]string{
 	"cancelled":           "Отменена",
 }
 
+// Почему появилась версия заказа (снимок).
+var reasonNames = map[string]string{
+	"order":         "заявка",
+	"client_change": "клиент изменил книгу",
+	"admin_change":  "изменено администратором",
+	"rerender":      "пересборка из админки",
+}
+
 var funcs = template.FuncMap{
 	"statusName": func(s string) string { return statusNames[s] },
+	"reasonName": func(s string) string { return reasonNames[s] },
 	"phone":      orders.FormatPhone,
 	"tenge":      orders.FormatTenge,
 	// Даты — по времени Алматы. Принимает и time.Time, и *time.Time (пустое — прочерк).

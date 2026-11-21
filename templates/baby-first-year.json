@@ -17,100 +17,82 @@
         {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "nature-sparkles"}
     ]},
     {"id": "p2", "background": "#f2f7fb", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p3", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "1 месяц", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 84, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"},
         {"type": "sticker", "id": "st1", "x": 84, "y": 3, "w": 10, "h": 10, "stickerId": "nature-sparkles"}
     ]},
-    {"id": "p4", "background": "#f2f7fb", "elements": [
+    {"id": "p3", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "2 месяца", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 51, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p5", "background": "#f2f7fb", "elements": [
+    {"id": "p4", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "3 месяца", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 84, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p6", "background": "#f2f7fb", "elements": [
+    {"id": "p5", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "4 месяца", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 51, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p7", "background": "#f2f7fb", "elements": [
+    {"id": "p6", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "5 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 84, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p8", "background": "#f2f7fb", "elements": [
+    {"id": "p7", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "6 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 51, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"},
         {"type": "sticker", "id": "st1", "x": 84, "y": 3, "w": 10, "h": 10, "stickerId": "party-star", "rotation": 12}
     ]},
-    {"id": "p9", "background": "#f2f7fb", "elements": [
+    {"id": "p8", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "7 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 84, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p10", "background": "#f2f7fb", "elements": [
+    {"id": "p9", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "8 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 51, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p11", "background": "#f2f7fb", "elements": [
+    {"id": "p10", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "9 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 84, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p12", "background": "#f2f7fb", "elements": [
+    {"id": "p11", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "10 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 51, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p13", "background": "#f2f7fb", "elements": [
+    {"id": "p12", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "11 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 84, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
     ]},
-    {"id": "p14", "background": "#f2f7fb", "elements": [
+    {"id": "p13", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 8, "y": 6, "w": 84, "h": 9, "text": "12 месяцев", "font": "pacifico", "size": 26, "color": "#3b6e8f", "align": "center", "rotation": -3},
         {"type": "photo_slot", "id": "s1", "x": 8, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 51, "y": 18, "w": 41, "h": 66, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t2", "x": 8, "y": 87, "w": 84, "h": 8, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"},
         {"type": "sticker", "id": "st1", "x": 82, "y": 2, "w": 12, "h": 12, "stickerId": "party-cake"}
     ]},
-    {"id": "p15", "background": "#f2f7fb", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p16", "background": "#f2f7fb", "elements": [
+    {"id": "p14", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Первые шаги", "font": "pacifico", "size": 24, "color": "#3b6e8f", "align": "center"},
         {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "party-star"}
     ]},
-    {"id": "p17", "background": "#f2f7fb", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 52, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p18", "background": "#f2f7fb", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#4a5a66", "align": "center"}
-    ]},
-    {"id": "p19", "background": "#f2f7fb", "elements": [
+    {"id": "p15", "background": "#f2f7fb", "elements": [
         {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
     ]},
-    {"id": "p20", "background": "#f2f7fb", "elements": [
+    {"id": "p16", "background": "#f2f7fb", "elements": [
         {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "С днём рождения, малыш!", "font": "pacifico", "size": 24, "color": "#3b6e8f", "align": "center"},
         {"type": "sticker", "id": "st1", "x": 42, "y": 70, "w": 16, "h": 16, "stickerId": "party-cake"},
         {"type": "sticker", "id": "st2", "x": 76, "y": 8, "w": 14, "h": 14, "stickerId": "party-balloons", "rotation": 8}

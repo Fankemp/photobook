@@ -40,6 +40,7 @@ export type PhotoSlotElement = ElementBase & {
   type: 'photo_slot'
   assetId?: string | null // нет поля или null — слот пустой
   crop?: Crop
+  shape?: 'heart' // форма рамки; нет поля — прямоугольник
 }
 
 export type TextElement = ElementBase & {
@@ -64,7 +65,8 @@ export type PageElement = PhotoSlotElement | TextElement | StickerElement
 
 export type Page = {
   id: string
-  background: string
+  background: string // цвет страницы (и вылета)
+  backgroundImage?: string // узор поверх цвета — id из book/backgrounds.json
   elements: PageElement[]
 }
 
@@ -80,8 +82,17 @@ export type TemplateSummary = {
 
 export type Template = TemplateSummary & { pages: Page[]; backCover: Page }
 
-// Загруженное фото. Размеры — с учётом поворота, как фото видит человек.
-export type AssetInfo = { id: string; width: number; height: number }
+// Загруженное фото (лоток «Мои фото»), в порядке загрузки. Размеры — с учётом
+// поворота, как фото видит человек.
+export type AssetInfo = {
+  id: string
+  width: number
+  height: number
+  takenAt?: string // дата съёмки из EXIF, «2023-07-15T14:22:01»
+  sha256?: string // хеш файла — не загружать одно фото дважды
+  removed?: boolean // удалено из лотка; страницы ещё могут на него ссылаться
+  viewable: boolean // картинку уже можно показать (у HEIC — когда готова миниатюра)
+}
 
 export type Book = {
   token: string
@@ -116,7 +127,8 @@ export type Order = {
 // Для страницы заявки: заявка (если уже есть) или данные для формы.
 export type OrderInfo = { order: Order | null; minWantedDate: string; priceKzt: number }
 
-export type OrderForm = Pick<Order, 'name' | 'phone' | 'address' | 'wantedDate' | 'comment'> & { version: number }
+// confirmed — галочка «Я проверил(а) тексты и фото»: без неё сервер заявку не примет.
+export type OrderForm = Pick<Order, 'name' | 'phone' | 'address' | 'wantedDate' | 'comment'> & { version: number; confirmed: boolean }
 
 // Данные для печатной страницы (/print/…): книга и ссылки на оригиналы фото.
 export type PrintData = { format: Format; cover: Page; pages: Page[]; backCover: Page; images: Record<string, string> }

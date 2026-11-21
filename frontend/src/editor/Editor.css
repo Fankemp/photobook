@@ -95,6 +95,12 @@
   margin: 0;
 }
 
+/* Не ошибка, а сведения (заявка оформлена, книгу ещё можно менять). */
+.ed-banner-info {
+  background: #eef2f7;
+  color: var(--ink);
+}
+
 /* Страница на экране: во всю ширину на телефоне, на компьютере не выше
    окна, чтобы была видна целиком вместе с листанием. */
 .ed-page {
@@ -131,18 +137,11 @@
   cursor: grabbing;
 }
 
-.ed-upload {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  background: #e9ecf2;
-}
-
-.ed-upload img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.55;
+/* Над рамкой держат фото из лотка (перетаскивание на компьютере). */
+.ed-slot.is-drop {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+  background: rgb(255 255 255 / 0.35);
 }
 
 .ed-progress {
@@ -855,6 +854,302 @@
   color: #ffffff;
 }
 
+/* ---------- Лоток «Мои фото» ----------
+   Телефон: шторка снизу поверх редактора (открывается кнопкой «Мои фото»
+   или тапом по пустой рамке). Широкий экран: всегда видна в колонке справа,
+   под панелью настроек (см. ниже, .ed-side). */
+.ed-side {
+  display: contents; /* на телефоне обёртка не влияет на раскладку */
+}
+
+.ed-tray-open {
+  width: 100%;
+}
+
+.ed-tray {
+  display: none;
+}
+
+.ed-tray.is-open {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  max-width: 760px;
+  max-height: 85dvh;
+  margin: 0 auto;
+  padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+  border-radius: 14px 14px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.18);
+  animation: ed-tray-up 0.2s ease-out;
+}
+
+@keyframes ed-tray-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-tray.is-open {
+    animation: none;
+  }
+}
+
+.ed-tray-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: rgb(0 0 0 / 0.35);
+}
+
+.ed-tray-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0 8px;
+}
+
+.ed-tray-head h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.ed-tray-head p {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+}
+
+.ed-tray-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  background: #eef2f7;
+  font-size: 0.9375rem;
+}
+
+.ed-tray-pick span {
+  flex: 1;
+}
+
+.ed-tray-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ed-tray-actions .btn {
+  flex: 1 1 140px;
+}
+
+/* Прокручивается только сетка фото, заголовок и кнопки внизу на месте. */
+.ed-tray-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+}
+
+.ed-tray-scroll .ed-toast {
+  margin: 0 0 8px;
+}
+
+.ed-tray-note {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+}
+
+.ed-tray-failed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--error);
+  font-size: 0.875rem;
+}
+
+/* Миниатюры не меньше 88px — удобно попасть пальцем. */
+.ed-tray-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.ed-tray-photo {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  background: var(--rule);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ed-tray-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ed-tray-photo:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Отмеченное фото: рамка цвета переплёта и номер — порядок выбора. */
+.ed-tray-photo[aria-pressed='true'] {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.ed-tray-order {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* Галочка — фото уже в книге (число — во скольких рамках). */
+.ed-tray-used {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: rgb(255 255 255 / 0.92);
+  color: var(--cloth);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+
+.ed-tray-low {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.ed-tray-wait {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* Загружается: превью бледнее, полоска прогресса внизу. */
+.ed-tray-item .ed-tray-photo {
+  cursor: default;
+}
+
+.ed-tray-item.is-uploading img,
+.ed-tray-item.is-waiting img {
+  opacity: 0.55;
+}
+
+.ed-tray-item.is-failed .ed-tray-photo {
+  outline: 2px solid var(--error);
+  outline-offset: -2px;
+}
+
+.ed-tray-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 4px;
+  background: rgb(255 255 255 / 0.85);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+.ed-tray-error .error {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ed-tray-error .btn {
+  min-height: 32px;
+  padding: 0 6px;
+  font-size: 0.8125rem;
+}
+
+.ed-tray-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Перетаскивать можно только мышью — подсказка на телефоне не нужна. */
+.ed-tray-drag {
+  display: none;
+}
+
+.ed-tray-bar {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  font-size: 0.875rem;
+}
+
+.ed-tray-bar .ed-toolbar-row {
+  flex-wrap: wrap;
+}
+
+.ed-tray-bar .btn {
+  flex: 1 1 auto;
+}
+
 /* ---------- Широкий экран: три колонки ----------
    Слева — лента страниц (вертикально), по центру — страница крупно,
    справа — панель настроек (не прибита к низу, а стоит колонкой).
@@ -904,16 +1199,60 @@
     flex: none;
   }
 
-  .ed-toolbar {
+  /* Колонка справа: панель настроек, под ней лоток «Мои фото» до низа окна. */
+  .ed-side {
     grid-area: tools;
     position: sticky;
     top: 12px;
     align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     max-height: calc(100dvh - 24px);
+  }
+
+  .ed-toolbar {
+    position: static;
+    flex: none;
+    max-height: 60dvh;
     overflow-y: auto;
     border: 1px solid var(--rule);
     border-radius: 8px;
     box-shadow: none;
+  }
+
+  .ed-tray,
+  .ed-tray.is-open {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 280px;
+    max-height: none;
+    margin: 0;
+    padding: 0 12px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    box-shadow: none;
+    animation: none;
+  }
+
+  .ed-tray-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  }
+
+  .ed-tray-photo[draggable='true'] {
+    cursor: grab;
+  }
+
+  .ed-tray-backdrop,
+  .ed-tray-close,
+  .ed-tray-open {
+    display: none;
+  }
+
+  .ed-tray-drag {
+    display: block;
   }
 
   .ed-toolbar-inner {

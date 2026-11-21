@@ -1,5 +1,6 @@
 import type { Book } from '../types.ts'
 import type { Doc } from './doc.ts'
+import { bookLocked } from '../lib/orderStatus.ts'
 
 // Черновик книги в localStorage — страховка на случай обрыва сети или
 // закрытой вкладки: несохранённые правки не пропадут на этом устройстве.
@@ -31,6 +32,9 @@ export function writeDraft(token: string, draft: Draft) {
 // и устаревший черновик удаляем. Общая логика для редактора и превью.
 export function restoreDoc(book: Book): { doc: Doc; fromDraft: boolean } {
   const server: Doc = { cover: book.cover, pages: book.pages, backCover: book.backCover }
+  // Книга в печати — показываем ровно то, что печатаем. Черновик не трогаем:
+  // если заказ отменят, несохранённые правки вернутся.
+  if (bookLocked(book.order)) return { doc: server, fromDraft: false }
   const raw = readDraft(book.token)
   // Черновик, сохранённый до появления задней обложки, — дополняем ею с сервера.
   const draft = raw && { ...raw, doc: { ...raw.doc, backCover: raw.doc.backCover ?? book.backCover } }

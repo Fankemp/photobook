@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -17,12 +18,18 @@ type Config struct {
 	Production     bool   // APP_ENV=production: строгие проверки паролей при запуске
 	FontsConfig    string // fonts.json — общий конфиг шрифтов с фронтендом
 	StickersConfig string // stickers.json — общий конфиг стикеров с фронтендом
+	UploadsConfig  string // uploads.json — общий конфиг загрузки фото с фронтендом (лимиты)
+	// backgrounds.json — общий конфиг узоров фона страниц с фронтендом.
+	BackgroundsConfig string
 	// Адреса сайта, с которых браузер может загружать файлы прямо в хранилище (CORS).
 	AppOrigins []string
 	// Адрес сайта для ссылок в уведомлениях («Превью книги» в Telegram).
 	AppBaseURL string
 	// За сколько дней минимум можно выбрать желаемую дату (время на печать).
 	OrderMinLeadDays int
+	// Сколько клиент не правил книгу после заявки, чтобы считать правку законченной
+	// (тогда — событие, Telegram и пересборка PDF). ORDER_CHANGE_QUIET_SECONDS, по умолчанию 60.
+	OrderChangeQuiet time.Duration
 	Telegram         TelegramConfig
 	// Админка: вход по логину и паролю (HTTP Basic Auth). Пустой пароль — админка выключена.
 	AdminUser     string
@@ -77,13 +84,15 @@ func Load() (Config, error) {
 		HTTPAddr:    getenv("HTTP_ADDR", ":8080"),
 		DatabaseURL: required("DATABASE_URL"),
 		// По умолчанию — папка templates/ в корне репозитория (для go run из backend/).
-		TemplatesDir:   getenv("TEMPLATES_DIR", "../templates"),
-		FontsConfig:    getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
-		StickersConfig: getenv("STICKERS_CONFIG", "../frontend/src/book/stickers.json"),
-		AppOrigins:     strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
-		AppBaseURL:     getenv("APP_BASE_URL", "http://localhost:5173"),
-		AdminUser:      getenv("ADMIN_USER", "admin"),
-		AdminPassword:  os.Getenv("ADMIN_PASSWORD"),
+		TemplatesDir:      getenv("TEMPLATES_DIR", "../templates"),
+		FontsConfig:       getenv("FONTS_CONFIG", "../frontend/src/book/fonts.json"),
+		StickersConfig:    getenv("STICKERS_CONFIG", "../frontend/src/book/stickers.json"),
+		UploadsConfig:     getenv("UPLOADS_CONFIG", "../frontend/src/editor/uploads.json"),
+		BackgroundsConfig: getenv("BACKGROUNDS_CONFIG", "../frontend/src/book/backgrounds.json"),
+		AppOrigins:        strings.Split(getenv("APP_ORIGINS", "http://localhost:5173"), ","),
+		AppBaseURL:        getenv("APP_BASE_URL", "http://localhost:5173"),
+		AdminUser:         getenv("ADMIN_USER", "admin"),
+		AdminPassword:     os.Getenv("ADMIN_PASSWORD"),
 		Render: RenderConfig{
 			ServiceURL:   os.Getenv("RENDER_URL"),
 			PrintBaseURL: getenv("PRINT_BASE_URL", "http://frontend:5173"),
@@ -111,6 +120,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("ORDER_MIN_LEAD_DAYS must be a non-negative number")
 	}
 	cfg.OrderMinLeadDays = lead
+	quiet, err := strconv.Atoi(getenv("ORDER_CHANGE_QUIET_SECONDS", "60"))
+	if err != nil || quiet < 1 {
+		return Config{}, fmt.Errorf("ORDER_CHANGE_QUIET_SECONDS must be a positive number")
+	}
+	cfg.OrderChangeQuiet = time.Duration(quiet) * time.Second
 	if cfg.Telegram.Token != "" && cfg.Telegram.ChatID == "" {
 		missing = append(missing, "TELEGRAM_CHAT_ID")
 	}

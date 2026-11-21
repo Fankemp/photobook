@@ -1,0 +1,34 @@
+{
+  "backgrounds": [
+    {
+      "id": "stripes-wine",
+      "name": "Винные полоски",
+      "file": "stripes-wine.svg"
+    },
+    {
+      "id": "pinstripe-cocoa",
+      "name": "Шоколад в тонкую полоску",
+      "file": "pinstripe-cocoa.svg"
+    },
+    {
+      "id": "dots-cocoa",
+      "name": "Крупный горошек",
+      "file": "dots-cocoa.svg"
+    },
+    {
+      "id": "dots-white",
+      "name": "Мелкий горошек",
+      "file": "dots-white.svg"
+    },
+    {
+      "id": "tiles-rose",
+      "name": "Глянцевая плитка",
+      "file": "tiles-rose.svg"
+    },
+    {
+      "id": "lace-cocoa",
+      "name": "Кружево на шоколаде",
+      "file": "lace-cocoa.svg"
+    }
+  ]
+}

@@ -78,14 +78,20 @@ await page.locator('.ed-page').waitFor()
 check((await status()) === 'Сохранено', 'editor opens, status "Сохранено"')
 await page.screenshot({ path: `${out}/ed-1-cover.png` })
 
-// 3. Страница 1 (фото на всю страницу): тап по пустому слоту → выбор файла.
+// 3. Страница 1 (фото на всю страницу): тап по пустому слоту → лоток «Мои фото»
+//    (а не системная галерея) → «Добавить фото» → фото встаёт в эту рамку.
 await page.getByRole('button', { name: 'Следующая страница' }).click()
-check((await page.locator('.ed-pager span').textContent()) === 'Страница 1 из 20', 'pager shows "Страница 1 из 20"')
-const chooser = page.waitForEvent('filechooser')
+check((await page.locator('.ed-pager span').textContent()) === 'Страница 1 из 16', 'pager shows "Страница 1 из 16"')
 await page.locator('.ed-slot').first().click()
-await (await chooser).setFiles('shots/rotated.jpg')
+await page.locator('.ed-tray.is-open').waitFor()
+check(true, 'tap on an empty slot opens the photo tray')
+const chooser = page.waitForEvent('filechooser')
+await page.locator('.ed-tray').getByRole('button', { name: 'Добавить фото' }).click()
+const fc = await chooser
+check(fc.isMultiple(), 'file dialog lets you pick many photos at once')
+await fc.setFiles('shots/rotated.jpg')
 await page.locator('.ed-slot.is-selected').waitFor({ timeout: 15000 })
-check(true, 'photo uploaded, slot selected for adjusting')
+check(!(await page.locator('.ed-tray.is-open').isVisible()), 'photo uploaded into the tapped slot, tray closed, slot selected for adjusting')
 await waitSaved()
 let b = await api(token)
 const slot = b.pages[0].elements[0]
@@ -170,8 +176,11 @@ check(!b.pages[0].elements[0].assetId, 'photo removed from slot')
 
 // 8б. Крупное фото: предупреждения нет, пока не увеличишь кадр слишком сильно.
 //     После перезагрузки показывается миниатюра (1600 px), а не оригинал (3000 px).
-const chooserBig = page.waitForEvent('filechooser')
 await page.locator('.ed-slot').first().click()
+await page.locator('.ed-tray.is-open').waitFor()
+check((await page.locator('.ed-tray-photo[data-asset-id]').count()) === 1, 'removed photo stays in the tray')
+const chooserBig = page.waitForEvent('filechooser')
+await page.locator('.ed-tray').getByRole('button', { name: 'Загрузить ещё' }).click()
 await (await chooserBig).setFiles('shots/big.jpg')
 await page.locator('.ed-slot.is-selected').waitFor({ timeout: 15000 })
 check(!(await page.locator('.ed-dpi-badge').isVisible()), 'big photo (~254 DPI) → no warning')
@@ -192,12 +201,14 @@ await page.screenshot({ path: `${out}/ed-8-big-photo.png` })
 
 // 9. Неподходящий файл: сообщение, а не падение.
 writeFileSync('shots/note.gif', Buffer.from('GIF89a'))
-// Слот уже с фото: выбираем его и жмём «Заменить» — откроется выбор файла.
+// Слот уже с фото: выбираем его, «Заменить» — лоток, «Загрузить ещё» — выбор файла.
 await page.locator('.ed-slot').first().click()
-const chooser2 = page.waitForEvent('filechooser')
 await page.getByRole('button', { name: 'Заменить' }).click()
+const chooser2 = page.waitForEvent('filechooser')
+await page.locator('.ed-tray').getByRole('button', { name: 'Загрузить ещё' }).click()
 await (await chooser2).setFiles('shots/note.gif')
-check((await page.locator('.ed-toolbar .error').textContent()).includes('JPG или PNG'), 'unsupported file → friendly error')
+check((await page.locator('.ed-tray-note').first().textContent()).includes('JPG, PNG или HEIC'), 'unsupported file → friendly message in the tray')
+await page.locator('.ed-tray').getByRole('button', { name: 'Отмена' }).click()
 
 // 10. Превью. Правку, сделанную прямо перед переходом, превью уже показывает
 //     (сохранение ещё может лететь — тогда берётся черновик с устройства).
@@ -241,10 +252,10 @@ await page.screenshot({ path: `${out}/pv-3-spread-clean.png` })
 for (let i = 0; i < 15; i++) await page.keyboard.press('ArrowRight')
 check((await navLabel()) === 'Задняя обложка', 'last spread: the back cover')
 await page.keyboard.press('ArrowLeft')
-check((await navLabel()) === 'Страница 20', 'before it: page 20 on the left')
+check((await navLabel()) === 'Страница 16', 'before it: page 16 on the left')
 await page.locator('.book-issues').getByRole('link', { name: 'стр. 2', exact: true }).click()
 await page.locator('.ed-page').waitFor()
-check((await page.locator('.ed-pager span').textContent()) === 'Страница 2 из 20', 'issue link opens the editor on that page')
+check((await page.locator('.ed-pager span').textContent()) === 'Страница 2 из 16', 'issue link opens the editor on that page')
 check(!(await page.locator('.share-row input').inputValue()).includes('?'), 'share link stays clean (no ?page=)')
 
 // 10. Компьютер: вид редактора.
@@ -253,7 +264,7 @@ await desk.goto(`${base}/b/${token}`)
 await desk.locator('.ed-page').waitFor()
 await desk.keyboard.press('ArrowRight')
 await desk.keyboard.press('ArrowRight')
-check((await desk.locator('.ed-pager span').textContent()) === 'Страница 2 из 20', 'arrow keys switch pages on desktop')
+check((await desk.locator('.ed-pager span').textContent()) === 'Страница 2 из 16', 'arrow keys switch pages on desktop')
 await desk.screenshot({ path: `${out}/ed-7-desktop.png` })
 await desk.goto(`${base}/b/${token}/preview`)
 await desk.getByRole('button', { name: 'Для печати' }).click()

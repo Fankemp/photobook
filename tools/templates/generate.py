@@ -3,7 +3,7 @@
 Пишет только шаблоны, описанные ниже в TEMPLATES; остальные файлы в templates/
 (anniversary-classic, birthday-bright, travel-minimal) не трогает. Шаблон —
 обычный JSON, его можно править и руками; скрипт просто избавляет от ручного
-набора 22 страниц и держит раскладки одинаковыми.
+набора 18 страниц и держит раскладки одинаковыми.
 
 Запуск из корня репозитория:
     python3 tools/templates/generate.py
@@ -25,7 +25,7 @@ STICKERS = {
     for group in json.load(open(os.path.join(ROOT, "frontend", "src", "book", "stickers.json"), encoding="utf-8"))["sets"]
     for s in group["stickers"]
 }
-FORMAT = {"id": "square-200", "width_mm": 200, "height_mm": 200, "pages": 20}
+FORMAT = {"id": "square-200", "width_mm": 200, "height_mm": 200, "pages": 16}
 
 
 def num(v):
@@ -49,6 +49,7 @@ class Page:
     def __init__(self, page_id, background):
         self.id = page_id
         self.background = background
+        self.background_image = None  # узор фона: id из frontend/src/book/backgrounds.json
         self.elements = []
         self.counters = {}
 
@@ -56,11 +57,14 @@ class Page:
         self.counters[prefix] = self.counters.get(prefix, 0) + 1
         return f"{prefix}{self.counters[prefix]}"
 
-    def photo(self, x, y, w, h):
-        self.elements.append({
+    def photo(self, x, y, w, h, shape=None):
+        el = {
             "type": "photo_slot", "id": self._next_id("s"), "x": num(x), "y": num(y), "w": num(w), "h": num(h),
             "assetId": None, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0},
-        })
+        }
+        if shape:
+            el["shape"] = shape
+        self.elements.append(el)
 
     def text(self, x, y, w, h, text, font, size, color, align="center", rotation=0):
         el = {
@@ -78,7 +82,26 @@ class Page:
         if rotation:
             el["rotation"] = rotation
         self.elements.append(el)
+        return x, y, w, h
 
+    def framed(self, frame_id, x, y, w, window=0):
+        """Рамка (стикер набора frames) и фото в её окне; возвращает рамку (x, y, w, h)."""
+        fx, fy, fw, fh = self.sticker(frame_id, x, y, w)
+        vw, vh, windows = FRAME_WINDOWS[frame_id]
+        wx, wy, ww, wh = windows[window]
+        self.photo(fx + fw * wx / vw, fy + fh * wy / vh, fw * ww / vw, fh * wh / vh)
+        return fx, fy, fw, fh
+
+
+# Окна под фото в рамках набора frames (как в tools/stickers/generate.py):
+# размер рисунка (viewBox) и окна (x, y, ширина, высота) в его единицах.
+FRAME_WINDOWS = {
+    "frames-polaroid": (100, 120, [(6, 6, 84, 84)]),
+    "frames-print-portrait": (100, 125, [(4.5, 4.5, 87, 111)]),
+    "frames-print-landscape": (125, 100, [(4.5, 4.5, 112, 86)]),
+    "frames-print-square": (100, 100, [(4.5, 4.5, 87, 86)]),
+    "frames-strip": (60, 200, [(5, 5 + i * 48, 47, 44) for i in range(4)]),
+}
 
 # ---------- Раскладки страниц ----------
 # Каждая — функция (страница, стиль). Пустая подпись (text: "") в редакторе —
@@ -258,6 +281,198 @@ def family_back(p, s):
     p.text(12, 44, 76, 12, "Семья — это главное", s.title_font, 22, s.title_color)
 
 
+# ---------- «Ты и я» (повод «Отношения») ----------
+# Тёмная «переплётная» гамма: винный, шоколад, молочный; узоры фона — наши
+# (tools/backgrounds/generate.py), рамки и бумага — набор стикеров frames.
+WINE, COCOA, CREAM, INK, WHITE = "#7a1c1e", "#2b1614", "#efe7d8", "#2a2422", "#ffffff"
+HAND, SERIF, SANS = "caveat", "playfair-display", "montserrat"
+
+
+def ly_cover(p, s):
+    # Каждое слово — свой блок: крупно и с воздухом между строками, как на референсе.
+    for i, word in enumerate(["ТЫ", "МОЁ", "СЧАСТЬЕ"]):
+        p.text(12, 20 + i * 21, 46, 16, word, SERIF, 56, WHITE, align="left")
+    p.framed("frames-strip", 58, 19, 18)
+    for i in range(1, 4):
+        p.photo(*strip_window(58, 19, 18, i))
+
+
+def strip_window(x, y, w, i):
+    vw, vh, windows = FRAME_WINDOWS["frames-strip"]
+    h = w * vh / vw
+    wx, wy, ww, wh = windows[i]
+    return x + w * wx / vw, y + h * wy / vh, w * ww / vw, h * wh / vh
+
+
+def ly_back(p, s):
+    p.text(30, 46.5, 40, 7, "14 · 02 · 2027", HAND, 18, WHITE)
+
+
+def ly_letter(p, s):
+    """Письмо от руки на шоколадной бумаге."""
+    p.background, p.background_image = COCOA, "pinstripe-cocoa"
+    p.text(9, 22, 82, 56,
+           "С тобой всё становится чуточку светлее: обычные дни — особенными, трудные — "
+           "легче, а счастливые — ещё счастливее. Спасибо за каждый день рядом и за жизнь, "
+           "которую мы строим вместе.\n\nКак же мне с тобой повезло.",
+           HAND, 30, WHITE, align="left", rotation=-4)
+
+
+def ly_names(p, s):
+    """Два полароида с именами — «он + она =»."""
+    p.background, p.background_image = WINE, "stripes-wine"
+    for y in (6, 55):
+        fx, fy, fw, fh = p.framed("frames-polaroid", 27, y, 32)
+        p.text(fx + 3, fy + fh * 0.775, fw - 9, 6, "Имя", HAND, 18, INK)
+    p.text(36, 43.5, 12, 12, "+", HAND, 64, WHITE)
+    p.text(85.5, 43.5, 12, 12, "=", HAND, 64, WHITE)
+
+
+def ly_lace_heart(p, s):
+    """Фото-сердце в кружеве и подпись от руки."""
+    p.background, p.background_image = WINE, "stripes-wine"
+    fx, fy, fw, fh = p.sticker("frames-lace-heart", 13, 8, 74)
+    hw = fw * 84 / 120
+    p.photo(fx + (fw - hw) / 2, fy + fh * 15 / 110, hw, hw * 0.92, shape="heart")
+    p.text(20, 81, 60, 11, "мы — навсегда", HAND, 34, WHITE)
+
+
+def ly_always(p, s):
+    """Повторяющаяся фраза во всю страницу и фотополоска поверх."""
+    p.background = WINE
+    # Одна длинная строка: переносится по ширине и заливает страницу, как узор.
+    p.text(3, 3, 94, 94, " ".join(["люблю тебя всегда"] * 30), HAND, 36, WHITE, align="left")
+    p.framed("frames-strip", 27, 11, 21)
+    for i in range(1, 4):
+        p.photo(*strip_window(27, 11, 21, i))
+
+
+def ly_grid9(p, s):
+    """Сетка 3×3 во всю страницу; одна клетка — карточка с сердцем и подписью."""
+    p.background = "#f4efe8"
+    gap = 1.2
+    cell = (100 - 2 * gap) / 3
+    for row in range(3):
+        for col in range(3):
+            x, y = col * (cell + gap), row * (cell + gap)
+            if (row, col) == (2, 1):
+                p.sticker("frames-pink-card", x, y, cell)
+                p.text(x + 3, y + cell * 0.36, cell - 6, 13, "ты — моё\nсчастье", HAND, 22, WHITE)
+            else:
+                p.photo(x, y, cell, cell)
+
+
+def ly_paper_hearts(p, s):
+    """Лист бумаги на горошке: два фото-сердца, «мой… навсегда», поцелуй."""
+    p.background, p.background_image = "#33201b", "dots-cocoa"
+    p.sticker("frames-paper", 24, 5, 52)
+    p.sticker("frames-tape", 35, 2.5, 30, -4)
+    p.photo(31, 13, 34, 31.28, shape="heart")
+    p.text(62, 37, 12, 7, "МОЙ", HAND, 20, INK, align="left")
+    p.photo(31, 49, 34, 31.28, shape="heart")
+    p.text(28, 80.5, 34, 7, "НАВСЕГДА", HAND, 20, INK, align="left")
+    p.sticker("love-lips", 61, 74, 12, 8)
+
+
+def ly_collage4(p, s):
+    """Четыре фото во всю страницу и карточка с фразой поверх."""
+    p.background = "#f4efe8"
+    a, b = 49.4, 50.6
+    for x, y in [(0, 0), (b, 0), (0, b), (b, b)]:
+        p.photo(x, y, a, a)
+    p.sticker("frames-quote-card", 54, 36, 36)
+    p.text(58, 40, 28, 17, "Рядом с тобой —\nя дома", SANS, 15, INK, align="left")
+
+
+def ly_lens(p, s):
+    """«Наш мир в кадре»: красное сердце в кружеве, снимок и камера."""
+    p.background, p.background_image = WHITE, "dots-white"
+    p.sticker("frames-heart-red-lace", 5, 4, 78)
+    p.text(13, 19, 30, 24, "наш мир\nв кадре", HAND, 30, WHITE, align="left", rotation=-6)
+    p.framed("frames-polaroid", 44, 22, 30)
+    p.sticker("frames-camera", 27, 54, 40)
+
+
+def ly_checker(p, s):
+    """Шахматка 4×4: фото и слова через одно — фраза читается по строкам."""
+    p.background = WHITE
+    words = iter(["каждый", "миг", "с тобой", "стал", "нашим", "маленьким", "большим", "счастьем"])
+    for row in range(4):
+        for col in range(4):
+            x, y = col * 25, row * 25
+            if (row + col) % 2 == 0:
+                p.photo(x, y, 25, 25)
+            else:
+                p.text(x + 3, y + 9.5, 19, 6, next(words), "lora", 11, INK)
+
+
+def ly_reasons(p, s):
+    """«6 причин»: заголовок и шесть полароидов с подписями."""
+    p.background, p.background_image = COCOA, "pinstripe-cocoa"
+    p.text(8, 4, 84, 15, "6 причин, почему\nя тебя люблю", SERIF, 25, WHITE, align="left")
+    p.text(8, 19.5, 84, 4.5, "шесть маленьких причин из миллиона", SANS, 10, WHITE, align="left")
+    captions = iter(["твоя улыбка", "твои объятия", "наши разговоры до утра", "ты всегда рядом", "твоя забота", "просто ты"])
+    for y in (26, 61):
+        for x in (8, 36.5, 65):
+            fx, fy, fw, fh = p.framed("frames-polaroid", x, y, 27)
+            p.text(fx + 1.5, fy + fh * 0.775, fw - 6, 6, next(captions), HAND, 12, INK)
+
+
+def ly_big_inset(p, s):
+    """Большое фото на всю страницу и два снимка с каймой поверх."""
+    p.background = COCOA
+    p.photo(0, 0, 100, 100)
+    p.framed("frames-print-portrait", 58, 5, 34)
+    p.framed("frames-print-portrait", 8, 52, 32)
+
+
+def ly_note(p, s):
+    """Записка на скотче поверх глянцевой плитки."""
+    p.background, p.background_image = "#4e2124", "tiles-rose"
+    p.sticker("frames-note", 13, 22, 56)
+    p.sticker("frames-tape", 28, 18, 28, 2)
+    p.text(18, 31, 46, 20, "с тобой я\nдома", HAND, 30, INK)
+
+
+def ly_booth4(p, s):
+    """Четыре фото во всю страницу и сердце-отпечаток в центре."""
+    p.background = "#e8dcc8"
+    a, b = 49.4, 50.6
+    for x, y in [(0, 0), (b, 0), (0, b), (b, b)]:
+        p.photo(x, y, a, a)
+    p.sticker("frames-fingerprint-heart", 37, 38.5, 26)
+
+
+def ly_envelope(p, s):
+    """Конверт во всю страницу: «от меня — тебе»."""
+    p.background = CREAM
+    p.sticker("frames-envelope", 0, 2.5, 100)
+    p.text(14, 27, 72, 13, "от меня — тебе", HAND, 38, "#5a1e1e", rotation=-4)
+
+
+def ly_postcard(p, s):
+    """Открытка с письмом на полосках."""
+    p.background, p.background_image = WINE, "stripes-wine"
+    fx, fy, fw, fh = p.sticker("frames-postcard", 6, 20, 88)
+    p.text(10, 24, 40, 15, "ПИСЬМО\nС ЛЮБОВЬЮ", SERIF, 20, INK, align="left")
+    p.text(59, 23, 32, 4, "КОМУ:", SANS, 8, INK, align="left")
+    p.text(59, 29, 32, 4, "ОТ:", SANS, 8, INK, align="left")
+    p.text(59, 35, 32, 37,
+           "Мой самый родной человек!\nЕсли бы всё можно было начать сначала — снова ты, каждый раз ты. "
+           "Спасибо, что ты моё самое тёплое место и самое большое приключение. "
+           "За все наши воспоминания — и за те, что ещё впереди.\n\nС любовью",
+           HAND, 14, INK, align="left")
+
+
+def ly_lucky_card(p, s):
+    """Игральная карта с фото-сердцем: «моя счастливая карта»."""
+    p.background, p.background_image = WINE, "stripes-wine"
+    fx, fy, fw, fh = p.sticker("frames-card", 22, 8, 56)
+    p.photo(31, 25, 38, 34.96, shape="heart")
+    p.text(26, 70, 48, 8, "моя счастливая карта", HAND, 20, INK)
+    p.sticker("love-lips", 58, 11, 13, -10)
+
+
 BELOW_QUOTE = 70  # стикер под цитатой: блок цитаты — y 30…70
 
 TEMPLATES = [
@@ -280,10 +495,6 @@ TEMPLATES = [
             side_text,
             two_horizontal,
             quote("Ты — самая лучшая", stickers=[("nature-leaves", 44, BELOW_QUOTE, 12, 15)]),
-            grid4,
-            photo_caption,
-            two_vertical,
-            card,
             full,
             bleed_caption,
             quote("Люблю тебя, мама", stickers=[("love-hearts", 43, BELOW_QUOTE, 14, -8)]),
@@ -309,10 +520,6 @@ TEMPLATES = [
             two_horizontal,
             side_text,
             quote("Танцуем вместе всю жизнь", stickers=[("nature-leaves", 44, BELOW_QUOTE, 12)]),
-            grid4,
-            card,
-            two_vertical,
-            three_tall,
             full,
             bleed_caption,
             quote("Долго и счастливо", stickers=[("nature-sparkles", 44, BELOW_QUOTE, 12)]),
@@ -326,20 +533,33 @@ TEMPLATES = [
         cover=baby_cover,
         pages=[
             quote("Здравствуй, малыш!", stickers=[("nature-sparkles", 44, BELOW_QUOTE, 12)]),
-            full,
             *[month(n, double=n % 2 == 0,
                     stickers={1: [("nature-sparkles", 84, 3, 10)],
                               6: [("party-star", 84, 3, 10, 12)],
                               12: [("party-cake", 82, 2, 12)]}.get(n, []))
               for n in range(1, 13)],
-            grid4,
             quote("Первые шаги", stickers=[("party-star", 44, BELOW_QUOTE, 12)]),
-            one_two,
-            bleed_caption,
             full,
             quote("С днём рождения, малыш!", stickers=[("party-cake", 42, BELOW_QUOTE, 16), ("party-balloons", 76, 8, 14, 8)]),
         ],
         back=baby_back,
+    ),
+    TemplateDef(
+        id="you-and-me", name="Ты и я", occasion="love",
+        style=Style(bg=WINE, title_font=SERIF, title_color=WHITE, body_font=HAND, body_color=WHITE),
+        cover=ly_cover,
+        pages=[
+            ly_letter,
+            ly_names, ly_lace_heart,
+            ly_always, ly_grid9,
+            ly_paper_hearts, ly_collage4,
+            ly_lens, ly_checker,
+            ly_reasons, ly_big_inset,
+            ly_note, ly_booth4,
+            ly_envelope, ly_postcard,
+            ly_lucky_card,
+        ],
+        back=ly_back,
     ),
     TemplateDef(
         id="family-album", name="Наша семья", occasion="family",
@@ -360,10 +580,6 @@ TEMPLATES = [
             two_horizontal,
             side_text,
             quote("Наши традиции", stickers=[("party-star", 44, BELOW_QUOTE, 12)]),
-            grid4,
-            three_tall,
-            photo_caption,
-            one_two,
             full,
             bleed_caption,
             quote("Продолжение следует…", stickers=[("travel-camera", 44, BELOW_QUOTE, 12, -8)]),
@@ -377,7 +593,10 @@ TEMPLATES = [
 
 def page_json(p: Page, indent: str) -> str:
     """Страница — одной строкой «заголовка», элементы — по одному на строку."""
-    head = json.dumps({"id": p.id, "background": p.background}, ensure_ascii=False)[:-1]
+    head_fields = {"id": p.id, "background": p.background}
+    if p.background_image:
+        head_fields["backgroundImage"] = p.background_image
+    head = json.dumps(head_fields, ensure_ascii=False)[:-1]
     if not p.elements:
         return f'{indent}{head}, "elements": []}}'
     els = ",\n".join(f"{indent}    {json.dumps(e, ensure_ascii=False)}" for e in p.elements)

@@ -37,7 +37,7 @@ func TestValidate(t *testing.T) {
 	s := &Service{minLeadDays: 3}
 	// 17 октября 2026, 23:30 в Алматы — ещё 17-е, хотя по UTC уже вечер.
 	now := time.Date(2026, 10, 17, 23, 30, 0, 0, Almaty)
-	ok := Input{Name: " Айгерим ", Phone: "8 700 123 45 67", Address: "Алматы, Абая 10, кв. 5", WantedDate: "2026-10-20"}
+	ok := Input{Name: " Айгерим ", Phone: "8 700 123 45 67", Address: "Алматы, Абая 10, кв. 5", WantedDate: "2026-10-20", Confirmed: true}
 
 	got, err := s.Validate(ok, now)
 	if err != nil {
@@ -58,6 +58,7 @@ func TestValidate(t *testing.T) {
 		"not a date":        {func(i *Input) { i.WantedDate = "20.10.2026" }, "invalid_date"},
 		"more than a year":  {func(i *Input) { i.WantedDate = "2027-11-01" }, "invalid_date"},
 		"very long comment": {func(i *Input) { i.Comment = strings.Repeat("я", 1001) }, "invalid_comment"},
+		"no confirmation":   {func(i *Input) { i.Confirmed = false }, "not_confirmed"}, // галочка «проверил(а)» обязательна
 	} {
 		t.Run(name, func(t *testing.T) {
 			in := ok
@@ -126,5 +127,33 @@ func TestTelegramSend(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "123:abc") {
 		t.Fatal("bot token leaked into the error")
+	}
+}
+
+func TestBookChangedMessage(t *testing.T) {
+	msg := BookChangedMessage(1042, 7, "https://sakta.kz/")
+	for _, want := range []string{"Клиент изменил книгу в заказе №1042", "Версия книги 7", `href="https://sakta.kz/admin/orders/1042"`} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("message has no %q:\n%s", want, msg)
+		}
+	}
+}
+
+func TestPDFCurrent(t *testing.T) {
+	now := time.Now()
+	v := func(n int) *int { return &n }
+	for _, tt := range []struct {
+		name string
+		row  Row
+		want bool
+	}{
+		{"built from the current book", Row{BookVersionNow: 5, PDFBookVersion: v(5), RenderedAt: &now}, true},
+		{"book changed after the build", Row{BookVersionNow: 6, PDFBookVersion: v(5), RenderedAt: &now}, false},
+		{"rebuild requested", Row{BookVersionNow: 5, PDFBookVersion: v(5)}, false},
+		{"never built", Row{BookVersionNow: 5}, false},
+	} {
+		if got := tt.row.PDFCurrent(); got != tt.want {
+			t.Errorf("%s: PDFCurrent = %v, want %v", tt.name, got, tt.want)
+		}
 	}
 }

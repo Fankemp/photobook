@@ -16,9 +16,12 @@ import (
 const SchemaVersion = 1
 
 type Page struct {
-	ID         string    `json:"id"`
-	Background string    `json:"background"`
-	Elements   []Element `json:"elements"`
+	ID         string `json:"id"`
+	Background string `json:"background"` // цвет страницы (и вылета)
+	// Узор поверх цвета (id из backgrounds.json): полоски, горошек, кружево…
+	// Рисуется на весь лист с вылетом. Пусто — только цвет.
+	BackgroundImage string    `json:"backgroundImage,omitempty"`
+	Elements        []Element `json:"elements"`
 }
 
 type ElementType string
@@ -42,6 +45,7 @@ type Element struct {
 	// photo_slot
 	AssetID *string `json:"assetId,omitempty"`
 	Crop    *Crop   `json:"crop,omitempty"`
+	Shape   string  `json:"shape,omitempty"` // форма рамки: пусто — прямоугольник, heart — сердце
 
 	// text
 	Text  *string `json:"text,omitempty"`
@@ -83,12 +87,21 @@ type Stickers interface {
 	Has(id string) bool
 }
 
-// Library — то, на что ссылаются элементы страниц: шрифты и стикеры.
+// Backgrounds — какие узоры фона существуют (реализует backgrounds.Registry).
+type Backgrounds interface {
+	Has(id string) bool
+}
+
+// Library — то, на что ссылаются страницы: шрифты, стикеры, узоры фона.
 // Элемент с несуществующим шрифтом или стикером на печати выглядел бы иначе.
 type Library struct {
-	Fonts    Fonts
-	Stickers Stickers
+	Fonts       Fonts
+	Stickers    Stickers
+	Backgrounds Backgrounds // nil — узоров нет (страница с узором не пройдёт проверку)
 }
+
+// Формы фото-рамки (кроме прямоугольника по умолчанию).
+var shapes = map[string]bool{"heart": true}
 
 // Поворот текста и стикера в градусах по часовой стрелке: −180…180.
 const MaxRotation = 180
@@ -104,6 +117,9 @@ func (p Page) Validate(lib Library) error {
 	}
 	if p.Background != "" && !colorRe.MatchString(p.Background) {
 		return fmt.Errorf("page %s: background %q is not #rrggbb", p.ID, p.Background)
+	}
+	if p.BackgroundImage != "" && (lib.Backgrounds == nil || !lib.Backgrounds.Has(p.BackgroundImage)) {
+		return fmt.Errorf("page %s: background image %q is not in the backgrounds config", p.ID, p.BackgroundImage)
 	}
 	if len(p.Elements) > MaxElementsPerPage {
 		return fmt.Errorf("page %s: too many elements (%d > %d)", p.ID, len(p.Elements), MaxElementsPerPage)
@@ -135,6 +151,9 @@ func (e Element) validate(lib Library) error {
 	case PhotoSlot:
 		if e.Crop != nil && e.Crop.Zoom < 1 {
 			return fmt.Errorf("crop zoom must be >= 1")
+		}
+		if e.Shape != "" && !shapes[e.Shape] {
+			return fmt.Errorf("shape %q is unknown (heart or none)", e.Shape)
 		}
 	case Text:
 		if e.Text == nil {

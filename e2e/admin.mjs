@@ -27,7 +27,7 @@ async function placeOrder(token, name) {
   const info = await api(`/books/${token}/order`)
   return api(`/books/${token}/order`, {
     method: 'POST',
-    body: JSON.stringify({ name, phone: '+7 701 555 44 33', address: 'Алматы, Достык 5', wantedDate: info.minWantedDate, comment: '', version: book.version }),
+    body: JSON.stringify({ name, phone: '+7 701 555 44 33', address: 'Алматы, Достык 5', wantedDate: info.minWantedDate, comment: '', version: book.version, confirmed: true }),
   })
 }
 

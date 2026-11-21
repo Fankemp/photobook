@@ -63,12 +63,6 @@ func (a *API) bookFromPath(w http.ResponseWriter, r *http.Request) (books.Book, 
 	return b, true
 }
 
-type assetInfo struct {
-	ID     string `json:"id"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-}
-
 // orderSummary — есть ли по книге заявка (тогда книга закрыта для изменений).
 type orderSummary struct {
 	Number int64  `json:"number"`
@@ -95,14 +89,14 @@ func (a *API) getBook(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	uploaded, err := a.Assets.ListUploaded(r.Context(), b.ID)
+	uploaded, err := a.Assets.List(r.Context(), b.ID)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
 	}
-	list := []assetInfo{}
+	list := []assetInfo{} // в порядке загрузки
 	for _, as := range uploaded {
-		list = append(list, assetInfo{ID: as.ID, Width: as.WidthPx, Height: as.HeightPx})
+		list = append(list, toAssetInfo(as))
 	}
 	resp := bookResponse{Book: b, Format: f, Assets: list}
 	o, err := a.Orders.ActiveForBook(r.Context(), b.ID)

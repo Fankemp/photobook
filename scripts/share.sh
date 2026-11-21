@@ -17,11 +17,26 @@ tunnel_url() { # имя контейнера → его публичный ад�
   docker logs "$1" 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1 || true
 }
 
+tunnel_alive() { # имя контейнера → туннель ещё работает
+  local url code
+  url=$(tunnel_url "$1")
+  [ -n "$url" ] || return 1
+  # Cloudflare удаляет бесплатный туннель через несколько часов: контейнер
+  # продолжает работать, но пишет «Tunnel not found», а адрес не открывается.
+  if docker logs --since 2m "$1" 2>&1 | grep -q 'Tunnel not found'; then return 1; fi
+  code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$url/" || true)
+  [ "$code" != "000" ] && [ "$code" != "530" ]
+}
+
 start_tunnel() { # имя, локальный порт → печатает публичный адрес
-  # Туннель уже открыт — используем его: ссылка у тех, кому её отправили, не меняется.
-  if [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ] && [ -n "$(tunnel_url "$1")" ]; then
-    tunnel_url "$1"
-    return
+  # Туннель уже открыт и жив — используем его: ссылка у тех, кому её отправили,
+  # не меняется. Умер — открываем новый (ссылка будет новой).
+  if [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]; then
+    if tunnel_alive "$1"; then
+      tunnel_url "$1"
+      return
+    fi
+    echo "Старый туннель $1 закрыт Cloudflare — открываю новый." >&2
   fi
   docker rm -f "$1" >/dev/null 2>&1 || true
   docker run -d --name "$1" --network host "$IMAGE" tunnel --no-autoupdate --url "http://localhost:$2" >/dev/null
@@ -33,6 +48,22 @@ start_tunnel() { # имя, локальный порт → печатает пу
   echo "не удалось открыть туннель $1, см.: docker logs $1" >&2
   exit 1
 }
+
+OLD_SITE=$(grep -s '^SHARE_SITE_URL=' .env | cut -d= -f2- || true) # нет блока (после make unshare) — пусто
+
+# Сначала сам сайт: туннель к незапущенному сайту выдаёт ссылку, которая не
+# открывается (так бывало после перезагрузки компьютера). Запускаем всё и ждём.
+echo "Проверяю, что сайт запущен…"
+docker compose up -d >/dev/null 2>&1 || { echo "Не удалось запустить сервисы: make up и make logs" >&2; exit 1; }
+SITE_UP=""
+for _ in $(seq 1 90); do
+  if curl -sf -o /dev/null "localhost:$SITE_PORT/"; then SITE_UP=1; break; fi
+  sleep 2
+done
+if [ -z "$SITE_UP" ]; then
+  echo "Сайт не отвечает на localhost:$SITE_PORT — смотрите make logs (сервис frontend)." >&2
+  exit 1
+fi
 
 echo "Открываю туннели (до минуты)…"
 SITE=$(start_tunnel photobook-tunnel-site "$SITE_PORT")
@@ -55,13 +86,29 @@ docker compose up -d backend >/dev/null 2>&1
 for _ in $(seq 1 60); do curl -sf "localhost:${BACKEND_PORT:-8080}/api/health" >/dev/null && break; sleep 1; done
 
 # Туннелю нужно несколько секунд, чтобы адрес заработал по всему миру.
-for _ in $(seq 1 30); do curl -sf -o /dev/null "$SITE/" && break; sleep 2; done
+PUBLIC_UP=""
+for _ in $(seq 1 45); do
+  if curl -sf -o /dev/null -m 15 "$SITE/"; then PUBLIC_UP=1; break; fi
+  sleep 2
+done
+if [ -z "$PUBLIC_UP" ]; then
+  # Не говорим «открыт», если ссылка не открывается: туннель пересоздаём в следующий раз.
+  docker rm -f photobook-tunnel-site photobook-tunnel-s3 >/dev/null 2>&1 || true
+  echo "Ссылка $SITE так и не открылась (Cloudflare не отвечает). Запустите make share ещё раз через минуту." >&2
+  exit 1
+fi
+
+CHANGED=""
+if [ -n "$OLD_SITE" ] && [ "$OLD_SITE" != "$SITE" ]; then
+  CHANGED="Ссылка НОВАЯ: старая ($OLD_SITE) больше не работает — разошлите эту."
+fi
 
 cat <<MSG
 
 Сайт открыт из интернета:
 
     $SITE
+$CHANGED
 
 Отправьте эту ссылку. Работает, пока включён компьютер и запущен make up.
 После перезагрузки компьютера туннели закрыты: снова make share (ссылка будет новой) или make unshare.

@@ -10,6 +10,7 @@ const PREFIX = 'demo:'
 // Какие сцены подходят к поводу — в том порядке, в каком они займут рамки.
 const SCENES: Record<string, string[]> = {
   anniversary: ['lake', 'alatau', 'rings', 'city', 'sea', 'tulips', 'road', 'picnic'],
+  love: ['city', 'lake', 'sea', 'rings', 'tulips', 'alatau', 'road', 'picnic', 'bouquet'],
   birthday: ['cake', 'balloons', 'picnic', 'sea', 'city', 'apples', 'tulips'],
   travel: ['alatau', 'lake', 'road', 'sea', 'city', 'snow', 'tulips'],
   mom: ['tulips', 'bouquet', 'apples', 'picnic', 'lake', 'cake', 'alatau'],

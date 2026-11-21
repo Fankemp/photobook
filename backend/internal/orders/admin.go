@@ -39,6 +39,12 @@ type Row struct {
 	BookToken  string
 	TemplateID string
 	Pages      int // страниц в книге (без обложек) — клиент мог удалить или добавить
+	// Фото загружены в книгу, но не стоят ни в одной рамке (лоток «Мои фото»).
+	UnusedPhotos int
+	// Версия книги сейчас и версия, из которой собран текущий PDF (nil — ещё не собирался).
+	BookVersionNow int
+	PDFBookVersion *int
+	RenderedAt     *time.Time // nil — PDF собирается (или ждёт сборки)
 	// Печатные PDF (пусто — ещё не собраны). Режим single — один BookPDFKey,
 	// split — CoverPDFKey и BlockPDFKey (см. formats.pdf_mode).
 	BookPDFKey  string
@@ -46,8 +52,17 @@ type Row struct {
 	BlockPDFKey string
 }
 
-// PDFReady — печатные файлы собраны.
+// PDFReady — печатные файлы есть (может быть, уже устаревшие — см. PDFCurrent).
 func (r Row) PDFReady() bool { return r.BookPDFKey != "" || r.BlockPDFKey != "" }
+
+// PDFCurrent — PDF собран из текущей версии книги: можно отправлять в печать.
+// После правки книги PDF устаревает, пока его не пересоберут.
+func (r Row) PDFCurrent() bool {
+	return r.RenderedAt != nil && r.PDFBookVersion != nil && *r.PDFBookVersion == r.BookVersionNow
+}
+
+// Editable — клиент ещё может менять книгу (заказ не в печати).
+func (r Row) Editable() bool { return slices.Contains(Editable, r.Status) }
 
 type Event struct {
 	Status    string
@@ -61,22 +76,35 @@ type Detail struct {
 	Events         []Event
 	NotifiedAt     *time.Time
 	NotifyError    string
-	RenderedAt     *time.Time
 	RenderError    string
 	RenderAttempts int
 	PDFInfo        string
+	RenderReason   string    // почему собирается PDF: order, client_change, admin_change, rerender
+	Versions       []Version // снимки заказа, новые сверху
+	Notice         *Notice   // последнее сообщение в Telegram об изменении книги
+	ConfirmedAt    *time.Time
 }
 
 const rowColumns = `o.id, o.number, o.book_id, o.book_version, o.name, o.phone, o.address, o.wanted_date,
 	o.comment, o.status, o.price_kzt, o.created_at, b.token, b.template_id, jsonb_array_length(b.pages),
-	coalesce(o.book_pdf_key, ''), coalesce(o.cover_pdf_key, ''), coalesce(o.block_pdf_key, '')`
+	coalesce(o.book_pdf_key, ''), coalesce(o.cover_pdf_key, ''), coalesce(o.block_pdf_key, ''),
+	(` + unusedPhotosSQL + `), b.version, o.pdf_book_version, o.rendered_at`
+
+// unusedPhotosSQL — сколько фото книги b не стоит ни в одной рамке: id из всех
+// фото-слотов обложек и страниц собираются в JSON-массив, и фото в нём ищется
+// оператором @> (массив содержит значение).
+const unusedPhotosSQL = `SELECT count(*) FROM assets a
+	WHERE a.book_id = b.id AND a.status = 'uploaded' AND a.removed_at IS NULL
+	AND NOT jsonb_path_query_array(jsonb_build_array(b.cover, b.back_cover) || b.pages,
+		'$[*].elements[*] ? (@.type == "photo_slot").assetId') @> to_jsonb(a.id::text)`
 
 func scanRow(row pgx.Row, extra ...any) (Row, error) {
 	var r Row
 	var wanted time.Time
 	dest := append([]any{&r.ID, &r.Number, &r.BookID, &r.BookVersion, &r.Name, &r.Phone, &r.Address, &wanted,
 		&r.Comment, &r.Status, &r.PriceKZT, &r.CreatedAt, &r.BookToken, &r.TemplateID, &r.Pages,
-		&r.BookPDFKey, &r.CoverPDFKey, &r.BlockPDFKey}, extra...)
+		&r.BookPDFKey, &r.CoverPDFKey, &r.BlockPDFKey, &r.UnusedPhotos, &r.BookVersionNow, &r.PDFBookVersion,
+		&r.RenderedAt}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return Row{}, err
 	}
@@ -121,9 +149,11 @@ func (s *Service) GetByNumber(ctx context.Context, number int64) (Detail, error)
 	var d Detail
 	var notifyErr, renderErr, pdfInfo *string
 	row, err := scanRow(s.db.QueryRow(ctx, `
-		SELECT `+rowColumns+`, o.notified_at, o.notify_error, o.rendered_at, o.render_error, o.render_attempts, o.pdf_info
+		SELECT `+rowColumns+`, o.notified_at, o.notify_error, o.render_error, o.render_attempts, o.pdf_info,
+		       o.render_reason, o.confirmed_at
 		FROM orders o JOIN books b ON b.id = o.book_id
-		WHERE o.number = $1`, number), &d.NotifiedAt, &notifyErr, &d.RenderedAt, &renderErr, &d.RenderAttempts, &pdfInfo)
+		WHERE o.number = $1`, number), &d.NotifiedAt, &notifyErr, &renderErr, &d.RenderAttempts, &pdfInfo,
+		&d.RenderReason, &d.ConfirmedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -149,11 +179,18 @@ func (s *Service) GetByNumber(ctx context.Context, number int64) (Detail, error)
 	if err != nil {
 		return Detail{}, fmt.Errorf("order events: %w", err)
 	}
+	if d.Versions, err = s.Versions(ctx, d.ID); err != nil {
+		return Detail{}, err
+	}
+	if d.Notice, err = s.lastNotice(ctx, d.ID); err != nil {
+		return Detail{}, err
+	}
 	return d, nil
 }
 
-// ChangeStatus меняет статус и пишет запись в историю. Отмена открывает книгу
-// клиенту для изменений (книга закрыта, пока есть неотменённая заявка).
+// ChangeStatus меняет статус и пишет запись в историю. «Отправить в печать»
+// (printing) — только если PDF собран из текущей версии книги: с этого момента
+// книга закрыта для клиента. Отмена открывает книгу клиенту для изменений.
 // Вернуть отменённую заявку нельзя, если по книге уже есть другая действующая.
 func (s *Service) ChangeStatus(ctx context.Context, number int64, to, note string) error {
 	if !slices.Contains(Statuses, to) {
@@ -179,6 +216,20 @@ func (s *Service) ChangeStatus(ctx context.Context, number int64, to, note strin
 	if from == to {
 		return nil
 	}
+	// Строка заявки заблокирована (FOR UPDATE), автосохранение книги ждёт её же
+	// блокировку (books.SavePages): правка не проскочит между проверкой PDF и печатью.
+	if to == StatusPrinting {
+		var current bool
+		err := tx.QueryRow(ctx, `
+			SELECT o.rendered_at IS NOT NULL AND o.pdf_book_version = b.version
+			FROM orders o JOIN books b ON b.id = o.book_id WHERE o.id = $1`, id).Scan(&current)
+		if err != nil {
+			return err
+		}
+		if !current {
+			return ErrPDFNotCurrent
+		}
+	}
 	_, err = tx.Exec(ctx, `UPDATE orders SET status = $2, updated_at = now() WHERE id = $1`, id, to)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.ConstraintName == "orders_one_active_per_book" {
@@ -194,11 +245,12 @@ func (s *Service) ChangeStatus(ctx context.Context, number int64, to, note strin
 }
 
 // ResetRender — собрать PDF заново (например, после исправления шаблона или
-// рендера): старые ключи сбрасываются, заявка снова попадает в очередь.
+// рендера): заявка снова попадает в очередь, сборка сделает новый снимок
+// (новую версию). Прежний PDF остаётся у своей версии.
 func (s *Service) ResetRender(ctx context.Context, number int64) error {
 	tag, err := s.db.Exec(ctx, `
-		UPDATE orders SET book_pdf_key = NULL, cover_pdf_key = NULL, block_pdf_key = NULL, render_attempts = 0,
-		                  render_error = NULL, rendered_at = NULL, pdf_info = NULL
+		UPDATE orders SET render_attempts = 0, render_error = NULL, rendered_at = NULL, render_reason = 'rerender',
+		                  render_requested_at = now()
 		WHERE number = $1`, number)
 	if err != nil {
 		return fmt.Errorf("reset render: %w", err)

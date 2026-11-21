@@ -17,7 +17,17 @@ import (
 )
 
 // Статусы заказа: new → awaiting_prepayment → paid → printing → delivery → done (+ cancelled).
-const StatusNew = "new"
+const (
+	StatusNew      = "new"
+	StatusPrinting = "printing"
+)
+
+// Editable — окно правок: пока заказ в этих статусах, клиент может менять книгу
+// по своей ссылке (мы пересоберём PDF). С printing и дальше книга закрыта.
+var Editable = []string{"new", "awaiting_prepayment", "paid"}
+
+// Locked — книга уже в печати или отдана: менять её нельзя.
+var Locked = []string{"printing", "delivery", "done"}
 
 // Almaty — время для «сегодня» и желаемой даты. В Казахстане с 2024 года
 // один часовой пояс, UTC+5, поэтому без базы часовых поясов.
@@ -39,7 +49,9 @@ type Order struct {
 }
 
 // Input — данные формы заявки. Version — версия книги, которую клиент видел:
-// заказываем ровно её (если книгу успели изменить — конфликт).
+// заказываем ровно её (если книгу успели изменить — конфликт). Confirmed —
+// галочка «Я проверил(а) тексты и фото. После печати исправить ничего нельзя»:
+// без неё заявка не создаётся.
 type Input struct {
 	Name       string `json:"name"`
 	Phone      string `json:"phone"`
@@ -47,6 +59,7 @@ type Input struct {
 	WantedDate string `json:"wantedDate"`
 	Comment    string `json:"comment"`
 	Version    int    `json:"version"`
+	Confirmed  bool   `json:"confirmed"`
 }
 
 // ValidationError — какое поле заполнено неверно. Code уходит клиенту
@@ -58,6 +71,8 @@ func (e ValidationError) Error() string { return e.Code }
 var (
 	ErrAlreadyOrdered  = errors.New("book already has an active order")
 	ErrVersionConflict = errors.New("book was changed after the client saw it")
+	ErrPDFNotCurrent   = errors.New("print PDF is not built for the current book version")
+	ErrNotEditable     = errors.New("order is already in print, the book cannot be changed")
 )
 
 type Service struct {
@@ -65,8 +80,10 @@ type Service struct {
 	minLeadDays int // за сколько дней минимум можно заказать (время на печать)
 	// Сигнал обработчику уведомлений «есть новая заявка» (как у миниатюр).
 	queued chan struct{}
-	// Что ещё сделать после новой заявки (разбудить сборку PDF). Задаётся в main.
-	OnCreate func()
+	// Разбудить сборку PDF (новая заявка, правка книги). Задаётся в main.
+	WakeRender func()
+	// Версия шаблона по id (хеш файла) — для снимка заказа. Задаётся в main.
+	TemplateVersion func(id string) string
 }
 
 func NewService(db *pgxpool.Pool, minLeadDays int) *Service {
@@ -103,6 +120,9 @@ func (s *Service) Validate(in Input, now time.Time) (Input, error) {
 	if utf8.RuneCountInString(in.Comment) > 1000 {
 		return in, ValidationError{"invalid_comment"}
 	}
+	if !in.Confirmed {
+		return in, ValidationError{"not_confirmed"}
+	}
 	return in, nil
 }
 
@@ -138,7 +158,8 @@ func FormatPhone(p string) string {
 }
 
 // Create оформляет заявку: проверяет, что версия книги та, что видел клиент,
-// и что действующей заявки ещё нет. С этого момента книга закрыта для изменений.
+// и что действующей заявки ещё нет, и сохраняет первый снимок заказа (версия 1)
+// с подтверждением клиента. Книгу ещё можно менять, пока заказ не в печати.
 func (s *Service) Create(ctx context.Context, bookID string, priceKZT int, in Input) (Order, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -157,9 +178,12 @@ func (s *Service) Create(ctx context.Context, bookID string, priceKZT int, in In
 
 	o := Order{BookID: bookID, BookVersion: version, Name: in.Name, Phone: in.Phone, Address: in.Address,
 		WantedDate: in.WantedDate, Comment: in.Comment, PriceKZT: priceKZT}
+	if !in.Confirmed {
+		return Order{}, ValidationError{"not_confirmed"} // Validate это уже проверил; на всякий случай
+	}
 	err = tx.QueryRow(ctx, `
-		INSERT INTO orders (book_id, book_version, name, phone, address, wanted_date, comment, price_kzt)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO orders (book_id, book_version, name, phone, address, wanted_date, comment, price_kzt, confirmed_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
 		RETURNING id, number, status, created_at`,
 		o.BookID, o.BookVersion, o.Name, o.Phone, o.Address, o.WantedDate, o.Comment, o.PriceKZT,
 	).Scan(&o.ID, &o.Number, &o.Status, &o.CreatedAt)
@@ -174,6 +198,9 @@ func (s *Service) Create(ctx context.Context, bookID string, priceKZT int, in In
 		o.ID, o.Status); err != nil {
 		return Order{}, fmt.Errorf("insert order event: %w", err)
 	}
+	if _, err := s.snapshot(ctx, tx, o.ID, "order"); err != nil {
+		return Order{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Order{}, err
 	}
@@ -182,10 +209,14 @@ func (s *Service) Create(ctx context.Context, bookID string, priceKZT int, in In
 	case s.queued <- struct{}{}:
 	default: // сигнал уже ждёт обработчика
 	}
-	if s.OnCreate != nil {
-		s.OnCreate()
-	}
+	s.wakeRender()
 	return o, nil
+}
+
+func (s *Service) wakeRender() {
+	if s.WakeRender != nil {
+		s.WakeRender()
+	}
 }
 
 // ActiveForBook — действующая (не отменённая) заявка книги или nil.

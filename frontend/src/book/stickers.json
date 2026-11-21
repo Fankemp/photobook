@@ -401,6 +401,114 @@
           "aspect": 1.0
         }
       ]
+    },
+    {
+      "id": "frames",
+      "name": "Рамки и бумага",
+      "stickers": [
+        {
+          "id": "frames-polaroid",
+          "name": "Полароид",
+          "file": "frames/polaroid.svg",
+          "aspect": 0.8333
+        },
+        {
+          "id": "frames-print-portrait",
+          "name": "Фото с каймой, книжное",
+          "file": "frames/print-portrait.svg",
+          "aspect": 0.8
+        },
+        {
+          "id": "frames-print-landscape",
+          "name": "Фото с каймой, альбомное",
+          "file": "frames/print-landscape.svg",
+          "aspect": 1.25
+        },
+        {
+          "id": "frames-print-square",
+          "name": "Фото с каймой, квадрат",
+          "file": "frames/print-square.svg",
+          "aspect": 1.0
+        },
+        {
+          "id": "frames-strip",
+          "name": "Фотополоска",
+          "file": "frames/strip.svg",
+          "aspect": 0.3
+        },
+        {
+          "id": "frames-note",
+          "name": "Записка",
+          "file": "frames/note.svg",
+          "aspect": 1.45
+        },
+        {
+          "id": "frames-paper",
+          "name": "Лист бумаги",
+          "file": "frames/paper.svg",
+          "aspect": 0.625
+        },
+        {
+          "id": "frames-tape",
+          "name": "Малярный скотч",
+          "file": "frames/tape.svg",
+          "aspect": 3.5294
+        },
+        {
+          "id": "frames-lace-heart",
+          "name": "Кружевное сердце",
+          "file": "frames/lace-heart.svg",
+          "aspect": 1.0909
+        },
+        {
+          "id": "frames-heart-red-lace",
+          "name": "Сердце с кружевом",
+          "file": "frames/heart-red-lace.svg",
+          "aspect": 1.1017
+        },
+        {
+          "id": "frames-card",
+          "name": "Игральная карта",
+          "file": "frames/card.svg",
+          "aspect": 0.6897
+        },
+        {
+          "id": "frames-envelope",
+          "name": "Конверт",
+          "file": "frames/envelope.svg",
+          "aspect": 1.0526
+        },
+        {
+          "id": "frames-postcard",
+          "name": "Открытка",
+          "file": "frames/postcard.svg",
+          "aspect": 1.5
+        },
+        {
+          "id": "frames-quote-card",
+          "name": "Карточка",
+          "file": "frames/quote-card.svg",
+          "aspect": 1.4444
+        },
+        {
+          "id": "frames-fingerprint-heart",
+          "name": "Сердце-отпечаток",
+          "file": "frames/fingerprint-heart.svg",
+          "aspect": 1.14
+        },
+        {
+          "id": "frames-camera",
+          "name": "Моментальная камера",
+          "file": "frames/camera.svg",
+          "aspect": 0.8929
+        },
+        {
+          "id": "frames-pink-card",
+          "name": "Розовая карточка",
+          "file": "frames/pink-card.svg",
+          "aspect": 1.0
+        }
+      ]
     }
   ]
 }

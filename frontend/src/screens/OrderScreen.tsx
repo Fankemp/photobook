@@ -2,15 +2,18 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { Link, useParams } from 'react-router'
 import { ApiError, assetImageUrl, createOrder, getBook, getOrderInfo, saveBook, toApiError } from '../api.ts'
 import { PageView } from '../book/PageView.tsx'
-import { findIssues, hasIssues } from '../book/spreads.ts'
+import { findIssues } from '../book/spreads.ts'
 import { BookIssues } from '../components/BookIssues.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
 import { clearDraft, restoreDoc } from '../editor/draft.ts'
+import { usageCounts } from '../editor/tray.ts'
 import { t } from '../i18n/index.ts'
 import { bookPrice, formatTenge } from '../lib/money.ts'
 import { formatPhone, normalizePhone } from '../lib/phone.ts'
+import { bookLocked } from '../lib/orderStatus.ts'
 import { useLoad } from '../lib/useLoad.ts'
+import { BookReview } from './BookReview.tsx'
 import type { Book, Order, OrderInfo } from '../types.ts'
 import './OrderScreen.css'
 
@@ -117,6 +120,11 @@ function OrderForm({ book, info, restored, onCreated }: FormProps) {
     () => findIssues(restored.doc, book.format, sizes),
     [restored, book.format, sizes],
   )
+  // Фото загружены в лоток, но не стоят ни в одной рамке — их не напечатаем.
+  const unusedPhotos = useMemo(() => {
+    const used = usageCounts(restored.doc)
+    return book.assets.filter((a) => !a.removed && !used.has(a.id)).length
+  }, [restored, book.assets])
 
   const [fields, setFields] = useState<Fields>({ name: '', phone: '', address: '', wantedDate: '', comment: '' })
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -140,6 +148,7 @@ function OrderForm({ book, info, restored, onCreated }: FormProps) {
     if (!fields.wantedDate || fields.wantedDate < info.minWantedDate) errs.wantedDate = t.order.errors.invalid_date
     return errs
   }
+  const imageSrc = (id: string) => assetImageUrl(book.token, id)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -154,12 +163,18 @@ function OrderForm({ book, info, restored, onCreated }: FormProps) {
       return
     }
     if (sync.status !== 'ready') return
+    if (!confirmed) {
+      // Кнопка без галочки выключена; это — на всякий случай (сервер тоже не примет).
+      setFormError(new ApiError('not_confirmed', 0))
+      return
+    }
     setSubmitting(true)
     try {
       const order = await createOrder(book.token, {
         ...fields,
         phone: normalizePhone(fields.phone) ?? fields.phone,
         version: sync.version,
+        confirmed,
       })
       onCreated(order)
       window.scrollTo({ top: 0 })
@@ -172,17 +187,23 @@ function OrderForm({ book, info, restored, onCreated }: FormProps) {
     }
   }
 
-  const mustConfirm = hasIssues(issues)
-
   return (
     <form ref={formRef} className="order-form" onSubmit={submit} noValidate>
       <BookIssues issues={issues} token={book.token} pageCount={restored.doc.pages.length} />
-      {mustConfirm && (
-        <label className="order-confirm">
-          <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-          {t.order.confirmIssues}
-        </label>
+      {unusedPhotos > 0 && (
+        <p className="muted">
+          {t.order.unusedPhotos(unusedPhotos)} <Link to={`/b/${book.token}`}>{t.order.openTray}</Link>
+        </p>
       )}
+      <BookReview
+        doc={restored.doc}
+        format={book.format}
+        token={book.token}
+        sizes={sizes}
+        imageSrc={imageSrc}
+        confirmed={confirmed}
+        onConfirm={setConfirmed}
+      />
 
       <Field id="name" label={t.order.name} error={errors.name}>
         <input id="name" autoComplete="name" value={fields.name} onChange={set('name')} {...invalid(errors.name, 'name')} />
@@ -241,7 +262,7 @@ function OrderForm({ book, info, restored, onCreated }: FormProps) {
       <button
         type="submit"
         className="btn btn-primary"
-        disabled={submitting || sync.status !== 'ready' || (mustConfirm && !confirmed)}
+        disabled={submitting || sync.status !== 'ready' || !confirmed}
       >
         {sync.status === 'saving' ? t.order.syncing : submitting ? t.order.sending : t.order.submit}
       </button>
@@ -294,8 +315,14 @@ function OrderStatus({ order, token }: { order: Order; token: string }) {
           </div>
         ))}
       </dl>
-      <p className="muted">{t.order.lockedNote}</p>
-      <p>
+      {/* Окно правок: до печати книгу можно менять по своей ссылке. */}
+      <p className="muted">{bookLocked(order) ? t.order.lockedNote : t.order.editableNote}</p>
+      <p className="order-status-links">
+        {!bookLocked(order) && (
+          <Link to={`/b/${token}`} className="btn order-view">
+            {t.order.editBook}
+          </Link>
+        )}
         <Link to={`/b/${token}/preview`} className="btn order-view">
           {t.order.viewBook}
         </Link>

@@ -11,13 +11,15 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/serve
  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
 
 # Запуск: маленький образ; wget из busybox нужен для healthcheck в compose,
-# vips-tools (libvips) — для миниатюр фото.
+# vips-tools (libvips) — для миниатюр фото; vips-heif и libheif-libde265 —
+# чтение HEIC/HEIF (фото с iPhone): миниатюры и печатная JPEG-копия.
 FROM alpine:3.24
-RUN apk add --no-cache vips-tools && adduser -D -H app
+RUN apk add --no-cache vips-tools vips-heif libheif-libde265 && adduser -D -H app
 COPY --from=build /out/ /app/
 COPY templates/ /app/templates/
-COPY frontend/src/book/fonts.json frontend/src/book/stickers.json /app/
-ENV TEMPLATES_DIR=/app/templates FONTS_CONFIG=/app/fonts.json STICKERS_CONFIG=/app/stickers.json
+COPY frontend/src/book/fonts.json frontend/src/book/stickers.json frontend/src/book/backgrounds.json frontend/src/editor/uploads.json /app/
+ENV TEMPLATES_DIR=/app/templates FONTS_CONFIG=/app/fonts.json STICKERS_CONFIG=/app/stickers.json \
+    BACKGROUNDS_CONFIG=/app/backgrounds.json UPLOADS_CONFIG=/app/uploads.json
 USER app
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]

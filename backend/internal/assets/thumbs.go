@@ -30,11 +30,29 @@ const (
 type Thumbnailer interface {
 	// Thumbnail — миниатюра из файла src в JPEG-файл dst.
 	Thumbnail(ctx context.Context, src, dst string) error
-	// Orientation — пометка EXIF о повороте: 1 — фото стоит как надо, иначе 2–8.
-	Orientation(ctx context.Context, src string) (int, error)
-	// Upright — копия фото, повёрнутая по пометке EXIF (для печати).
-	Upright(ctx context.Context, src, dst string) error
+	// Header — размеры, поворот и дата съёмки из заголовка файла (любой формат,
+	// который знает libvips, включая HEIC).
+	Header(ctx context.Context, src string) (Header, error)
+	// Upright — JPEG-копия фото для печати, повёрнутая по пометке EXIF.
+	// quality — качество JPEG (1–100).
+	Upright(ctx context.Context, src, dst string, quality int) error
 }
+
+// Header — данные из заголовка фото.
+type Header struct {
+	Width, Height int        // как записано в файле (JPEG — без поворота по EXIF)
+	Orientation   int        // пометка EXIF о повороте: 1 — фото стоит как надо, иначе 2–8
+	TakenAt       *time.Time // дата съёмки (EXIF DateTimeOriginal), если есть
+}
+
+// Качество печатных JPEG-копий. Q=95 — визуально без потерь (повёрнутые копии
+// фото с телефона). HEIC в Chromium не открывается, поэтому печатается его
+// копия — с максимальным качеством и без прореживания цвета; сам HEIC
+// остаётся в хранилище без изменений.
+const (
+	uprightQuality = 95
+	heifQuality    = 98
+)
 
 // VipsThumbnailer вызывает утилиту vipsthumbnail из libvips отдельным процессом:
 // не нужен CGO, а если vips упадёт на странном файле, сервер это не уронит.
@@ -53,21 +71,55 @@ func (VipsThumbnailer) Thumbnail(ctx context.Context, src, dst string) error {
 	return nil
 }
 
-func (VipsThumbnailer) Orientation(ctx context.Context, src string) (int, error) {
-	out, err := exec.CommandContext(ctx, "vipsheader", "-f", "orientation", src).Output()
+// Header читает все поля заголовка одной командой (vipsheader -a).
+func (VipsThumbnailer) Header(ctx context.Context, src string) (Header, error) {
+	out, err := exec.CommandContext(ctx, "vipsheader", "-a", src).CombinedOutput()
 	if err != nil {
-		return 1, nil // поля нет (например, PNG) — значит, поворачивать не нужно
+		return Header{}, fmt.Errorf("vipsheader: %w: %s", err, bytes.TrimSpace(out))
 	}
-	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
-	if err != nil {
-		return 1, nil
-	}
-	return n, nil
+	return parseHeader(string(out))
 }
 
-func (VipsThumbnailer) Upright(ctx context.Context, src, dst string) error {
-	// Q=95 — визуально без потерь; keep=icc — сохранить цветовой профиль фото.
-	cmd := exec.CommandContext(ctx, "vips", "autorot", src, dst+"[Q=95,keep=icc]")
+// parseHeader разбирает вывод vipsheader -a: строки «поле: значение».
+// Дата съёмки выглядит так: «2023:07:15 14:22:01 (2023:07:15 14:22:01, ASCII, 20 components, 20 bytes)».
+func parseHeader(out string) (Header, error) {
+	h := Header{Orientation: 1}
+	for line := range strings.Lines(out) {
+		key, val, ok := strings.Cut(strings.TrimSpace(line), ": ")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "width":
+			h.Width, _ = strconv.Atoi(val)
+		case "height":
+			h.Height, _ = strconv.Atoi(val)
+		case "orientation":
+			if n, err := strconv.Atoi(val); err == nil && n >= 1 && n <= 8 {
+				h.Orientation = n
+			}
+		case "exif-ifd2-DateTimeOriginal":
+			if len(val) >= 19 {
+				if t, err := time.Parse("2006:01:02 15:04:05", val[:19]); err == nil {
+					h.TakenAt = &t
+				}
+			}
+		}
+	}
+	if h.Width <= 0 || h.Height <= 0 {
+		return Header{}, errors.New("vipsheader: no image size")
+	}
+	return h, nil
+}
+
+func (VipsThumbnailer) Upright(ctx context.Context, src, dst string, quality int) error {
+	// keep=icc — сохранить цветовой профиль фото; subsample_mode=off при высоком
+	// качестве — цвет без прореживания (как в оригинале).
+	opts := fmt.Sprintf("[Q=%d,keep=icc]", quality)
+	if quality >= heifQuality {
+		opts = fmt.Sprintf("[Q=%d,keep=icc,subsample_mode=off]", quality)
+	}
+	cmd := exec.CommandContext(ctx, "vips", "autorot", src, dst+opts)
 	if msg, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("vips autorot: %w: %s", err, bytes.TrimSpace(msg))
 	}
@@ -112,11 +164,11 @@ func (s *Service) thumbnailNext(ctx context.Context, th Thumbnailer) (bool, erro
 
 	var a Asset
 	err = tx.QueryRow(ctx, `
-		SELECT id, book_id, original_key FROM assets
+		SELECT id, book_id, original_key, content_type FROM assets
 		WHERE status = 'uploaded' AND thumb_key IS NULL AND thumb_attempts < $1
 		ORDER BY thumb_attempts, uploaded_at
 		LIMIT 1 FOR UPDATE SKIP LOCKED`, maxThumbAttempts,
-	).Scan(&a.ID, &a.BookID, &a.OriginalKey)
+	).Scan(&a.ID, &a.BookID, &a.OriginalKey, &a.ContentType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -139,9 +191,11 @@ func (s *Service) thumbnailNext(ctx context.Context, th Thumbnailer) (bool, erro
 		return true, errors.Join(fmt.Errorf("asset %s: %w", a.ID, thumbErr), err)
 	}
 
+	// Дату съёмки обычно присылает браузер; если не смог (HEIC) — берём из файла.
 	_, err = tx.Exec(ctx, `
-		UPDATE assets SET thumb_key = $2, print_key = $3, width_px = $4, height_px = $5, thumb_error = NULL
-		WHERE id = $1`, a.ID, res.thumbKey, nullIfEmpty(res.printKey), res.width, res.height)
+		UPDATE assets SET thumb_key = $2, print_key = $3, width_px = $4, height_px = $5, thumb_error = NULL,
+			taken_at = coalesce(taken_at, $6)
+		WHERE id = $1`, a.ID, res.thumbKey, nullIfEmpty(res.printKey), res.width, res.height, res.takenAt)
 	if err != nil {
 		return true, err
 	}
@@ -152,11 +206,12 @@ type thumbResult struct {
 	thumbKey      string
 	printKey      string // пусто — для печати годится сам оригинал
 	width, height int
+	takenAt       *time.Time
 }
 
 // makeThumb скачивает оригинал, делает и загружает миниатюру, а для фото
-// «лёжа» с пометкой EXIF — ещё и повёрнутую печатную копию. Заодно уточняет
-// размеры оригинала с учётом поворота: до этого их сообщал браузер.
+// «лёжа» с пометкой EXIF и для HEIC — ещё и печатную JPEG-копию. Заодно
+// уточняет размеры оригинала с учётом поворота: до этого их сообщал браузер.
 func (s *Service) makeThumb(ctx context.Context, th Thumbnailer, a Asset) (thumbResult, error) {
 	var res thumbResult
 	dir, err := os.MkdirTemp("", "thumb-")
@@ -170,10 +225,12 @@ func (s *Service) makeThumb(ctx context.Context, th Thumbnailer, a Asset) (thumb
 	if err := s.storage.Download(ctx, a.OriginalKey, src); err != nil {
 		return res, err
 	}
-	rawW, rawH, err := fileImageSize(src)
+	head, err := th.Header(ctx, src)
 	if err != nil {
 		return res, fmt.Errorf("read original: %w", err)
 	}
+	rawW, rawH := head.Width, head.Height
+	res.takenAt = head.TakenAt
 	if err := th.Thumbnail(ctx, src, dst); err != nil {
 		return res, err
 	}
@@ -187,9 +244,9 @@ func (s *Service) makeThumb(ctx context.Context, th Thumbnailer, a Asset) (thumb
 	}
 	res.width, res.height = orientedSize(rawW, rawH, thumbW, thumbH)
 
-	if orientation, _ := th.Orientation(ctx, src); orientation > 1 {
+	if quality := printCopyQuality(a.ContentType, head.Orientation); quality > 0 {
 		upright := filepath.Join(dir, "print.jpg")
-		if err := th.Upright(ctx, src, upright); err != nil {
+		if err := th.Upright(ctx, src, upright, quality); err != nil {
 			return res, err
 		}
 		res.printKey = fmt.Sprintf("books/%s/print/%s.jpg", a.BookID, a.ID)
@@ -198,6 +255,17 @@ func (s *Service) makeThumb(ctx context.Context, th Thumbnailer, a Asset) (thumb
 		}
 	}
 	return res, nil
+}
+
+// printCopyQuality — нужна ли печатная JPEG-копия и с каким качеством (0 — не нужна).
+func printCopyQuality(contentType string, orientation int) int {
+	switch {
+	case !browserTypes[contentType]:
+		return heifQuality // HEIC: Chromium его не откроет
+	case orientation > 1:
+		return uprightQuality
+	}
+	return 0
 }
 
 func nullIfEmpty(s string) *string {

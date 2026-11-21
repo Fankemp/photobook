@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-// Печатная страница /print/<id заявки>?sheet=front|back|page&page=N&exp=…&sig=…
+// Печатная страница /print/<id заявки>?v=<версия заказа>&sheet=front|back|page&page=N&exp=…&sig=…
 // Её открывает только Chromium сервиса рендера и печатает ОДИН лист PDF:
 // переднюю обложку, заднюю или страницу блока N — точного размера, с вылетом,
 // с оригиналами фото. Порядок листов в файле задаёт backend по настройке формата.
@@ -24,7 +24,8 @@ export function PrintScreen() {
   const [search] = useSearchParams()
   const sheet = search.get('sheet') ?? 'page'
   const pageIndex = Number(search.get('page') ?? 0)
-  const query = new URLSearchParams({ exp: search.get('exp') ?? '', sig: search.get('sig') ?? '' }).toString()
+  // v — снимок заказа (версия), который печатаем; подпись ссылки покрывает и его.
+  const query = new URLSearchParams({ v: search.get('v') ?? '', exp: search.get('exp') ?? '', sig: search.get('sig') ?? '' }).toString()
   const data = useLoad(orderId, (signal) => getPrintData(orderId, query, signal))
   const d = data.status === 'ok' ? data.data : null
   const page = d && (sheet === 'front' ? d.cover : sheet === 'back' ? d.backCover : d.pages[pageIndex])

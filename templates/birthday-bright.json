@@ -60,24 +60,6 @@
         {"type": "photo_slot", "id": "s2", "x": 6, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s3", "x": 52, "y": 61, "w": 42, "h": 33, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
     ]},
-    {"id": "p13", "background": "#fff4e0", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 8, "y": 8, "w": 84, "h": 70, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "text", "id": "t1", "x": 8, "y": 81, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#c2410c", "align": "center"}
-    ]},
-    {"id": "p14", "background": "#fff4e0", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 6, "y": 52, "w": 88, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p15", "background": "#fff4e0", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p16", "background": "#fff4e0", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "nunito", "size": 11, "color": "#c2410c", "align": "center"}
-    ]},
     {"id": "p17", "background": "#fff4e0", "elements": [
         {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}

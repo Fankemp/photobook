@@ -1,0 +1,13 @@
+{
+  "maxFileMb": 25,
+  "maxFilesPerBatch": 60,
+  "maxPerBook": 300,
+  "parallel": 3,
+  "retries": 2,
+  "types": {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/heic": "heic",
+    "image/heif": "heif"
+  }
+}

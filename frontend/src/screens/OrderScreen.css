@@ -144,3 +144,113 @@
   font-weight: 600;
   font-size: 1.125rem;
 }
+
+/* ---------- Шаг «Проверьте книгу» ---------- */
+.order-review {
+  display: grid;
+  gap: 12px;
+}
+
+.order-review h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.order-review > p {
+  margin: 0;
+}
+
+.order-review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.order-review-page {
+  width: min(100%, 420px);
+  margin: 0 auto;
+}
+
+.order-review-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-review-nav .btn {
+  min-width: 110px;
+}
+
+.order-review-notes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-review-notes li {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.9375rem;
+}
+
+.order-review-ok {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.order-review-texts p {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+}
+
+.order-review-texts ul {
+  margin: 0;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+  white-space: pre-line; /* переносы строк в подписи — как в книге */
+}
+
+.order-review-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+
+.order-confirm:has(input:disabled) {
+  color: var(--muted);
+  cursor: default;
+}
+
+.order-status-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- «Все подписи книги» ---------- */
+.texts-list {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.texts-page {
+  font-weight: 600;
+}
+
+.texts-list ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}

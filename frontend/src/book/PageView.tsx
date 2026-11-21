@@ -2,7 +2,9 @@ import { memo, useEffectEvent, useLayoutEffect, useRef, type CSSProperties } fro
 import type { Format, Page, PageElement, TextElement } from '../types.ts'
 import { cropStyle } from './crop.ts'
 import { fontFamily } from './fonts.ts'
+import { backgroundUrl } from './backgrounds.ts'
 import { bleedBox, box, sheetMarginMm, type PageKind } from './geometry.ts'
+import { HEART_CLIP } from './shapes.ts'
 import { stickerById, stickerUrl } from './stickers.ts'
 import './PageView.css'
 
@@ -68,7 +70,7 @@ export const PageView = memo(function PageView({
       className={variant === 'print' ? 'pv pv-print' : 'pv'}
       style={{ aspectRatio: showBleed ? `${sheetW} / ${sheetH}` : `${w} / ${h}` }}
     >
-      <div className="pv-sheet" style={{ ...sheet, background: page.background || '#ffffff' }}>
+      <div className="pv-sheet" style={{ ...sheet, ...sheetBackground(page) }}>
         <div className="pv-trim" style={trim}>
           {page.elements.map((el) => (
             <ElementView
@@ -91,6 +93,13 @@ export const PageView = memo(function PageView({
 
 const pct = (part: number, whole: number) => `${(part / whole) * 100}%`
 
+// Фон листа: цвет страницы и узор поверх (на весь лист с вылетом).
+function sheetBackground(page: Page): CSSProperties {
+  const color = page.background || '#ffffff'
+  const url = backgroundUrl(page.backgroundImage)
+  return url ? { backgroundColor: color, backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: color }
+}
+
 type ElementProps = Pick<Props, 'format' | 'imageSrc' | 'lazy' | 'variant' | 'onTextFit'> & {
   el: PageElement
   marginMm: number
@@ -102,7 +111,11 @@ function ElementView({ el, format, imageSrc, lazy, variant, onTextFit, marginMm 
       const src = el.assetId && imageSrc ? imageSrc(el.assetId) : undefined
       if (!src && variant === 'print') return null // пустая рамка на бумаге не печатается
       return (
-        <div className="pv-el pv-slot" style={bleedBox(el, format, marginMm)}>
+        // Форма «сердце» — векторным контуром (book/shapes.ts): так же в редакторе, превью и PDF.
+        <div
+          className={el.shape === 'heart' ? 'pv-el pv-slot pv-heart' : 'pv-el pv-slot'}
+          style={el.shape === 'heart' ? { ...bleedBox(el, format, marginMm), clipPath: HEART_CLIP } : bleedBox(el, format, marginMm)}
+        >
           {src ? (
             <img
               src={src}

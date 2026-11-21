@@ -13,7 +13,7 @@ const log = (...a) => console.log(...a)
 const check = (cond, msg) => { if (!cond) problems.push('FAIL: ' + msg); log((cond ? 'ok   ' : 'FAIL ') + msg) }
 
 const all = await (await fetch(`${apiBase}/api/templates`)).json()
-const NEW = { 'mom-tender': 'Подарок маме', 'wedding-elegant': 'Свадьба', 'baby-first-year': 'Малыш', 'family-album': 'Семья' }
+const NEW = { 'mom-tender': 'Подарок маме', 'wedding-elegant': 'Свадьба', 'baby-first-year': 'Малыш', 'family-album': 'Семья', 'you-and-me': 'Отношения' }
 
 const browser = await chromium.launch()
 const ctx = await browser.newContext({ ...devices['iPhone 13'] })
@@ -31,7 +31,7 @@ await page.goto(base + '/')
 await cards.first().waitFor()
 await imagesLoaded()
 const occasions = new Set(all.map((tpl) => tpl.occasion))
-check((await cards.count()) === all.length && all.length >= 7, `catalog shows all ${all.length} templates`)
+check((await cards.count()) === all.length && all.length >= 8, `catalog shows all ${all.length} templates`)
 check((await page.locator('.chip').count()) === occasions.size + 1 && (await chip('Все').getAttribute('aria-pressed')) === 'true',
   `filter: "Все" + ${occasions.size} occasions, "Все" is on`)
 check((await page.locator('.tpl-card .pv-sticker').count()) >= 4, 'stickers drawn on the new covers')
@@ -75,7 +75,7 @@ await page.screenshot({ path: `${out}/cat-0-home.png` })
   await calm.close()
 }
 
-// 3. Каждый новый шаблон: свой повод в фильтре, 22 страницы (обложки + 20), стикеры.
+// 3. Каждый новый шаблон: свой повод в фильтре, 18 страниц (обложки + 16), стикеры.
 for (const [id, occasion] of Object.entries(NEW)) {
   const tpl = all.find((x) => x.id === id)
   check(tpl?.occasion && (await page.goto(`${base}/?occasion=${tpl.occasion}`), await cards.first().waitFor(), (await chip(occasion).getAttribute('aria-pressed')) === 'true'),
@@ -86,20 +86,59 @@ for (const [id, occasion] of Object.entries(NEW)) {
   const pagesShown = await page.locator('.grid .pv').count()
   const stickers = await page.locator('.grid .pv-sticker').count()
   const photos = await page.locator('.grid .pv-slot img[src^="/demo/"]').count()
-  check(pagesShown === 22 && stickers >= 5 && photos >= 20, `${id}: 22 pages with back cover, ${stickers} stickers, ${photos} example photos`)
+  check(pagesShown === 18 && stickers >= 5 && photos >= 14, `${id}: 18 pages with back cover, ${stickers} stickers, ${photos} example photos`)
 }
 
 // 4. Книга по шаблону «Первый год»: подписи месяцев повёрнуты, стикеры на месте.
 await page.goto(`${base}/templates/baby-first-year`)
 await page.getByRole('button', { name: 'Создать книгу по этому шаблону' }).click()
 await page.waitForURL(/\/b\/[A-Z2-7]{26}$/)
-await page.goto(page.url() + '?page=3')
+await page.goto(page.url() + '?page=2')
 const label = page.locator('.ed-page .pv-text').first()
 await label.waitFor()
 check((await label.textContent()) === '1 месяц' && (await label.evaluate((e) => e.style.transform)) === 'rotate(-3deg)',
-  'baby book, page 3: "1 месяц" label, tilted −3° like in the template')
-check((await page.locator('.ed-page .pv-sticker').count()) === 1, 'baby book, page 3: sparkles sticker')
+  'baby book, page 2: "1 месяц" label, tilted −3° like in the template')
+check((await page.locator('.ed-page .pv-sticker').count()) === 1, 'baby book, page 2: sparkles sticker')
 await page.screenshot({ path: `${out}/cat-3-baby-book.png` })
+
+// 5. «Ты и я» (повод «Отношения») в редакторе: узоры фона, фото-сердце, фото
+//    поверх большого фото; на телефоне и на компьютере.
+const bgLoaded = (pg) => pg.waitForFunction(() => {
+  const sheet = document.querySelector('.ed-page .pv-sheet')
+  const url = sheet && getComputedStyle(sheet).backgroundImage.match(/url\("?([^")]+)"?\)/)?.[1]
+  if (!url) return false
+  const img = new Image()
+  img.src = url
+  return img.decode().then(() => true, () => false)
+})
+await page.goto(`${base}/templates/you-and-me`)
+await page.getByRole('button', { name: 'Создать книгу по этому шаблону' }).click()
+await page.waitForURL(/\/b\/[A-Z2-7]{26}$/)
+const loveBook = page.url()
+await page.goto(loveBook + '?page=3') // кружевное сердце на полосках
+await page.locator('.ed-page .pv-heart').waitFor()
+check(await bgLoaded(page), 'love book, page 3: striped background pattern loads')
+check((await page.locator('.ed-page .pv-heart').evaluate((e) => getComputedStyle(e).clipPath)).startsWith('polygon('),
+  'love book, page 3: heart-shaped photo frame (vector clip path)')
+await page.screenshot({ path: `${out}/cat-4-love-phone.png` })
+await page.goto(loveBook + '?page=11') // большое фото и два снимка поверх
+await page.locator('.ed-page .ed-slot').nth(1).waitFor()
+check((await page.locator('.ed-page .ed-slot').count()) === 3, 'love book, page 11: big photo + 2 inset photos')
+const inset = await page.locator('.ed-page .ed-slot').nth(1).boundingBox()
+await page.mouse.click(inset.x + inset.width / 2, inset.y + inset.height / 2)
+await page.locator('.ed-tray.is-open').waitFor()
+check(true, 'tap on the inset photo opens the tray for that (top) frame, not the big photo')
+await page.getByRole('button', { name: 'Отмена' }).click()
+const desk = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+desk.on('console', (m) => { if (m.type() === 'error') problems.push('console (desktop): ' + m.text()) })
+for (const n of [0, 4, 8, 12]) {
+  await desk.goto(`${loveBook}?page=${n}`)
+  await desk.locator('.ed-page .pv').waitFor()
+  await desk.evaluate(() => document.fonts.ready)
+  await desk.screenshot({ path: `${out}/cat-5-love-desktop-${n}.png` })
+}
+check(true, 'love book opens in the desktop editor (cover, pages 4, 8, 12)')
+await desk.close()
 
 await browser.close()
 log(problems.length ? `\n${problems.length} problem(s):\n` + problems.join('\n') : '\nall catalog checks passed')

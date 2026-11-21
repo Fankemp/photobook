@@ -27,16 +27,21 @@ type NotifyConfig struct {
 	Log          *slog.Logger
 }
 
-// RunNotifications отправляет в Telegram сообщения о новых заявках.
-// Очередь — сами заявки с пустым notified_at: если Telegram недоступен,
-// сообщение не теряется, а уходит со следующей попытки.
+// RunNotifications отправляет в Telegram сообщения о новых заявках и об
+// изменениях книги после заявки. Очередь — сами заявки с пустым notified_at
+// и таблица order_notices: если Telegram недоступен, сообщение не теряется,
+// а уходит со следующей попытки.
 func (s *Service) RunNotifications(ctx context.Context, cfg NotifyConfig) {
 	for {
 		did, err := s.notifyNext(ctx, cfg)
 		if err != nil {
 			cfg.Log.Error("order notification failed", "err", err)
 		}
-		if did && err == nil {
+		didNotice, noticeErr := s.noticeNext(ctx, cfg)
+		if noticeErr != nil {
+			cfg.Log.Error("order change notification failed", "err", noticeErr)
+		}
+		if (did && err == nil) || (didNotice && noticeErr == nil) {
 			continue
 		}
 		select {
@@ -94,6 +99,54 @@ func (s *Service) notifyNext(ctx context.Context, cfg NotifyConfig) (bool, error
 		return true, err
 	}
 	return true, tx.Commit(ctx)
+}
+
+// noticeNext отправляет одно сообщение об изменении книги из очереди order_notices.
+func (s *Service) noticeNext(ctx context.Context, cfg NotifyConfig) (bool, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx) // после Commit ничего не делает
+
+	var id int64
+	var number int64
+	var version int
+	var status string
+	err = tx.QueryRow(ctx, `
+		SELECT n.id, o.number, n.book_version, o.status
+		FROM order_notices n JOIN orders o ON o.id = n.order_id
+		WHERE n.sent_at IS NULL AND n.attempts < $1
+		ORDER BY n.attempts, n.created_at
+		LIMIT 1 FOR UPDATE OF n SKIP LOCKED`, maxNotifyAttempts).Scan(&id, &number, &version, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	sendErr := cfg.Sender.Send(ctx, BookChangedMessage(number, version, cfg.BaseURL))
+	if sendErr != nil && ctx.Err() != nil {
+		return false, nil
+	}
+	if sendErr != nil {
+		_, err = tx.Exec(ctx, `UPDATE order_notices SET attempts = attempts + 1, error = $2 WHERE id = $1`, id, sendErr.Error())
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
+		return false, errors.Join(fmt.Errorf("order %d change: %w", number, sendErr), err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE order_notices SET sent_at = now(), error = NULL WHERE id = $1`, id); err != nil {
+		return true, err
+	}
+	return true, tx.Commit(ctx)
+}
+
+// BookChangedMessage — «Клиент изменил книгу в заказе №N» со ссылкой в админку.
+func BookChangedMessage(number int64, bookVersion int, baseURL string) string {
+	url := fmt.Sprintf("%s/admin/orders/%d", strings.TrimRight(baseURL, "/"), number)
+	return fmt.Sprintf("<b>Клиент изменил книгу в заказе №%d</b>\n\nВерсия книги %d. PDF пересобирается — "+
+		"отправлять в печать после пересборки.\n\n<a href=\"%s\">Заявка в админке</a>", number, bookVersion, html.EscapeString(url))
 }
 
 // Message — данные для текста уведомления о новой заявке.

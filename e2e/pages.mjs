@@ -47,6 +47,27 @@ const f = (await getBook(token)).format
 log(`  format: ${f.pages} pages by default, ${f.minPages}…${f.maxPages}, step ${f.pageStep}`)
 const original = (await serverPages(token)).map((p) => p.id)
 
+// Число страниц фиксировано (первая версия сервиса: ровно f.pages, min = max):
+// кнопок «Удалить/Добавить» и плитки «+» нет, сервер принимает только это число.
+// Иначе — проверки ниже (удаление и добавление листами).
+if (f.minPages === f.maxPages) {
+  await page.goto(`${base}/b/${token}?page=3`)
+  await page.locator('.ed-page').waitFor()
+  check((await page.locator('.ed-pages button').count()) === 0, `fixed ${f.pages} pages: no delete/add buttons under the page`)
+  check((await page.locator('.ed-strip-add').count()) === 0, 'fixed: no "+" tile in the strip')
+  check((await label.textContent()) === `Страница 3 из ${f.pages}`, `pager: "${await label.textContent()}"`)
+  let b = await getBook(token)
+  const pages = b.pages
+  check((await putPages(token, b, pages.slice(0, f.pages - f.pageStep))).status === 400, `${f.pages - f.pageStep} pages → 400`)
+  const extra = [...pages, ...pages.slice(0, f.pageStep).map((p, i) => ({ ...p, id: `pg-extra${i}` }))]
+  check((await putPages(token, b, extra)).status === 400, `${f.pages + f.pageStep} pages → 400`)
+  check((await putPages(token, b, pages)).status === 200, `${f.pages} pages → saved`)
+  await page.screenshot({ path: `${out}/pg-fixed.png` })
+  await browser.close()
+  log(problems.length ? '\nPROBLEMS:\n' + problems.join('\n') : '\nall page checks passed')
+  process.exit(problems.length ? 1 : 0)
+}
+
 // 1. Новая книга — f.pages страниц; это максимум: добавить нельзя, причина видна.
 await page.goto(`${base}/b/${token}?page=3`)
 await page.locator('.ed-page').waitFor()

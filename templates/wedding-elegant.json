@@ -66,32 +66,13 @@
         {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "nature-leaves"}
     ]},
     {"id": "p14", "background": "#fbf8f3", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s3", "x": 6, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s4", "x": 52, "y": 52, "w": 42, "h": 42, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p15", "background": "#fbf8f3", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 12, "y": 8, "w": 76, "h": 64, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "text", "id": "t1", "x": 12, "y": 76, "w": 76, "h": 12, "text": "", "font": "playfair-display", "size": 16, "color": "#7a5c3a", "align": "center", "rotation": -3}
-    ]},
-    {"id": "p16", "background": "#fbf8f3", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 52, "y": 6, "w": 42, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p17", "background": "#fbf8f3", "elements": [
-        {"type": "photo_slot", "id": "s1", "x": 6, "y": 6, "w": 26, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s2", "x": 37, "y": 6, "w": 26, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
-        {"type": "photo_slot", "id": "s3", "x": 68, "y": 6, "w": 26, "h": 88, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
-    ]},
-    {"id": "p18", "background": "#fbf8f3", "elements": [
         {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 100, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}}
     ]},
-    {"id": "p19", "background": "#fbf8f3", "elements": [
+    {"id": "p15", "background": "#fbf8f3", "elements": [
         {"type": "photo_slot", "id": "s1", "x": 0, "y": 0, "w": 100, "h": 80, "assetId": null, "crop": {"zoom": 1, "offsetX": 0, "offsetY": 0}},
         {"type": "text", "id": "t1", "x": 8, "y": 83, "w": 84, "h": 11, "text": "", "font": "pt-serif", "size": 11, "color": "#5b4a3a", "align": "center"}
     ]},
-    {"id": "p20", "background": "#fbf8f3", "elements": [
+    {"id": "p16", "background": "#fbf8f3", "elements": [
         {"type": "text", "id": "t1", "x": 12, "y": 30, "w": 76, "h": 40, "text": "Долго и счастливо", "font": "playfair-display", "size": 22, "color": "#7a5c3a", "align": "center"},
         {"type": "sticker", "id": "st1", "x": 44, "y": 70, "w": 12, "h": 12, "stickerId": "nature-sparkles"}
     ]}

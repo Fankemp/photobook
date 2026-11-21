@@ -18,6 +18,7 @@
 <h1>Заявка №{{.O.Number}} <span class="status s-{{.O.Status}}">{{statusName .O.Status}}</span></h1>
 {{if .Saved}}<p class="flash ok" role="status">Статус изменён.</p>{{end}}
 {{if .Rerender}}<p class="flash ok" role="status">PDF поставлен в очередь на сборку. Обновите страницу через минуту.</p>{{end}}
+{{if .TextsSaved}}<p class="flash ok" role="status">Тексты сохранены, в истории — «изменено администратором». PDF пересобирается: обновите страницу через минуту.</p>{{end}}
 {{if .Error}}<p class="flash err" role="alert">{{.Error}}</p>{{end}}
 
 <section class="card">
@@ -29,6 +30,7 @@
     <dt>Нужна к</dt><dd>{{date .O.WantedDate}}</dd>
     {{if .O.Comment}}<dt>Комментарий</dt><dd>{{.O.Comment}}</dd>{{end}}
     <dt>Заявка от</dt><dd>{{datetime .O.CreatedAt}}</dd>
+    <dt>Подтверждение</dt><dd>{{if .O.ConfirmedAt}}галочка «проверил(а) тексты и фото» — {{datetime .O.ConfirmedAt}}{{else}}<span class="muted">нет (заявка до появления галочки)</span>{{end}}</dd>
   </dl>
 </section>
 
@@ -37,22 +39,33 @@
   <dl>
     <dt>Шаблон</dt><dd>{{.Template}}</dd>
     <dt>Страниц</dt><dd>{{.O.Pages}} и обложки</dd>
+    {{if .O.UnusedPhotos}}<dt>Фото не в книге</dt><dd>{{.O.UnusedPhotos}} — загружены, но не стоят ни в одной рамке (не печатаются)</dd>{{end}}
     <dt>Цена</dt><dd>{{if .O.PriceKZT}}{{tenge .O.PriceKZT}}{{else}}не задана в формате{{end}}</dd>
+    <dt>Правки</dt>
+    <dd>{{if .O.Editable}}клиент может менять книгу по своей ссылке, пока заказ не отправлен в печать{{else if eq .O.Status "cancelled"}}<span class="muted">заявка отменена — книга открыта клиенту</span>{{else}}книга закрыта: заказ в печати{{end}}</dd>
     <dt>PDF</dt>
     <dd>
+      {{if eq .O.Status "cancelled"}}<span class="muted">заявка отменена, не собирается</span>
+      {{else if not .O.RenderedAt}}
+        {{if .O.RenderError}}<span style="color: var(--err)">не собран (попыток: {{.O.RenderAttempts}}): {{.O.RenderError}}</span>
+        {{else}}<span class="muted">собирается… ({{reasonName .O.RenderReason}})</span>{{end}}
+      {{else if not .O.PDFCurrent}}
+        <span style="color: var(--err)"><b>PDF устарел</b>: книга изменена после сборки (PDF из версии книги {{.O.PDFBookVersion}}, сейчас {{.O.BookVersionNow}}). Пересборка начнётся, когда клиент закончит правки.</span>
+      {{end}}
       {{if .O.PDFReady}}
+        {{if not .O.PDFCurrent}}<br><span class="muted">Прежний PDF, печатать нельзя:</span>{{end}}
         {{if .O.BookPDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf/book">book.pdf (вся книга)</a>{{end}}
         {{if .O.CoverPDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf/cover">cover.pdf (обложка)</a>{{end}}
         {{if .O.BlockPDFKey}}<a href="/admin/orders/{{.O.Number}}/pdf/block">block.pdf (страницы)</a>{{end}}
-        <br><span class="muted">собран {{datetime .O.RenderedAt}}. {{.O.PDFInfo}}</span>
-      {{else if eq .O.Status "cancelled"}}<span class="muted">заявка отменена, не собирается</span>
-      {{else if .O.RenderError}}<span style="color: var(--err)">не собран (попыток: {{.O.RenderAttempts}}): {{.O.RenderError}}</span>
-      {{else}}<span class="muted">собирается…</span>{{end}}
+        {{if .O.PDFCurrent}}<br><span class="muted">собран {{datetime .O.RenderedAt}} из текущей версии книги. {{.O.PDFInfo}}</span>{{end}}
+      {{end}}
     </dd>
-    <dt>Telegram</dt><dd>{{if .O.NotifiedAt}}сообщение отправлено {{datetime .O.NotifiedAt}}{{else if .O.NotifyError}}<span style="color: var(--err)">не отправлено: {{.O.NotifyError}}</span>{{else}}<span class="muted">в очереди</span>{{end}}</dd>
+    <dt>Telegram</dt><dd>{{if .O.NotifiedAt}}сообщение отправлено {{datetime .O.NotifiedAt}}{{else if .O.NotifyError}}<span style="color: var(--err)">не отправлено: {{.O.NotifyError}}</span>{{else}}<span class="muted">в очереди</span>{{end}}
+      {{with .O.Notice}}<br>«Клиент изменил книгу»: {{if .SentAt}}отправлено {{datetime .SentAt}}{{else if .Error}}<span style="color: var(--err)">не отправлено: {{.Error}}</span>{{else}}<span class="muted">в очереди</span>{{end}}{{end}}</dd>
   </dl>
   <div class="links">
     <a href="/b/{{.O.BookToken}}/preview" target="_blank" rel="noopener">Открыть превью книги</a>
+    {{if .O.Editable}}<a href="/admin/orders/{{.O.Number}}/texts">Поправить тексты по просьбе клиента</a>{{end}}
     {{if ne .O.Status "cancelled"}}
     <form method="post" action="/admin/orders/{{.O.Number}}/render" style="display: inline"><button>Пересобрать PDF</button></form>
     {{end}}
@@ -62,7 +75,13 @@
 <section class="card">
   <h2>Статус</h2>
   <div class="actions">
-    {{if .Next}}
+    {{if .O.Editable}}
+    <form method="post" action="/admin/orders/{{.O.Number}}/print" class="row">
+      <button class="primary" {{if not .O.PDFCurrent}}disabled{{end}}>Отправить в печать</button>
+      <span class="muted">{{if .O.PDFCurrent}}PDF актуален. После отправки клиент не сможет менять книгу.{{else}}Недоступно, пока PDF не пересобран после последних правок.{{end}}</span>
+    </form>
+    {{end}}
+    {{if and .Next (ne .Next "printing")}}
     <form method="post" action="/admin/orders/{{.O.Number}}/status" class="row">
       <input type="hidden" name="status" value="{{.Next}}">
       <label>Заметка (необязательно)<input type="text" name="note" maxlength="500" placeholder="например: аванс 50% получен на Kaspi"></label>
@@ -81,6 +100,25 @@
     </form>
     <p class="muted" style="margin: 0">Отмена снова откроет книгу клиенту для изменений.</p>
   </div>
+</section>
+
+<section class="card">
+  <h2>Версии заказа</h2>
+  <p class="muted" style="margin-top: 0">Снимок книги при заявке и при каждой пересборке PDF. Снимки не меняются; печатается снимок, из которого собран PDF.</p>
+  <table>
+    {{range .O.Versions}}
+    <tr>
+      <td style="white-space: nowrap">v{{.Number}}</td>
+      <td style="white-space: nowrap">{{datetime .CreatedAt}}</td>
+      <td>{{reasonName .Reason}}<br><span class="muted">книга v{{.BookVersion}}, {{.Pages}} стр., шаблон {{.TemplateID}}{{if .TemplateVersion}} ({{.TemplateVersion}}){{end}}{{if .ConfirmedAt}}, галочка {{datetime .ConfirmedAt}}{{end}}</span></td>
+      <td>{{if .RenderedAt}}
+        {{if .BookPDFKey}}<a href="/admin/orders/{{$.O.Number}}/versions/{{.Number}}/pdf/book">book.pdf</a>{{end}}
+        {{if .CoverPDFKey}}<a href="/admin/orders/{{$.O.Number}}/versions/{{.Number}}/pdf/cover">cover.pdf</a>{{end}}
+        {{if .BlockPDFKey}}<a href="/admin/orders/{{$.O.Number}}/versions/{{.Number}}/pdf/block">block.pdf</a>{{end}}
+      {{else}}<span class="muted">PDF не собран</span>{{end}}</td>
+    </tr>
+    {{end}}
+  </table>
 </section>
 
 <section class="card">

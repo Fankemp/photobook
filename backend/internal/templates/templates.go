@@ -7,6 +7,8 @@ package templates
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -31,6 +33,9 @@ type Template struct {
 	Pages         []pages.Page `json:"pages"`
 	// Задняя обложка. Необязательна: без неё — пустая страница с фоном обложки.
 	BackCover pages.Page `json:"backCover"`
+	// Version — версия шаблона: начало SHA-256 файла. Меняется при любой правке
+	// файла; сохраняется в снимке заказа (какой шаблон был у книги).
+	Version string `json:"-"`
 }
 
 // BackCoverID — id задней обложки, если шаблон её не задаёт.
@@ -38,7 +43,7 @@ const BackCoverID = "back"
 
 // Occasions — допустимые поводы. Подписи для них — во фронтенде (словарь),
 // поэтому новый повод = строка здесь + перевод в ru.ts.
-var Occasions = []string{"anniversary", "birthday", "travel", "mom", "wedding", "baby", "family", "other"}
+var Occasions = []string{"anniversary", "love", "birthday", "travel", "mom", "wedding", "baby", "family", "other"}
 
 var idRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
@@ -86,6 +91,8 @@ func loadFile(path string, fmts map[string]formats.Format, lib pages.Library) (T
 	if err := dec.Decode(&t); err != nil {
 		return Template{}, fmt.Errorf("parse: %w", err)
 	}
+	sum := sha256.Sum256(data)
+	t.Version = hex.EncodeToString(sum[:6])
 	if t.BackCover.ID == "" {
 		t.BackCover = pages.Page{ID: BackCoverID, Background: t.Cover.Background, Elements: []pages.Element{}}
 	}
@@ -142,7 +149,9 @@ func textInsideSafeZone(all []pages.Page, f formats.Format) error {
 }
 
 // noOverlaps: в шаблоне фото не наезжает на фото, а текст — на текст. Подпись
-// поверх фото и стикеры где угодно — можно, так задумывают оформление.
+// поверх фото и стикеры где угодно — можно, так задумывают оформление. Фото
+// целиком внутри другого фото — тоже можно: это «вставка» поверх фото-фона
+// (маленький снимок в рамке на большом), а не случайное наложение.
 // Повёрнутый текст сравниваем по описанному вокруг него прямоугольнику — с запасом.
 func noOverlaps(all []pages.Page, f formats.Format) error {
 	const eps = 0.01 // мм: блоки, которые только касаются краями, не пересекаются
@@ -154,6 +163,12 @@ func noOverlaps(all []pages.Page, f formats.Format) error {
 				}
 				ax0, ay0, ax1, ay1 := boundsMM(a, f)
 				bx0, by0, bx1, by1 := boundsMM(b, f)
+				inside := func(x0, y0, x1, y1, X0, Y0, X1, Y1 float64) bool {
+					return x0 >= X0-eps && y0 >= Y0-eps && x1 <= X1+eps && y1 <= Y1+eps
+				}
+				if a.Type == pages.PhotoSlot && (inside(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1) || inside(bx0, by0, bx1, by1, ax0, ay0, ax1, ay1)) {
+					continue
+				}
 				if ax0 < bx1-eps && bx0 < ax1-eps && ay0 < by1-eps && by0 < ay1-eps {
 					return fmt.Errorf("page %s: %s %s overlaps %s", p.ID, a.Type, a.ID, b.ID)
 				}
