@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { assetImageUrl } from '../api.ts'
+import { pageLabel, pageOfWords } from '../book/pageLabel.ts'
 import { PageView } from '../book/PageView.tsx'
 import { HomeMark } from '../components/Site.tsx'
 import { t } from '../i18n/index.ts'
@@ -15,7 +16,7 @@ export function ReadOnlyBook({ book, initialPage = 0 }: { book: Book; initialPag
   const pages = allPagesOf(book)
   const last = pages.length - 1
   const [index, setIndex] = useState(() => Math.max(0, Math.min(last, initialPage)))
-  const name = index === 0 ? t.book.cover : index === last ? t.book.backCover : t.editor.pageOf(index, book.pages.length)
+  const name = pageLabel(index, last, pageOfWords(book.pages.length))
 
   return (
     <div className="editor ed-readonly">

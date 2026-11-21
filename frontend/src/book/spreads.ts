@@ -60,7 +60,9 @@ export function findIssues(
       if (el.type !== 'photo_slot') continue
       const size = el.assetId ? sizes.get(el.assetId) : undefined
       if (!el.assetId) empty = true
-      else if (size && isLowDpi(el, format, size)) low = true
+      // Размер 0×0 — ещё неизвестен (HEIC до миниатюры): не «маленькое фото»,
+      // как в редакторе и на шаге проверки книги.
+      else if (size && size.width > 0 && size.height > 0 && isLowDpi(el, format, size)) low = true
     }
     if (low) issues.lowDpi.push(n)
     if (empty) issues.emptySlots.push(n)

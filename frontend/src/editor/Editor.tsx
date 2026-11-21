@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { ApiError, assetImageUrl, listAssets, removeAsset, toApiError } from '../api.ts'
 import { DEFAULT_CROP, MAX_ZOOM, zoomCrop } from '../book/crop.ts'
 import { isLowDpi } from '../book/dpi.ts'
+import { PAGE_LINKS, PAGE_NAMES, PAGE_SHORT, pageLabel, pageOfWords } from '../book/pageLabel.ts'
 import { PageView } from '../book/PageView.tsx'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { ShareLink } from '../components/ShareLink.tsx'
@@ -417,7 +418,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   // «обложка, стр. 3, задняя обложка» — где стоят удаляемые фото.
   function usedOnPages(ids: string[]): string {
     const nums = [...new Set(ids.flatMap((id) => pagesUsing(doc, id)))].sort((a, b) => a - b)
-    return nums.map((n) => (n === 0 ? t.preview.coverLink : n === lastIndex ? t.preview.backLink : t.preview.pageLink(n))).join(', ')
+    return nums.map((n) => pageLabel(n, lastIndex, PAGE_LINKS)).join(', ')
   }
 
   // Подряд идущие сдвиги и масштаб кадра одного фото — один шаг «Отменить».
@@ -557,8 +558,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
   const active = selected && selected.pageId === page.id ? selected : null
   const activeEl = active ? findElement(doc, active) : undefined
   const editingEl = editingText ? findElement(doc, editingText) : undefined
-  const pageLabel =
-    pageIndex === 0 ? t.book.cover : pageIndex === lastIndex ? t.book.backCover : t.editor.pageOf(pageIndex, doc.pages.length)
+  const pageTitle = pageLabel(pageIndex, lastIndex, pageOfWords(doc.pages.length))
 
   return (
     <div className="editor" ref={rootRef}>
@@ -674,7 +674,7 @@ export function Editor({ book, initialPage = 0 }: { book: Book; initialPage?: nu
         <button className="btn" onClick={() => goTo(pageIndex - 1)} disabled={pageIndex === 0} aria-label={t.editor.prevPage}>
           ‹
         </button>
-        <span>{pageLabel}</span>
+        <span>{pageTitle}</span>
         <button
           className="btn"
           onClick={() => goTo(pageIndex + 1)}
@@ -936,13 +936,13 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, showA
           <button
             className={i === current ? 'is-current' : undefined}
             aria-current={i === current ? 'page' : undefined}
-            aria-label={pageName(i, pages.length) + (warnings[i] ? `. ${t.editor.lowDpiShort}` : '')}
+            aria-label={pageLabel(i, pages.length - 1, PAGE_NAMES) + (warnings[i] ? `. ${t.editor.lowDpiShort}` : '')}
             onClick={() => onSelect(i)}
           >
             <PageView page={p} format={format} imageSrc={imageSrc} lazy />
             <span>
               {warnings[i] && <span className="ed-strip-warn" aria-hidden="true" />}
-              {i === 0 ? t.editor.coverShort : i === pages.length - 1 ? t.editor.backShort : i}
+              {pageLabel(i, pages.length - 1, PAGE_SHORT)}
             </span>
           </button>
         </li>
@@ -952,7 +952,3 @@ function PageStrip({ pages, current, format, imageSrc, warnings, onSelect, showA
   )
 }
 
-// Название страницы по номеру в ленте (всего — count, с обеими обложками).
-function pageName(i: number, count: number) {
-  return i === 0 ? t.book.cover : i === count - 1 ? t.book.backCover : t.book.page(i)
-}
