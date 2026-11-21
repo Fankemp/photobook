@@ -52,4 +52,24 @@ describe('findIssues', () => {
     // пустая целиком: она в emptyPages и не повторяется в emptySlots.
     expect(issues).toEqual({ lowDpi: [2], emptySlots: [0, 2, 4], emptyPages: [3] })
   })
+
+  // Регрессия (assignment 05, риск R1): у HEIC, который браузер не открыл, размеры
+  // 0×0, пока сервер не сделал миниатюру (или если миниатюра не получилась).
+  // Неизвестный размер — не «маленькое фото»: так же считают редактор и проверка книги.
+  it('does not report a photo with unknown size (0×0, HEIC before thumbnail) as low resolution', () => {
+    const sizes = new Map([
+      ['heic', { width: 0, height: 0 }],
+      ['small', { width: 800, height: 800 }],
+    ])
+    const issues = findIssues(
+      {
+        cover: page('cover', slot('s1', 'heic')),
+        pages: [page('p1', slot('s1', 'heic')), page('p2', slot('s1', 'small'))],
+        backCover: page('back', slot('s1', 'heic')),
+      },
+      format,
+      sizes,
+    )
+    expect(issues).toEqual({ lowDpi: [2], emptySlots: [], emptyPages: [] })
+  })
 })
