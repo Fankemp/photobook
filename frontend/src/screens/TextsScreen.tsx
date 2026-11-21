@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router'
 import { getBook } from '../api.ts'
+import { PAGE_NAMES, pageLabel } from '../book/pageLabel.ts'
 import { ErrorMessage } from '../components/ErrorMessage.tsx'
 import { allPagesOf } from '../editor/doc.ts'
 import { restoreDoc } from '../editor/draft.ts'
@@ -45,7 +46,7 @@ function TextsList({ book }: { book: Book }) {
         {withTexts.map(({ i, texts }) => (
           <li key={i}>
             <Link to={`/b/${book.token}?page=${i}`} className="texts-page">
-              {i === 0 ? t.book.cover : i === last ? t.book.backCover : t.book.page(i)}
+              {pageLabel(i, last, PAGE_NAMES)}
             </Link>
             <ul>
               {texts.map((el) => (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { isLowDpi, type ImageSize } from '../book/dpi.ts'
+import { PAGE_NAMES, pageLabel } from '../book/pageLabel.ts'
 import { PageView } from '../book/PageView.tsx'
 import { allPagesOf, type Doc } from '../editor/doc.ts'
 import { nearCutLine } from '../editor/transform.ts'
@@ -51,7 +52,7 @@ export function BookReview({ doc, format, token, sizes, imageSrc, confirmed, onC
     tooLong && t.review.overflow,
   ].filter((n): n is string => !!n)
 
-  const name = index === 0 ? t.book.cover : index === last ? t.book.backCover : t.book.page(index)
+  const name = pageLabel(index, last, PAGE_NAMES)
   const allSeen = seen.size === all.length
 
   return (

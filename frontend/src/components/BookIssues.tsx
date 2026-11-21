@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { hasIssues, type BookIssues as Issues } from '../book/spreads.ts'
+import { PAGE_LINKS, pageLabel } from '../book/pageLabel.ts'
 import { t } from '../i18n/index.ts'
 
 // Что стоит поправить перед печатью: маленькие фото, пустые рамки, пустые страницы.
@@ -47,7 +48,7 @@ function IssueLine({ text, pages, token, back, after }: LineProps) {
         <span key={n}>
           {i > 0 && ', '}
           <Link to={`/b/${token}?page=${n}`}>
-            {n === 0 ? t.preview.coverLink : n === back ? t.preview.backLink : t.preview.pageLink(n)}
+            {pageLabel(n, back, PAGE_LINKS)}
           </Link>
         </span>
       ))}
