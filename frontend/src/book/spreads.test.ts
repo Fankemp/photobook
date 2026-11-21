@@ -13,6 +13,15 @@ describe('bookSpreads', () => {
     expect(s[12]).toEqual({ kind: 'back' })
   })
 
+  // Текущий формат (миграция 00014): 16 страниц — так и написано в README.
+  it('16 pages: cover, [_ 1], [2 3] … [14 15], [16 _], back cover', () => {
+    const s = bookSpreads(16)
+    expect(s).toHaveLength(11) // обложка + 9 разворотов + задняя обложка
+    expect(s[1]).toEqual({ kind: 'pages', left: null, right: 0 })
+    expect(s[9]).toEqual({ kind: 'pages', left: 15, right: null })
+    expect(s[10]).toEqual({ kind: 'back' })
+  })
+
   it('odd page count ends with a full spread', () => {
     const s = bookSpreads(3)
     expect(s).toEqual([
